@@ -1,32 +1,31 @@
+/*
+Copyright(C) 2017 Edward Xie
+
+This program is free software:you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation,either version 3 of the License,or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.If not,see <https://www.gnu.org/licenses/>.
+*/
 #ifndef THREAD_POOL_H
 #define THREAD_POOL_H
+#ifdef THREADPOOL_EXPORTS
+#define THREADPOOL_API __declspec(dllexport)
+#else
+#define THREADPOOL_API __declspec(dllimport)
+#endif
 #include <mutex>
 #include <queue>
 #include <memory>
 #include <atomic>
-namespace Concurrent {
-	class ThreadPool;
-	class ThreadTask;
-	class ThreadPool {
-	private:
-		size_t num_workers;
-		std::vector<std::thread> workers;
-		std::queue<std::unique_ptr<ThreadTask>> tasks;
-		std::mutex locker;
-		std::atomic<bool> running;
-	public:
-		void task();
-		explicit ThreadPool(size_t num_threads);
-		ThreadPool();
-		~ThreadPool();
-		template<typename T,typename... args>
-		void add_task(args&&...);
-		std::unique_ptr<ThreadTask> pop_task();
-		bool has_task();
-		bool is_running() const;
-		void start();
-		void stop();
-	};
+namespace concurrent {
 	class ThreadTask {
 	private:
 	protected:
@@ -36,63 +35,31 @@ namespace Concurrent {
 		virtual void execute()=0;
 	};
 
-	ThreadPool::ThreadPool(size_t num_threads):num_workers(num_threads),workers(0),running(false),tasks() {
-	}
-
-	ThreadPool::ThreadPool():ThreadPool(1U){}
+	class ThreadPool {
+		friend class std::thread;
+	private:
+		size_t num_workers;
+		std::vector<std::thread> workers;
+		std::queue<std::unique_ptr<ThreadTask>> tasks;
+		std::mutex locker;
+		std::atomic<bool> running;
+		THREADPOOL_API void do_task();
+	public:
+		THREADPOOL_API explicit ThreadPool(size_t num_threads);
+		THREADPOOL_API ThreadPool();
+		THREADPOOL_API ~ThreadPool();
+		template<typename T,typename... args>
+		void add_task(args&&...);
+		THREADPOOL_API std::unique_ptr<ThreadTask> pop_task();
+		THREADPOOL_API bool has_task();
+		THREADPOOL_API bool is_running() const;
+		THREADPOOL_API void start();
+		THREADPOOL_API void stop();
+	};
 
 	template<typename T,typename... args>
 	void ThreadPool::add_task(args&&... arguments) {
 		tasks.push(make_unique<T>(arguments...));
-	}
-	std::unique_ptr<ThreadTask> ThreadPool::pop_task() {
-		std::lock_guard<std::mutex> guard(locker);
-		std::unique_ptr<ThreadTask> task=std::move(tasks.front());
-		tasks.pop();
-		return task;
-	}
-	bool ThreadPool::is_running() const{
-		return running;
-	}
-	bool ThreadPool::has_task() {
-		std::lock_guard<std::mutex> guard(locker);
-		return !tasks.empty();
-	}
-	void ThreadPool::task() {
-		std::unique_ptr<ThreadTask> task;
-		while(running)
-		{
-			bool has_task;
-			{
-				std::lock_guard<std::mutex> guard(locker);
-				if(has_task=!tasks.empty())
-				{
-					task=std::move(tasks.front());
-					tasks.pop();
-				}
-			}
-			if(has_task)
-			{
-				task->execute();
-			}
-		}
-	}
-	void ThreadPool::start() {
-		running=true;
-		for(unsigned int i=0;i<num_workers;++i)
-		{
-			workers.emplace_back(&ThreadPool::task,this);
-		}
-	}
-	void ThreadPool::stop() {
-		running=false;
-		for(size_t i=0;i<num_workers;++i)
-		{
-			workers[i].join();
-		}
-	}
-	ThreadPool::~ThreadPool() {
-		stop();
 	}
 }
 #endif // !THREAD_POOL_H

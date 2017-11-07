@@ -1,4 +1,10 @@
 .vs/
 Debug/
 Release/
-x64/
+LibTest/
+LibTest*
+*.exe
+*.iobj
+*.ipdb
+*.pdb
+*.exp
