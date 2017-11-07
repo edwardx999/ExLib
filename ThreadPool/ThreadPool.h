@@ -50,6 +50,8 @@ namespace concurrent {
 		THREADPOOL_API ~ThreadPool();
 		template<typename T,typename... args>
 		void add_task(args&&...);
+		template<typename T,typename... args>
+		void add_task_sync(args&&...);
 		THREADPOOL_API bool is_running() const;
 		THREADPOOL_API void start();
 		THREADPOOL_API void stop();
@@ -57,6 +59,11 @@ namespace concurrent {
 
 	template<typename T,typename... args>
 	void ThreadPool::add_task(args&&... arguments) {
+		tasks.push(make_unique<T>(arguments...));
+	}
+	template<typename T,typename... args>
+	void ThreadPool::add_task_sync(args&&... arguments) {
+		std::lock_guard<std::mutex> guard(locker);
 		tasks.push(make_unique<T>(arguments...));
 	}
 }
