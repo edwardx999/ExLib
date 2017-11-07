@@ -1,4 +1,4 @@
-A Library of useful functions for Windows
+A library of useful functions for Windows
 
 Copyright (C) 2017 Edward Xie
 
