@@ -1,6 +1,5 @@
 .vs/
 Debug/
-Release/
 LibTest/
 LibTest*
 *.exe
