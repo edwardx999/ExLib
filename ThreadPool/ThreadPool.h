@@ -26,6 +26,9 @@ along with this program.If not,see <https://www.gnu.org/licenses/>.
 #include <memory>
 #include <atomic>
 namespace concurrent {
+	/*
+		Overload void execute() to use this as a task in ThreadPool
+	*/
 	class ThreadTask {
 	private:
 	protected:
@@ -42,28 +45,59 @@ namespace concurrent {
 		std::queue<std::unique_ptr<ThreadTask>> tasks;
 		std::mutex locker;
 		std::atomic<bool> running;
-		THREADPOOL_API void do_task();
+		THREADPOOL_API void task_loop();
 	public:
+		/*
+			Creates a thread pool with a certain number of threads
+		*/
 		THREADPOOL_API explicit ThreadPool(size_t num_threads);
+		/*
+			Creates a thread pool of 4 threads
+		*/
 		THREADPOOL_API ThreadPool();
+		/*
+			Destroys the thread pool after stopping its threads
+		*/
 		THREADPOOL_API ~ThreadPool();
-		template<typename T,typename... args>
+		/*
+			Adds a task of type Task constructed with args unsynchronized with running threads
+		*/
+		template<typename Task,typename... args>
 		void add_task(args&&...);
-		template<typename T,typename... args>
+		/*
+			Adds a task of type Task constructed with args synchronized with running threads
+		*/
+		template<typename Task,typename... args>
 		void add_task_sync(args&&...);
+		/*
+			Whether the thread pool is running
+		*/
 		THREADPOOL_API bool is_running() const;
+		/*
+			Starts all the threads
+			Calling start on a pool that has not been stopped will result in undefined behavior, likely a crash
+		*/
 		THREADPOOL_API void start();
+		/*
+			Stops as soon as all threads are done with their current tasks
+			Calling stop on a pool that is not started will result in undefined behavior, likely a crash
+		*/
 		THREADPOOL_API void stop();
+		/*
+			Waits for all tasks to be finished and then stops the thread pool
+			Calling wait on a pool that is not started will result in undefined behavior, likely a crash
+		*/
+		THREADPOOL_API void wait();
 	};
 
-	template<typename T,typename... args>
+	template<typename Task,typename... args>
 	void ThreadPool::add_task(args&&... arguments) {
-		tasks.push(std::make_unique<T>(arguments...));
+		tasks.push(std::make_unique<Task>(arguments...));
 	}
-	template<typename T,typename... args>
+	template<typename Task,typename... args>
 	void ThreadPool::add_task_sync(args&&... arguments) {
 		std::lock_guard<std::mutex> guard(locker);
-		tasks.push(std::make_unique<T>(arguments...));
+		tasks.push(std::make_unique<Task>(arguments...));
 	}
 }
 #endif // !THREAD_POOL_H

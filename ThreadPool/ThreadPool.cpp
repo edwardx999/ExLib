@@ -23,8 +23,8 @@ namespace concurrent {
 	bool ThreadPool::is_running() const {
 		return running;
 	}
-	void ThreadPool::do_task() {
-		std::unique_ptr<ThreadTask> do_task;
+	void ThreadPool::task_loop() {
+		std::unique_ptr<ThreadTask> task_loop;
 		while(running)
 		{
 			bool has_task;
@@ -32,13 +32,17 @@ namespace concurrent {
 				std::lock_guard<std::mutex> guard(locker);
 				if(has_task=!tasks.empty())
 				{
-					do_task=std::move(tasks.front());
+					task_loop=std::move(tasks.front());
 					tasks.pop();
 				}
 			}
 			if(has_task)
 			{
-				do_task->execute();
+				task_loop->execute();
+			}
+			else
+			{
+				running=false;
 			}
 		}
 	}
@@ -46,7 +50,7 @@ namespace concurrent {
 		running=true;
 		for(unsigned int i=0;i<workers.size();++i)
 		{
-			workers[i]=std::thread(&ThreadPool::do_task,this);
+			workers[i]=std::thread(&ThreadPool::task_loop,this);
 		}
 	}
 	void ThreadPool::stop() {
@@ -56,9 +60,14 @@ namespace concurrent {
 			workers[i].join();
 		}
 	}
-	ThreadPool::~ThreadPool() {
-		if(running) { stop(); }
+	void ThreadPool::wait() {
+		while(running);
+		stop();
+	}
 
+	ThreadPool::~ThreadPool() {
+		if(running)
+			wait();
 	}
 }
 
