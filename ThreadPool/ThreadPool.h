@@ -50,8 +50,6 @@ namespace concurrent {
 		THREADPOOL_API ~ThreadPool();
 		template<typename T,typename... args>
 		void add_task(args&&...);
-		THREADPOOL_API std::unique_ptr<ThreadTask> pop_task();
-		THREADPOOL_API bool has_task();
 		THREADPOOL_API bool is_running() const;
 		THREADPOOL_API void start();
 		THREADPOOL_API void stop();
