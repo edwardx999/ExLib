@@ -38,7 +38,6 @@ namespace concurrent {
 	class ThreadPool {
 		friend class std::thread;
 	private:
-		size_t num_workers;
 		std::vector<std::thread> workers;
 		std::queue<std::unique_ptr<ThreadTask>> tasks;
 		std::mutex locker;
@@ -59,12 +58,12 @@ namespace concurrent {
 
 	template<typename T,typename... args>
 	void ThreadPool::add_task(args&&... arguments) {
-		tasks.push(make_unique<T>(arguments...));
+		tasks.push(std::make_unique<T>(arguments...));
 	}
 	template<typename T,typename... args>
 	void ThreadPool::add_task_sync(args&&... arguments) {
 		std::lock_guard<std::mutex> guard(locker);
-		tasks.push(make_unique<T>(arguments...));
+		tasks.push(std::make_unique<T>(arguments...));
 	}
 }
 #endif // !THREAD_POOL_H

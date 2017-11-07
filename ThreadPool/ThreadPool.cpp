@@ -16,9 +16,10 @@ along with this program.If not,see <https://www.gnu.org/licenses/>.
 */
 #include "stdafx.h"
 #include "ThreadPool.h"
+#include <iostream>
 namespace concurrent {
-	ThreadPool::ThreadPool(size_t num_threads):num_workers(num_threads),workers(0),running(false),tasks() {}
-	ThreadPool::ThreadPool():ThreadPool(1U) {}
+	ThreadPool::ThreadPool(size_t num_threads):workers(num_threads),running(false),tasks() {}
+	ThreadPool::ThreadPool():ThreadPool(4U) {}
 	bool ThreadPool::is_running() const {
 		return running;
 	}
@@ -43,20 +44,21 @@ namespace concurrent {
 	}
 	void ThreadPool::start() {
 		running=true;
-		for(unsigned int i=0;i<num_workers;++i)
+		for(unsigned int i=0;i<workers.size();++i)
 		{
-			workers.emplace_back(&ThreadPool::do_task,this);
+			workers[i]=std::thread(&ThreadPool::do_task,this);
 		}
 	}
 	void ThreadPool::stop() {
 		running=false;
-		for(size_t i=0;i<num_workers;++i)
+		for(size_t i=0;i<workers.size();++i)
 		{
 			workers[i].join();
 		}
 	}
 	ThreadPool::~ThreadPool() {
-		stop();
+		if(running) { stop(); }
+
 	}
 }
 
