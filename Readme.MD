@@ -1,5 +1,9 @@
 A library of useful functions for Windows
 
+dll and lib files are in the release folder.
+
+Header files are in their respective project folders.
+
 Copyright (C) 2017 Edward Xie
 
 This program is free software: you can redistribute it and/or modify
