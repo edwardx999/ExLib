@@ -2,6 +2,8 @@
 Debug/
 LibTest/
 */x64/
+*/Release/
+!Release/x64
 LibTest*
 *.exe
 *.iobj
