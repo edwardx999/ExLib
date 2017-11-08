@@ -20,25 +20,22 @@ along with this program.If not,see <https://www.gnu.org/licenses/>.
 namespace concurrent {
 	ThreadPool::ThreadPool(size_t num_threads):workers(num_threads),running(false),tasks() {}
 	ThreadPool::ThreadPool():ThreadPool(4U) {}
-	bool ThreadPool::is_running() const {
-		return running;
-	}
 	void ThreadPool::task_loop() {
-		std::unique_ptr<ThreadTask> task_loop;
 		while(running)
 		{
+			std::unique_ptr<ThreadTask> task;
 			bool has_task;
 			{
 				std::lock_guard<std::mutex> guard(locker);
 				if(has_task=!tasks.empty())
 				{
-					task_loop=std::move(tasks.front());
+					task=std::move(tasks.front());
 					tasks.pop();
 				}
 			}
 			if(has_task)
 			{
-				task_loop->execute();
+				task->execute();
 			}
 			else
 			{
@@ -57,7 +54,8 @@ namespace concurrent {
 		running=false;
 		for(size_t i=0;i<workers.size();++i)
 		{
-			workers[i].join();
+			if(workers[i].joinable())
+				workers[i].join();
 		}
 	}
 	void ThreadPool::wait() {
@@ -66,8 +64,7 @@ namespace concurrent {
 	}
 
 	ThreadPool::~ThreadPool() {
-		if(running)
-			wait();
+		wait();
 	}
 }
 

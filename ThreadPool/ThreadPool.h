@@ -72,7 +72,9 @@ namespace concurrent {
 		/*
 			Whether the thread pool is running
 		*/
-		THREADPOOL_API bool is_running() const;
+		bool is_running() const {
+			return running;
+		}
 		/*
 			Starts all the threads
 			Calling start on a pool that has not been stopped will result in undefined behavior, likely a crash
