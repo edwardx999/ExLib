@@ -19,7 +19,7 @@ along with this program.If not,see <https://www.gnu.org/licenses/>.
 #include <iostream>
 namespace concurrent {
 	ThreadPool::ThreadPool(size_t num_threads):workers(num_threads),running(false),tasks() {}
-	ThreadPool::ThreadPool():ThreadPool(4U) {}
+	ThreadPool::ThreadPool():ThreadPool(std::thread::hardware_concurrency()) {}
 	void ThreadPool::task_loop() {
 		while(running)
 		{

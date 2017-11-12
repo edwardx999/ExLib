@@ -72,22 +72,20 @@ namespace concurrent {
 		/*
 			Whether the thread pool is running
 		*/
-		bool is_running() const {
-			return running;
-		}
+		bool is_running() const;
 		/*
 			Starts all the threads
-			Calling start on a pool that has not been stopped will result in undefined behavior, likely a crash
+			Calling start on a pool that has not been stopped will result in undefined behavior
 		*/
 		THREADPOOL_API void start();
 		/*
 			Stops as soon as all threads are done with their current tasks
-			Calling stop on a pool that is not started will result in undefined behavior, likely a crash
+			Calling stop on a pool that is not started will result in undefined behavior
 		*/
 		THREADPOOL_API void stop();
 		/*
 			Waits for all tasks to be finished and then stops the thread pool
-			Calling wait on a pool that is not started will result in undefined behavior, likely a crash
+			Calling wait on a pool that is not started will result in undefined behavior
 		*/
 		THREADPOOL_API void wait();
 	};
@@ -100,6 +98,9 @@ namespace concurrent {
 	void ThreadPool::add_task_sync(args&&... arguments) {
 		std::lock_guard<std::mutex> guard(locker);
 		tasks.push(std::make_unique<Task>(arguments...));
+	}
+	inline bool ThreadPool::is_running() const {
+		return running;
 	}
 }
 #endif // !THREAD_POOL_H
