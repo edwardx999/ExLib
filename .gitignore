@@ -10,3 +10,4 @@ LibTest*
 *.ipdb
 *.pdb
 *.exp
+*.log

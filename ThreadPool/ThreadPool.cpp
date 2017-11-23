@@ -62,7 +62,6 @@ namespace concurrent {
 		while(running);
 		stop();
 	}
-
 	ThreadPool::~ThreadPool() {
 		wait();
 	}

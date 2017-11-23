@@ -52,7 +52,7 @@ namespace concurrent {
 		*/
 		THREADPOOL_API explicit ThreadPool(size_t num_threads);
 		/*
-			Creates a thread pool of 4 threads
+			Creates a thread pool with number of threads equal to the hardware concurrency
 		*/
 		THREADPOOL_API ThreadPool();
 		/*
