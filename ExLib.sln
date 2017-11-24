@@ -8,6 +8,9 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ThreadPool", "ThreadPool\ThreadPool.vcxproj", "{E150D681-3A96-414C-AF6F-47B32A7B87BC}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LibTest", "LibTest\LibTest.vcxproj", "{95366146-31E7-46D9-BFDC-3CBFE0E82372}"
+	ProjectSection(ProjectDependencies) = postProject
+		{32D202B1-2B1F-412A-813B-4B2946B19423} = {32D202B1-2B1F-412A-813B-4B2946B19423}
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{4A2A741C-29CE-4E34-92E9-B7B6D1CF7A8F}"
 EndProject

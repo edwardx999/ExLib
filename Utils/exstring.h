@@ -18,19 +18,19 @@ along with this program.If not,see <https://www.gnu.org/licenses/>.
 #define EXSTRING_H
 #include <string>
 #include <array>
+#include <iostream>
 namespace exstring {
 	template<typename stringtype,typename traits,typename allocator>
-	std::basic_string<stringtype,traits,allocator> padded_string(std::basic_string<stringtype,traits,allocator> const& in,size_t numpadding,stringtype padding);
-
+	std::basic_string<stringtype,traits,allocator> front_padded_string(std::basic_string<stringtype,traits,allocator> const& in,size_t numpadding,stringtype padding);
 
 	std::string letter_numbering(size_t num);
 
 	template<typename stringtype,typename traits,typename allocator>
-	std::basic_string<stringtype,traits,allocator> padded_string(std::basic_string<stringtype,traits,allocator> const& in,size_t numpadding,stringtype padding) {
-		typedef bs std::basic_string<stringtype,traits,allocator>;
-		if(in.size()>=numpadding) return std::copy(in);
-		size_t padding_needed=in.size()-numpadding;
-		return bs(padding_needed,padding);
+	std::basic_string<stringtype,traits,allocator> front_padded_string(std::basic_string<stringtype,traits,allocator> const& in,size_t numpadding,stringtype padding) {
+		typedef std::basic_string<stringtype,traits,allocator> bs;
+		if(in.size()>=numpadding) return in;
+		size_t padding_needed=numpadding-in.size();
+		return bs(padding_needed,padding)+in;
 	}
 }
 #endif
