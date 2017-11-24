@@ -21,7 +21,10 @@ along with this program.If not,see <https://www.gnu.org/licenses/>.
 #include <iostream>
 namespace exstring {
 	template<typename stringtype,typename traits,typename allocator>
-	std::basic_string<stringtype,traits,allocator> front_padded_string(std::basic_string<stringtype,traits,allocator> const& in,size_t numpadding,stringtype padding);
+	std::basic_string<stringtype,traits,allocator> front_padded_string(std::basic_string<stringtype,traits,allocator> const& in,size_t desired_length,stringtype padding);
+
+	template<typename stringtype,typename traits,typename allocator>
+	std::basic_string<stringtype,traits,allocator> back_padded_string(std::basic_string<stringtype,traits,allocator> const& in,size_t desired_length,stringtype padding);
 
 	std::string letter_numbering(size_t num);
 
@@ -31,6 +34,14 @@ namespace exstring {
 		if(in.size()>=numpadding) return in;
 		size_t padding_needed=numpadding-in.size();
 		return bs(padding_needed,padding)+in;
+	}
+
+	template<typename stringtype,typename traits,typename allocator>
+	std::basic_string<stringtype,traits,allocator> back_padded_string(std::basic_string<stringtype,traits,allocator> const& in,size_t numpadding,stringtype padding) {
+		typedef std::basic_string<stringtype,traits,allocator> bs;
+		if(in.size()>=numpadding) return in;
+		size_t padding_needed=numpadding-in.size();
+		return in+bs(padding_needed,padding);
 	}
 }
 #endif
