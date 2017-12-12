@@ -26,6 +26,9 @@ namespace exstring {
 	template<typename stringtype,typename traits,typename allocator>
 	std::basic_string<stringtype,traits,allocator> back_padded_string(std::basic_string<stringtype,traits,allocator> const& in,size_t desired_length,stringtype padding);
 
+	template<typename stype_dest,typename stype_src,typename straits_src,typename salloc_src>
+	stype_dest string_cast(std::basic_string<stype_src,straits_src,salloc_src> const&);
+
 	std::string letter_numbering(size_t num);
 
 	template<typename stringtype,typename traits,typename allocator>
@@ -43,5 +46,17 @@ namespace exstring {
 		size_t padding_needed=numpadding-in.size();
 		return in+bs(padding_needed,padding);
 	}
+
+	template<typename stype_dest,typename stype_src,typename straits_src,typename salloc_src>
+	stype_dest string_cast(std::basic_string<stype_src,straits_src,salloc_src> const& in) {
+		stype_dest out;
+		out.resize(in.size());
+		for(size_t i=0;i<in.size();++i)
+		{
+			out[i]=in[i];
+		}
+		return out;
+	}
+
 }
 #endif
