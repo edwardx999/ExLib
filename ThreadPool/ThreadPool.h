@@ -17,9 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #ifndef THREAD_POOL_H
 #define THREAD_POOL_H
 #ifdef THREADPOOL_EXPORTS
-#define THREADPOOL_API //__declspec(dllexport)
+#define THREADPOOL_API
 #else
-#define THREADPOOL_API //__declspec(dllimport)
+#define THREADPOOL_API
 #endif
 #include <mutex>
 #include <queue>
