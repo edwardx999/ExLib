@@ -27,7 +27,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #include <atomic>
 namespace concurrent {
 	/*
-		Overload void execute() to use this as a task in ThreadPool
+	Overload void execute() to use this as a task in ThreadPool
 	*/
 	class ThreadTask {
 	private:
@@ -48,44 +48,44 @@ namespace concurrent {
 		THREADPOOL_API void task_loop();
 	public:
 		/*
-			Creates a thread pool with a certain number of threads
+		Creates a thread pool with a certain number of threads
 		*/
 		THREADPOOL_API explicit ThreadPool(size_t num_threads);
 		/*
-			Creates a thread pool with number of threads equal to the hardware concurrency
+		Creates a thread pool with number of threads equal to the hardware concurrency
 		*/
 		THREADPOOL_API ThreadPool();
 		/*
-			Destroys the thread pool after stopping its threads
+		Destroys the thread pool after stopping its threads
 		*/
 		THREADPOOL_API ~ThreadPool();
 		/*
-			Adds a task of type Task constructed with args unsynchronized with running threads
+		Adds a task of type Task constructed with args unsynchronized with running threads
 		*/
 		template<typename Task,typename... args>
 		void add_task(args&&...);
 		/*
-			Adds a task of type Task constructed with args synchronized with running threads
+		Adds a task of type Task constructed with args synchronized with running threads
 		*/
 		template<typename Task,typename... args>
 		void add_task_sync(args&&...);
 		/*
-			Whether the thread pool is running
+		Whether the thread pool is running
 		*/
 		bool is_running() const;
 		/*
-			Starts all the threads
-			Calling start on a pool that has not been stopped will result in undefined behavior
+		Starts all the threads
+		Calling start on a pool that has not been stopped will result in undefined behavior
 		*/
 		THREADPOOL_API void start();
 		/*
-			Stops as soon as all threads are done with their current tasks
-			Calling stop on a pool that is not started will result in undefined behavior
+		Stops as soon as all threads are done with their current tasks
+		Calling stop on a pool that is not started will result in undefined behavior
 		*/
 		THREADPOOL_API void stop();
 		/*
-			Waits for all tasks to be finished and then stops the thread pool
-			Calling wait on a pool that is not started will result in undefined behavior
+		Waits for all tasks to be finished and then stops the thread pool
+		Calling wait on a pool that is not started will result in undefined behavior
 		*/
 		THREADPOOL_API void wait();
 	};
