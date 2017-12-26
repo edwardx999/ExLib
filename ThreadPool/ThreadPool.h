@@ -63,12 +63,12 @@ namespace concurrent {
 		Adds a task of type Task constructed with args unsynchronized with running threads
 		*/
 		template<typename Task,typename... args>
-		void add_task(args&&...);
+		void add_task(args...);
 		/*
 		Adds a task of type Task constructed with args synchronized with running threads
 		*/
 		template<typename Task,typename... args>
-		void add_task_sync(args&&...);
+		void add_task_sync(args...);
 		/*
 		Whether the thread pool is running
 		*/
@@ -91,11 +91,11 @@ namespace concurrent {
 	};
 
 	template<typename Task,typename... args>
-	void ThreadPool::add_task(args&&... arguments) {
+	void ThreadPool::add_task(args... arguments) {
 		tasks.push(std::make_unique<Task>(arguments...));
 	}
 	template<typename Task,typename... args>
-	void ThreadPool::add_task_sync(args&&... arguments) {
+	void ThreadPool::add_task_sync(args... arguments) {
 		std::lock_guard<std::mutex> guard(locker);
 		tasks.push(std::make_unique<Task>(arguments...));
 	}
