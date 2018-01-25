@@ -27,6 +27,9 @@
     <ClInclude Include="exstring.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="exmem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">

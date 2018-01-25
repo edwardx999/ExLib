@@ -16,6 +16,10 @@ along with this program.If not,see <https://www.gnu.org/licenses/>.
 */
 #ifndef MACROS_H
 #define MACROS_H
+#include <string>
+#include <memory>
+#include <vector>
+#include <iostream>
 #ifdef _WINDOWS
 #ifdef MACROS_EXPORTS
 #define MACROS_API __declspec(dllexport)
@@ -23,52 +27,53 @@ along with this program.If not,see <https://www.gnu.org/licenses/>.
 #define MACROS_API __declspec(dllimport)
 #endif
 #include <Windows.h>
-#include <string>
-#include <memory>
-#include <vector>
-#include <iostream>
-#define VK_A 0x41
-#define VK_B 0x42
-#define VK_C 0x43
-#define VK_D 0x44
-#define VK_E 0x45
-#define VK_F 0x46
-#define VK_G 0x47
-#define VK_H 0x48
-#define VK_I 0x49
-#define VK_J 0x4a
-#define VK_K 0x4b
-#define VK_L 0x4c
-#define VK_M 0x4d
-#define VK_N 0x4e
-#define VK_O 0x4f
-#define VK_P 0x50
-#define VK_Q 0x51
-#define VK_R 0x52
-#define VK_S 0x53
-#define VK_T 0x54
-#define VK_U 0x55
-#define VK_V 0x56
-#define VK_W 0x57
-#define VK_X 0x58
-#define VK_Y 0x59
-#define VK_Z 0x5a
-#define VK_0 0x30
-#define VK_1 0x31
-#define VK_2 0x32
-#define VK_3 0x33
-#define VK_4 0x34
-#define VK_5 0x35
-#define VK_6 0x36
-#define VK_7 0x37
-#define VK_8 0x38
-#define VK_9 0x39
+#define VK_A macro_commands::VK_CODE(0x41)
+#define VK_B macro_commands::VK_CODE(0x42)
+#define VK_C macro_commands::VK_CODE(0x43)
+#define VK_D macro_commands::VK_CODE(0x44)
+#define VK_E macro_commands::VK_CODE(0x45)
+#define VK_F macro_commands::VK_CODE(0x46)
+#define VK_G macro_commands::VK_CODE(0x47)
+#define VK_H macro_commands::VK_CODE(0x48)
+#define VK_I macro_commands::VK_CODE(0x49)
+#define VK_J macro_commands::VK_CODE(0x4a)
+#define VK_K macro_commands::VK_CODE(0x4b)
+#define VK_L macro_commands::VK_CODE(0x4c)
+#define VK_M macro_commands::VK_CODE(0x4d)
+#define VK_N macro_commands::VK_CODE(0x4e)
+#define VK_O macro_commands::VK_CODE(0x4f)
+#define VK_P macro_commands::VK_CODE(0x50)
+#define VK_Q macro_commands::VK_CODE(0x51)
+#define VK_R macro_commands::VK_CODE(0x52)
+#define VK_S macro_commands::VK_CODE(0x53)
+#define VK_T macro_commands::VK_CODE(0x54)
+#define VK_U macro_commands::VK_CODE(0x55)
+#define VK_V macro_commands::VK_CODE(0x56)
+#define VK_W macro_commands::VK_CODE(0x57)
+#define VK_X macro_commands::VK_CODE(0x58)
+#define VK_Y macro_commands::VK_CODE(0x59)
+#define VK_Z macro_commands::VK_CODE(0x5a)
+#define VK_0 macro_commands::VK_CODE(0x30)
+#define VK_1 macro_commands::VK_CODE(0x31)
+#define VK_2 macro_commands::VK_CODE(0x32)
+#define VK_3 macro_commands::VK_CODE(0x33)
+#define VK_4 macro_commands::VK_CODE(0x34)
+#define VK_5 macro_commands::VK_CODE(0x35)
+#define VK_6 macro_commands::VK_CODE(0x36)
+#define VK_7 macro_commands::VK_CODE(0x37)
+#define VK_8 macro_commands::VK_CODE(0x38)
+#define VK_9 macro_commands::VK_CODE(0x39)
+#endif //_WINDOWS
 
 #define ME_MOUSE1 0
 #define ME_MOUSE2 1
 #define ME_MOUSE3 2
 namespace macro_commands {
+#ifdef _WINDOWS
 	typedef WORD VK_CODE;
+#else
+	typedef unsigned short VK_CODE;
+#endif //WINDOWS
 	typedef std::vector<VK_CODE> Combo;
 	/*
 		Converts a char to a virtual key code
@@ -211,6 +216,7 @@ namespace macro_commands {
 	*/
 	int MACROS_API set_clipboard_string(std::string const& str) noexcept;
 
+#ifdef _WINDOWS
 	/*
 		Class used to run a program with parameters
 	*/
@@ -252,12 +258,15 @@ namespace macro_commands {
 		wchar_t const* get_program() const;
 		void wait_close(DWORD timeout=ULONG_MAX) const;
 	};
-
+#endif //WINDOWS
 	class MACROS_API Command {
 	protected:
 		Command()=default;
 	public:
 		virtual ~Command()=default;
+		/*
+			Should return 0 on success
+		*/
 		virtual int execute()=0;
 	};
 	class MACROS_API MultiCommand:public Command {
@@ -350,35 +359,43 @@ namespace macro_commands {
 	class CommandList:public std::vector<std::unique_ptr<Command>> {
 	public:
 		template<typename CMD,typename... Args>
-		inline void add_command(Args&&... args) {
-			push_back(make_unique<CMD>(args...));
+		inline void add_command(Args... args) {
+			this->emplace_back(std::make_unique<CMD>(args...));
 		}
 		void MACROS_API loop_until_key_pressed(VK_CODE esc_code=VK_ESCAPE);
+		void MACROS_API loop_for_time(unsigned long millis);
 	};
 
 	/*
 		Exists for consistency with rest of library
-		Should not be used
-		Use POINT p;GetCursorPos(&p); instead
+		Use POINT p;GetCursorPos(&p); instead if on Windows
 	*/
-	POINT cursor_pos();
+#ifdef _WINDOWS
+	typedef POINT Point;
+#else
+	struct Point {
+		int x,y;
+	}
+#endif _WINDOWS
+	Point cursor_pos();
 
-	std::ostream& operator<<(std::ostream& os,POINT p);
-	
+	std::ostream& operator<<(std::ostream& os,Point p);
+
+#ifdef _WINDOWS
 	inline POINT cursor_pos() {
 		POINT pos;
 		GetCursorPos(&pos);
 		return pos;
 	}
-
-	std::ostream& operator<<(std::ostream& os,POINT p) {
+#endif _WINDOWS
+	inline std::ostream& operator<<(std::ostream& os,Point p) {
 		return os<<'('<<p.x<<','<<p.y<<')';
 	}
-
+#ifdef _WINDOWS
 	inline int inject_inputs(std::vector<INPUT>& inputs) {
 		return !(SendInput(inputs.size(),inputs.data(),sizeof(INPUT)));
 	}
-}
-
 #endif //_WINDOWS
+}
+namespace mcomm=macro_commands;
 #endif //MACROS_H

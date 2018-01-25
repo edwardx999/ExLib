@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #include "stdafx.h"
 #include "macros.h"
 #include <Psapi.h>
+#include <ctime>
 namespace macro_commands {
 #define pkc_init(code) input.type=INPUT_KEYBOARD;input.ki={0,static_cast<WORD>(MapVirtualKey(code,MAPVK_VK_TO_VSC)),KEYEVENTF_SCANCODE,0,0};
 #define rkc_init(code) input.type=INPUT_KEYBOARD;input.ki={0,static_cast<WORD>(MapVirtualKey(code,MAPVK_VK_TO_VSC)),KEYEVENTF_SCANCODE|KEYEVENTF_KEYUP,0,0};
@@ -173,7 +174,7 @@ namespace macro_commands {
 		}
 		return false;
 	}
-	int release_key(VK_CODE const code)  noexcept {
+	int release_key(VK_CODE const code) noexcept {
 		INPUT input;
 		rkc_init(code);
 		return !SendInput(1,&input,sizeof(INPUT));
@@ -215,7 +216,7 @@ namespace macro_commands {
 	std::vector<INPUT> string_to_inputs(std::string const& str) {
 		std::vector<INPUT> inputs;
 		inputs.reserve(3*str.length());
-		for(unsigned int i=0;i<str.length();++i)
+		for(size_t i=0;i<str.length();++i)
 		{
 			if(is_key(str[i]))
 			{
@@ -575,7 +576,7 @@ namespace macro_commands {
 	void CommandList::loop_until_key_pressed(VK_CODE esc_code) {
 		while(true)
 		{
-			for(unsigned int i=0;i<this->size();++i)
+			for(size_t i=0;i<this->size();++i)
 			{
 				do
 				{
@@ -585,6 +586,17 @@ namespace macro_commands {
 					}
 				} while((*this)[i]->execute());
 			}
+		}
+	}
+	void CommandList::loop_for_time(unsigned long millis) {
+		millis+=GetTickCount64();
+		for(size_t i=0;i<size();++i)
+		{
+			if(GetTickCount64()>millis)
+			{
+				return;
+			}
+			while((*this)[i]->execute());
 		}
 	}
 

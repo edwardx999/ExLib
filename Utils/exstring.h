@@ -57,6 +57,5 @@ namespace exstring {
 		}
 		return out;
 	}
-
 }
 #endif
