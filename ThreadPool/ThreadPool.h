@@ -25,6 +25,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #include <queue>
 #include <memory>
 #include <atomic>
+#include <utility>
 namespace concurrent {
 	/*
 	Overload void execute() to use this as a task in ThreadPool
@@ -62,13 +63,13 @@ namespace concurrent {
 		/*
 		Adds a task of type Task constructed with args unsynchronized with running threads
 		*/
-		template<typename Task,typename... args>
-		void add_task(args...);
+		template<typename Task,typename... Args>
+		void add_task(Args&&...);
 		/*
 		Adds a task of type Task constructed with args synchronized with running threads
 		*/
-		template<typename Task,typename... args>
-		void add_task_sync(args...);
+		template<typename Task,typename... Args>
+		void add_task_sync(Args&&...);
 		/*
 		Whether the thread pool is running
 		*/
@@ -90,14 +91,14 @@ namespace concurrent {
 		THREADPOOL_API void wait();
 	};
 
-	template<typename Task,typename... args>
-	void ThreadPool::add_task(args... arguments) {
-		tasks.push(std::make_unique<Task>(arguments...));
+	template<typename Task,typename... Args>
+	void ThreadPool::add_task(Args&&... arguments) {
+		tasks.push(std::make_unique<Task>(std::forward<Args...>(arguments...)));
 	}
-	template<typename Task,typename... args>
-	void ThreadPool::add_task_sync(args... arguments) {
+	template<typename Task,typename... Args>
+	void ThreadPool::add_task_sync(Args&&... arguments) {
 		std::lock_guard<std::mutex> guard(locker);
-		tasks.push(std::make_unique<Task>(arguments...));
+		tasks.push(std::make_unique<Task>(std::forward<Args...>(arguments...)));
 	}
 	inline bool ThreadPool::is_running() const {
 		return running;

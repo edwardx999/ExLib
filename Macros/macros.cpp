@@ -39,7 +39,7 @@ namespace macro_commands {
 		input.mi={0,0,0,upmouse_codes[button],0,0};
 #define mmc_init(x,y)\
 		input.type=INPUT_MOUSE;\
-		input.mi={static_cast<LONG>(x*screen_conv.x),static_cast<LONG>(y*screen_conv.y),0,MOUSEEVENTF_ABSOLUTE|MOUSEEVENTF_MOVE,0,0};
+		input.mi={static_cast<LONG>((x)*screen_conv.x),static_cast<LONG>((y)*screen_conv.y),0,MOUSEEVENTF_ABSOLUTE|MOUSEEVENTF_MOVE,0,0};
 #define trmc_init(x,y)\
 		input.type=INPUT_MOUSE;\
 		input.mi={x,y,0,MOUSEEVENTF_MOVE,0,0};
@@ -312,7 +312,7 @@ namespace macro_commands {
 	dim const screen_conv=get_screen_conv();
 	int move_mouse(ULONG const x,ULONG const y) noexcept {
 		INPUT input;
-		mmc_init(x+1,y+1);
+		mmc_init(x,y);
 		return !SendInput(1,&input,sizeof(INPUT));
 	}
 
