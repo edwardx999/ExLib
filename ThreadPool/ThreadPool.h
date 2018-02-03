@@ -26,7 +26,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #include <memory>
 #include <atomic>
 #include <utility>
-namespace concurrent {
+namespace exlib {
 	/*
 	Overload void execute() to use this as a task in ThreadPool
 	*/

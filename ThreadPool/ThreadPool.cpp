@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #include "stdafx.h"
 #include "ThreadPool.h"
 #include <iostream>
-namespace concurrent {
+namespace exlib {
 	ThreadPool::ThreadPool(size_t num_threads):workers(num_threads),running(false),tasks() {}
 	ThreadPool::ThreadPool():ThreadPool(std::thread::hardware_concurrency()) {}
 	void ThreadPool::task_loop() {

@@ -24,10 +24,13 @@
     <ClInclude Include="targetver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="exstring.h">
+    <ClInclude Include="exmem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="exmem.h">
+    <ClInclude Include="exstdstring.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="exstring.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -35,7 +38,7 @@
     <ClCompile Include="stdafx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="exstring.cpp">
+    <ClCompile Include="exstdstring.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

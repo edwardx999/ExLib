@@ -18,7 +18,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #include "macros.h"
 #include <Psapi.h>
 #include <ctime>
-namespace macro_commands {
+namespace exlib {
 #define pkc_init(code) input.type=INPUT_KEYBOARD;input.ki={0,static_cast<WORD>(MapVirtualKey(code,MAPVK_VK_TO_VSC)),KEYEVENTF_SCANCODE,0,0};
 #define rkc_init(code) input.type=INPUT_KEYBOARD;input.ki={0,static_cast<WORD>(MapVirtualKey(code,MAPVK_VK_TO_VSC)),KEYEVENTF_SCANCODE|KEYEVENTF_KEYUP,0,0};
 #define tkc_init(code)\
