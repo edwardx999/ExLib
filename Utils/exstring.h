@@ -5,7 +5,8 @@
 #include <new>
 #include <assert.h>
 #include <string>
-
+#include <algorithm>
+#include <limits>
 namespace exlib {
 	template<typename T>
 	size_t strlen(T const* p)
@@ -18,96 +19,63 @@ namespace exlib {
 		}
 		return i;
 	}
-	template<typename T>
-	class string_base {
+
+	template<typename T=char,typename CharT=std::char_traits<T>>
+	class string_alg {
 	public:
-		typedef T value_type;
-		typedef T* pointer;
-		typedef T const* const_pointer;
-		typedef T& reference;
-		typedef T const& const_reference;
-		typedef T* iterator;
-		typedef T const* const_iterator;
+		typedef typename T value_type;
+		typedef typename T* pointer;
+		typedef typename T const* const_pointer;
+		typedef typename T& reference;
+		typedef typename T const& const_reference;
+		typedef typename std::size_t size_type;
+		typedef typename std::ptrdiff_t difference_type;
+
+		typedef pointer iterator;
+		typedef const_pointer const_iterator;
 		typedef std::reverse_iterator<iterator> reverse_iterator;
 		typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
-		typedef size_t size_type;
-		typedef ptrdiff_t difference_type;
-
-		static size_type const npos=-1;
-		static size_type const default_initial_capacity=8;
-	private:
+	protected:
 		pointer _data;
-		size_type _size,_capacity;
-		void move(string_base&&) noexcept;
+		size_type _size;
+		string_alg(pointer data,size_type size):_data(data),_size(size) {}
+		string_alg() {}
 	public:
-		string_base();
-		template<typename U>
-		string_base(U const*);
-		string_base(size_type size,T);
-		template<typename U>
-		string_base(U const*,size_type s);
-		string_base(size_type capacity);
-		string_base(string_base&&) noexcept;
-		template<typename U>
-		string_base(string_base<U> const&);
+		static size_type const npos=-1;
 
-		template<typename U>
-		string_base& operator=(string_base<U> const&);
-		string_base& operator=(string_base&&) noexcept;
+		template<typename A,typename B>
+		friend std::basic_ostream<A>& operator<<(std::basic_ostream<A>&,string_alg<A,B> const&);
 
-		bool operator==(string_base const&) const;
-		~string_base();
-		template<typename U>
-		friend std::basic_ostream<U>& operator<<(std::basic_ostream<U>&,string_base<U> const&);
-		iterator begin();
-		const_iterator begin() const;
-		iterator end();
-		const_iterator cend() const;
-		reverse_iterator rbegin();
-		const_reverse_iterator crbegin() const;
-		reverse_iterator rend();
-		const_reverse_iterator crend() const;
-		size_type size() const;
-		size_type capacity() const;
-		size_type max_size() const;
-		void shrink_to_fit();
-		bool empty() const;
-		void reserve(size_type);
-		void release();
+		iterator begin() { return _data; }
+		const_iterator begin() const { return _data; }
+		iterator end() { return _data+_size; }
+		const_iterator cend() const { return _data+_size; }
+		reverse_iterator rbegin() { return reverse_iterator(end()); }
+		const_reverse_iterator crbegin() const { return rbegin(); }
+		reverse_iterator rend() { return reverse_iterator(begin()); }
+		const_reverse_iterator crend() const { return rend(); }
+		size_type size() const { return _size; };
+		bool empty() const { return _size==0; }
 
-		void push_back(T);
-		void pop_back();
+		bool operator==(string_alg const&) const;
+		bool operator!=(string_alg const&) const;
+		bool operator>(string_alg const&) const;
+		bool operator<(string_alg const&) const;
+		bool operator>=(string_alg const&) const;
+		bool operator<=(string_alg const&) const;
 
-		void erase(iterator pos);
-		void erase(size_type pos);
-		void erase(iterator begin,iterator end);
-		void erase(size_type begin,size_type end);
-
-		void insert(size_type pos,T c,size_type count=1);
-
-		string_base operator+(string_base const&) const;
-		string_base& operator+=(string_base const&);
-		string_base substr(size_type begin,size_type end) const;
-		string_base substr(iterator begin,iterator end) const;
-
-		size_type find(string_base const& target,size_type pos=0) const;
+		size_type find(string_alg const& target,size_type pos=0) const;
 		size_type find(const_pointer target,size_type pos,size_type count) const;
 		size_type find(const_pointer target,size_type pos=0) const;
 		size_type find(T ch,size_type pos=0) const;
 
 		size_type rfind(T ch,size_type pos=npos) const;
 
-		reference operator[](size_type i)
-		{
-			return _data[i];
-		}
-		const_reference operator[](size_type i) const
-		{
-			return _data[i];
-		}
+		reference operator[](size_type i) { return _data[i]; }
+		const_reference operator[](size_type i) const { return _data[i]; }
 		reference at(size_type i)
 		{
-			if(i>=size())
+			if(i>=size()||i<0)
 			{
 				throw std::out_of_range();
 			}
@@ -115,16 +83,14 @@ namespace exlib {
 		}
 		const_reference at(size_type i) const
 		{
-			return at(i);
+			if(i>=size()||i<0)
+			{
+				throw std::out_of_range();
+			}
+			return _data[i];
 		}
-		reference front()
-		{
-			return _data[0];
-		}
-		const_reference front() const
-		{
-			return _data[0];
-		}
+		reference front() { return _data[0]; }
+		const_reference front() const { return _data[0]; }
 		reference back()
 		{
 			return _data[size()-1];
@@ -149,6 +115,71 @@ namespace exlib {
 		{
 			return _data;
 		}
+	};
+
+	template<typename T,typename CharT=std::char_traits<T>,typename Alloc=std::allocator<T>>
+	class string_base:public string_alg<T,CharT>,protected Alloc {
+	public:
+		typedef typename string_alg<T,CharT>::value_type value_type;
+		typedef typename string_alg<T,CharT>::pointer pointer;
+		typedef typename string_alg<T,CharT>::const_pointer const_pointer;
+		typedef typename string_alg<T,CharT>::reference reference;
+		typedef typename string_alg<T,CharT>::const_reference const_reference;
+		typedef typename string_alg<T,CharT>::size_type size_type;
+		typedef typename string_alg<T,CharT>::difference_type difference_type;
+
+		typedef typename string_alg<T,CharT>::iterator iterator;
+		typedef typename string_alg<T,CharT>::const_iterator const_iterator;
+		typedef typename string_alg<T,CharT>::reverse_iterator reverse_iterator;
+		typedef typename string_alg<T,CharT>::const_reverse_iterator const_reverse_iterator;
+	private:
+		size_type _capacity;
+		void move(string_base&&) noexcept;
+	public:
+		string_base();
+		template<typename U>
+		string_base(U const*);
+		string_base(size_type size,T);
+		template<typename U>
+		string_base(U const*,size_type s);
+		string_base(size_type capacity);
+		string_base(string_base&&) noexcept;
+		template<typename U,typename CharU>
+		string_base(string_alg<U,CharU> const&);
+		template<typename U,typename CharU,typename AllocU>
+		string_base(string_base<U,CharU,AllocU> const&);
+		string_base(string_base const&);
+
+		template<typename U,typename CharU>
+		string_base& operator=(string_alg<U,CharU> const&);
+		template<typename U,typename CharU,typename AllocU>
+		string_base& operator=(string_base<U,CharU,AllocU> const&);
+		string_base& operator=(string_base const&);
+		string_base& operator=(string_base&&) noexcept;
+
+		~string_base();
+		size_type capacity() const { return _capacity; }
+		void shrink_to_fit();
+		void reserve(size_type);
+		void release();
+
+		void push_back(T);
+		void pop_back();
+
+		void erase(iterator pos);
+		void erase(size_type pos);
+		void erase(iterator begin,iterator end);
+		void erase(size_type begin,size_type end);
+
+		void insert(size_type pos,T c,size_type count=1);
+
+		string_base operator+(string_base const&) const;
+		template<typename U,typename CharU>
+		string_base& operator+=(string_alg<U,CharU> const&);
+		template<typename U,typename CharU,typename AllocU>
+		string_base& operator+=(string_base<U,CharU,AllocU> const&);
+		string_base substr(size_type begin,size_type end) const;
+		string_base substr(iterator begin,iterator end) const;
 
 		void clear()
 		{
@@ -159,69 +190,103 @@ namespace exlib {
 	typedef string_base<char> string;
 	typedef string_base<wchar_t> wstring;
 
-	template<typename T>
-	template<typename U>
-	string_base<T>::string_base(U const* cp): string_base(cp,exlib::strlen(cp)) {}
+	/*
+		Holds a ptr to a c string with its size.
+		Has no control of the c string.
+		Unsafe if underlying string is moved.
+	*/
+	template<typename T,typename CharT=std::char_traits<T>>
+	class weak_string_base:public string_alg<T,CharT> {
+	public:
+		typedef typename string_alg<T,CharT>::value_type value_type;
+		typedef typename string_alg<T,CharT>::pointer pointer;
+		typedef typename string_alg<T,CharT>::const_pointer const_pointer;
+		typedef typename string_alg<T,CharT>::reference reference;
+		typedef typename string_alg<T,CharT>::const_reference const_reference;
+		typedef typename string_alg<T,CharT>::size_type size_type;
+		typedef typename string_alg<T,CharT>::difference_type difference_type;
 
-	template<typename T>
+		typedef typename string_alg<T,CharT>::iterator iterator;
+		typedef typename string_alg<T,CharT>::const_iterator const_iterator;
+		typedef typename string_alg<T,CharT>::reverse_iterator reverse_iterator;
+		typedef typename string_alg<T,CharT>::const_reverse_iterator const_reverse_iterator;
+		weak_string_base(T* data):string_alg(data,exlib::strlen(data)) {}
+	};
+	typedef weak_string_base<char> weak_string;
+	typedef weak_string_base<wchar_t> weak_wstring;
+
+	template<typename T,typename CharT,typename Alloc>
 	template<typename U>
-	string_base<T>::string_base(
+	string_base<T,CharT,Alloc>::string_base(U const* cp): string_base(cp,exlib::strlen(cp)) {}
+
+	template<typename T,typename CharT,typename Alloc>
+	template<typename U>
+	string_base<T,CharT,Alloc>::string_base(
 		U const* cp,
-		typename string_base<T>::size_type s)
+		typename string_base<T,CharT,Alloc>::size_type s)
 	{
 		assert(cp!=nullptr);
 		_size=s;
-		_data=new T[s+1];
+		_data=allocate(s+1);
 		for(_capacity=0;_capacity<_size;++_capacity)
 		{
 			_data[_capacity]=cp[_capacity];
 		}
 		_data[_capacity]=0;
 	}
-	template<typename T>
-	string_base<T>::string_base(typename string_base<T>::size_type s,T c)
+	template<typename T,typename CharT,typename Alloc>
+	string_base<T,CharT,Alloc>::string_base(typename string_base<T,CharT,Alloc>::size_type s,T c)
 	{
 		_size=s;
-		_data=new typename string_base<T>::value_type[_size+1];
+		_data=allocate(s+1);
 		for(_capacity=0;_capacity<_size;++_capacity)
 		{
 			_data[_capacity]=c;
 		}
 		_data[_capacity]=0;
 	}
-	template<typename T>
-	string_base<T>::string_base(typename string_base<T>::size_type capacity):_capacity(capacity)
+	template<typename T,typename CharT,typename Alloc>
+	string_base<T,CharT,Alloc>::string_base(typename string_base<T,CharT,Alloc>::size_type capacity):_capacity(capacity)
 	{
-		_data=new T[capacity+1];
+		_data=allocate(_capacity+1);
 		_data[0]=0;
 		_size=0;
 	}
-	template<typename T>
-	string_base<T>::string_base():_data(nullptr),_size(0),_capacity(0) {}
-	template<typename T>
-	template<typename U>
-	string_base<T>::string_base(string_base<U> const& other):string_base(other.data()) {}
+	template<typename T,typename CharT,typename Alloc>
+	string_base<T,CharT,Alloc>::string_base():string_alg<T,CharT>(nullptr,0),_capacity(0) {}
 
-	template<typename T>
-	void string_base<T>::move(string_base<T>&& other) noexcept
+	template<typename T,typename CharT,typename Alloc>
+	template<typename U,typename CharU>
+	string_base<T,CharT,Alloc>::string_base(string_alg<U,CharU> const& other):string_base(other.data(),other.size()) {}
+
+	template<typename T,typename CharT,typename Alloc>
+	template<typename U,typename CharU,typename AllocU>
+	string_base<T,CharT,Alloc>::string_base(string_base<U,CharU,AllocU> const& other):string_base(other.data(),other.size()) {}
+
+	template<typename T,typename CharT,typename Alloc>
+	string_base<T,CharT,Alloc>::string_base(string_base<T,CharT,Alloc> const& other):string_base(other.data(),other.size()) {}
+
+	template<typename T,typename CharT,typename Alloc>
+	void string_base<T,CharT,Alloc>::move(string_base<T,CharT,Alloc>&& other) noexcept
 	{
-		_data=other._data;
-		_size=other._size;
-		_capacity=other._capacity;
+		_data=other.data();
+		_size=other.size();
+		_capacity=other.capacity();
 		other.release();
 	}
-	template<typename T>
-	string_base<T>::string_base(string_base<T>&& other) noexcept
+	template<typename T,typename CharT,typename Alloc>
+	string_base<T,CharT,Alloc>::string_base(string_base<T,CharT,Alloc>&& other) noexcept
 	{
 		move(std::move(other));
 	}
-	template<typename T>
-	string_base<T>::~string_base()
+	template<typename T,typename CharT,typename Alloc>
+	string_base<T,CharT,Alloc>::~string_base()
 	{
-		delete[] _data;
+		deallocate(_data,_capacity+1);
 	}
-	template<typename T>
-	std::basic_ostream<T>& operator<<(std::basic_ostream<T>& os,string_base<T> const& str)
+
+	template<typename U,typename CharU>
+	std::basic_ostream<U>& operator<<(std::basic_ostream<U>& os,string_alg<U,CharU> const& str)
 	{
 		if(str._data==nullptr)
 		{
@@ -229,27 +294,12 @@ namespace exlib {
 		}
 		return os<<str._data;
 	}
-	template<typename T>
-	typename string_base<T>::size_type string_base<T>::capacity() const
-	{
-		return _capacity;
-	}
-	template<typename T>
-	typename string_base<T>::size_type string_base<T>::size() const
-	{
-		return _size;
-	}
 
-	template<typename T>
-	template<typename U>
-	string_base<T>& string_base<T>::operator=(string_base<U> const& other)
+	template<typename T,typename CharT,typename Alloc>
+	template<typename U,typename CharU>
+	string_base<T,CharT,Alloc>& string_base<T,CharT,Alloc>::operator=(string_alg<U,CharU> const& other)
 	{
-		if(_capacity<other.size())
-		{
-			delete[] _data;
-			_data=new T[other.size()+1];
-			_capacity=other.size();
-		}
+		reserve(other.size());
 		for(_size=0;_size<other.size();++_size)
 		{
 			_data[_size]=other[_size];
@@ -258,101 +308,68 @@ namespace exlib {
 		return *this;
 	}
 
-	template<typename T>
-	string_base<T>& string_base<T>::operator=(string_base<T>&& other) noexcept
+	template<typename T,typename CharT,typename Alloc>
+	template<typename U,typename CharU,typename AllocU>
+	string_base<T,CharT,Alloc>& exlib::string_base<T,CharT,Alloc>::operator=(string_base<U,CharU,AllocU> const& other)
+	{
+		return ((*this)=static_cast<string_alg<U,CharU> const&>(other));
+	}
+	template<typename T,typename CharT,typename Alloc>
+	string_base<T,CharT,Alloc>& string_base<T,CharT,Alloc>::operator=(string_base<T,CharT,Alloc> const& other)
+	{
+		return ((*this)=static_cast<string_alg<T,CharT> const&>(other));
+	}
+
+	template<typename T,typename CharT,typename Alloc>
+	string_base<T,CharT,Alloc>& string_base<T,CharT,Alloc>::operator=(string_base<T,CharT,Alloc>&& other) noexcept
 	{
 		assert(this!=&other);
-		delete[] _data;
+		deallocate(_data,_capacity+1);
 		move(std::move(other));
 		return *this;
 	}
-	template<typename T>
-	typename string_base<T>::iterator string_base<T>::begin()
-	{
-		return _data;
-	}
-	template<typename T>
-	typename string_base<T>::const_iterator string_base<T>::begin() const
-	{
-		return begin();
-	}
-	template<typename T>
-	typename string_base<T>::iterator string_base<T>::end()
-	{
-		return _data+_size;
-	}
-	template<typename T>
-	typename string_base<T>::const_iterator string_base<T>::cend() const
-	{
-		return end();
-	}
-	template<typename T>
-	typename string_base<T>::reverse_iterator string_base<T>::rbegin()
-	{
-		return string_base<T>::reverse_iterator(end());
-	}
-	template<typename T>
-	typename string_base<T>::const_reverse_iterator string_base<T>::crbegin() const
-	{
-		return rbegin();
-	}
-	template<typename T>
-	typename string_base<T>::reverse_iterator string_base<T>::rend()
-	{
-		return string_base<T>::reverse_iterator(begin());
-	}
-	template<typename T>
-	typename string_base<T>::const_reverse_iterator string_base<T>::crend() const
-	{
-		return rend;
-	}
 
-	template<typename T>
-	typename string_base<T>::size_type string_base<T>::max_size() const
+	template<typename T,typename CharT,typename Alloc>
+	void string_base<T,CharT,Alloc>::shrink_to_fit()
 	{
-		return ~(0L);
-	}
-	template<typename T>
-	void string_base<T>::shrink_to_fit()
-	{
+		typedef typename string_base<T,CharT,Alloc>::size_type st;
 		if(_capacity==_size)
 		{
 			return;
 		}
-		T* np=new T[_size+1];
-		for(_capacity=0;_capacity<_size;++_capacity)
+		T* np=allocate(_size+1);
+		st i;
+		for(i=0;i<_size;++i)
 		{
-			np[_capacity]=_data[_capacity];
+			np[i]=_data[i];
 		}
-		np[_capacity]=0;
-		delete[] _data;
+		np[i]=0;
+		deallocte(_data,_capacity+1);
+		_capacity=_size;
 		_data=np;
 	}
-	template<typename T>
-	bool string_base<T>::empty() const
+	template<typename T,typename CharT,typename Alloc>
+	void string_base<T,CharT,Alloc>::reserve(typename string_base<T,CharT,Alloc>::size_type s)
 	{
-		return _size==0;
-	}
-	template<typename T>
-	void string_base<T>::reserve(typename string_base<T>::size_type s)
-	{
-		if(_capacity>=s)
+		typedef typename string_base<T,CharT,Alloc>::size_type st;
+		if(_capacity>=s&&_data!=nullptr)
 		{
 			return;
 		}
-		T* np=new T[s+1];
-		for(_capacity=0;_capacity<_size;++_capacity)
+		T* np=allocate(s+1);
+		st i=0;
+		for(i=0;i<_size;++i)
 		{
-			np[_capacity]=_data[_capacity];
+			np[i]=_data[i];
 		}
-		np[_capacity]=0;
+		np[i]=0;
+		deallocate(_data,_capacity+1);
 		_capacity=s;
-		delete[] _data;
 		_data=np;
 	}
 
-	template<typename T>
-	void string_base<T>::push_back(T cr)
+	template<typename T,typename CharT,typename Alloc>
+	void string_base<T,CharT,Alloc>::push_back(T cr)
 	{
 		if(_size>=_capacity)
 		{
@@ -361,13 +378,13 @@ namespace exlib {
 		_data[_size]=cr;
 		++_size;
 	}
-	template<typename T>
-	void string_base<T>::pop_back()
+	template<typename T,typename CharT,typename Alloc>
+	void string_base<T,CharT,Alloc>::pop_back()
 	{
 		_data[--_size]=0;
 	}
-	template<typename T>
-	void string_base<T>::erase(typename string_base<T>::size_type pos)
+	template<typename T,typename CharT,typename Alloc>
+	void string_base<T,CharT,Alloc>::erase(typename string_base<T,CharT,Alloc>::size_type pos)
 	{
 		--_size;
 		while(pos<_size)
@@ -377,22 +394,28 @@ namespace exlib {
 		}
 		_data[pos]=0;
 	}
-	template<typename T>
-	void string_base<T>::erase(typename string_base<T>::iterator pos)
+
+	template<typename T,typename CharT,typename Alloc>
+	void string_base<T,CharT,Alloc>::erase(typename string_base<T,CharT,Alloc>::iterator pos)
 	{
-		erase(static_cast<typename string_base<T>::size_type>(pos-begin()));
+		erase(static_cast<typename string_base<T,CharT,Alloc>::size_type>(pos-begin()));
 	}
-	template<typename T>
-	void string_base<T>::erase(typename string_base<T>::iterator begin,typename string_base<T>::iterator end)
+
+	template<typename T,typename CharT,typename Alloc>
+	void string_base<T,CharT,Alloc>::erase(
+		typename string_base<T,CharT,Alloc>::iterator begin,
+		typename string_base<T,CharT,Alloc>::iterator end)
 	{
-		typedef typename string_base<T>::size_type st;
+		typedef typename string_base<T,CharT,Alloc>::size_type st;
 		erase(static_cast<st>(begin-_data),
 			static_cast<st>(end-_data));
 	}
-	template<typename T>
-	void string_base<T>::erase(typename string_base<T>::size_type begin,typename string_base<T>::size_type end)
+	template<typename T,typename CharT,typename Alloc>
+	void string_base<T,CharT,Alloc>::erase(
+		typename string_base<T,CharT,Alloc>::size_type begin,
+		typename string_base<T,CharT,Alloc>::size_type end)
 	{
-		size_t i,j;
+		typename string_base<T,CharT,Alloc>::size_type i,j;
 		for(i=end,j=begin;i<_size;++i,++j)
 		{
 			_data[j]=_data[i];
@@ -400,11 +423,11 @@ namespace exlib {
 		_data[j]=0;
 		_size=j;
 	}
-	template<typename T>
-	string_base<T> string_base<T>::operator+(string_base<T> const& other) const
+	template<typename T,typename CharT,typename Alloc>
+	string_base<T,CharT,Alloc> string_base<T,CharT,Alloc>::operator+(string_base<T,CharT,Alloc> const& other) const
 	{
-		typedef typename string_base<T>::size_type st;
-		string_base<T> ret;
+		typedef typename string_base<T,CharT,Alloc>::size_type st;
+		string_base<T,CharT,Alloc> ret;
 		ret.reserve(size()+other.size());
 		for(;ret._size<size();++ret._size)
 		{
@@ -418,10 +441,11 @@ namespace exlib {
 		ret[ret._size]=0;
 		return ret;
 	}
-	template<typename T>
-	string_base<T>& string_base<T>::operator+=(string_base<T> const& other)
+	template<typename T,typename CharT,typename Alloc>
+	template<typename U,typename CharU>
+	string_base<T,CharT,Alloc>& string_base<T,CharT,Alloc>::operator+=(string_alg<U,CharU> const& other)
 	{
-		typedef typename string_base<T>::size_type st;
+		typedef typename string_base<T,CharT,Alloc>::size_type st;
 		reserve(size()+other.size());
 		st limit=other.size();
 		for(st i=0;i<limit;++i,++_size)
@@ -431,10 +455,19 @@ namespace exlib {
 		(*this)[_size]=0;
 		return *this;
 	}
-	template<typename T>
-	string_base<T> string_base<T>::substr(typename string_base<T>::size_type begin,typename string_base<T>::size_type end) const
+	template<typename T,typename CharT,typename Alloc>
+	template<typename U,typename CharU,typename AllocU>
+	string_base<T,CharT,Alloc>& string_base<T,CharT,Alloc>::operator+=(string_base<U,CharU,AllocU> const& other)
 	{
-		string_base<T> ret;
+		return ((*this)+=static_cast<string_alg<U,CharU> const&>(other));
+	}
+
+	template<typename T,typename CharT,typename Alloc>
+	string_base<T,CharT,Alloc> string_base<T,CharT,Alloc>::substr(
+		typename string_base<T,CharT,Alloc>::size_type begin,
+		typename string_base<T,CharT,Alloc>::size_type end) const
+	{
+		string_base<T,CharT,Alloc> ret;
 		ret.reserve(end-begin);
 		for(;begin<end;++begin,++ret._size)
 		{
@@ -443,15 +476,17 @@ namespace exlib {
 		ret[ret._size]=0;
 		return ret;
 	}
-	template<typename T>
-	string_base<T> string_base<T>::substr(typename string_base<T>::iterator begin,typename string_base<T>::iterator end) const
+	template<typename T,typename CharT,typename Alloc>
+	string_base<T,CharT,Alloc> string_base<T,CharT,Alloc>::substr(
+		typename string_base<T,CharT,Alloc>::iterator begin,
+		typename string_base<T,CharT,Alloc>::iterator end) const
 	{
-		typedef typename string_base<T>::size_type st;
-		return substr(st(begin-_data),st(end-_data));
+		typedef typename string_base<T,CharT,Alloc>::size_type st;
+		return substr(static_cast<st>(begin-_data),static_cast<st>(end-_data));
 	}
 
-	template<typename T>
-	bool string_base<T>::operator==(string_base<T> const& other) const
+	template<typename T,typename CharT>
+	bool string_alg<T,CharT>::operator==(string_alg<T,CharT> const& other) const
 	{
 		if(other.size()==size())
 		{
@@ -467,13 +502,13 @@ namespace exlib {
 		return false;
 	}
 
-	template<typename T>
-	void string_base<T>::insert(
-		typename string_base<T>::size_type pos,
+	template<typename T,typename CharT,typename Alloc>
+	void string_base<T,CharT,Alloc>::insert(
+		typename string_base<T,CharT,Alloc>::size_type pos,
 		T c,
-		typename string_base<T>::size_type count)
+		typename string_base<T,CharT,Alloc>::size_type count)
 	{
-		typedef typename string_base<T>::size_type st;
+		typedef typename string_base<T,CharT,Alloc>::size_type st;
 		st new_size=count+_size;
 		reserve(new_size);
 		_data[new_size]=0;
@@ -493,22 +528,22 @@ namespace exlib {
 		}
 	}
 
-	template<typename T>
-	typename string_base<T>::size_type string_base<T>::find(
-		string_base<T> const& target,
-		typename string_base<T>::size_type pos=0) const
+	template<typename T,typename CharT>
+	typename string_alg<T,CharT>::size_type string_alg<T,CharT>::find(
+		string_alg<T,CharT> const& target,
+		typename string_alg<T,CharT>::size_type pos) const
 	{
 		return find(target.data(),pos,target.size());
 	}
 
-	template<typename T>
-	typename string_base<T>::size_type string_base<T>::find(
-		typename string_base<T>::const_pointer target,
-		typename string_base<T>::size_type pos,
-		typename string_base<T>::size_type count) const
+	template<typename T,typename CharT>
+	typename string_alg<T,CharT>::size_type string_alg<T,CharT>::find(
+		typename string_alg<T,CharT>::const_pointer target,
+		typename string_alg<T,CharT>::size_type pos,
+		typename string_alg<T,CharT>::size_type count) const
 	{
-		typedef typename string_base<T>::size_type st;
-		if(count==0)
+		typedef typename string_alg<T,CharT>::size_type st;
+		if(count==0||pos>size())
 		{
 			return npos;
 		}
@@ -536,16 +571,18 @@ namespace exlib {
 		return npos;
 	}
 
-	template<typename T>
-	typename string_base<T>::size_type string_base<T>::find(
-		typename string_base<T>::const_pointer target,
-		typename string_base<T>::size_type pos=0) const
+	template<typename T,typename CharT>
+	typename string_alg<T,CharT>::size_type string_alg<T,CharT>::find(
+		typename string_alg<T,CharT>::const_pointer target,
+		typename string_alg<T,CharT>::size_type pos) const
 	{
-		return find(target,pos,strlen(target));
+		return find(target,pos,exlib::strlen(target));
 	}
 
-	template<typename T>
-	typename string_base<T>::size_type string_base<T>::find(T ch,size_type pos=0) const
+	template<typename T,typename CharT>
+	typename string_alg<T,CharT>::size_type string_alg<T,CharT>::find(
+		T ch,
+		typename string_alg<T,CharT>::size_type pos) const
 	{
 		for(typename string_base<T>::size_type i=pos;i<size();++i)
 		{
@@ -557,16 +594,18 @@ namespace exlib {
 		return npos;
 	}
 
-	template<typename T>
-	void string_base<T>::release()
+	template<typename T,typename CharT,typename Alloc>
+	void string_base<T,CharT,Alloc>::release()
 	{
 		_data=nullptr;
 		_size=0;
 		_capacity=0;
 	}
 
-	template<typename T>
-	typename string_base<T>::size_type rfind(T ch,typename string_base<T>::size_type pos) const
+	template<typename T,typename CharT>
+	typename string_alg<T,CharT>::size_type string_alg<T,CharT>::rfind(
+		T ch,
+		typename string_alg<T,CharT>::size_type pos) const
 	{
 		if(pos>_size)
 		{
