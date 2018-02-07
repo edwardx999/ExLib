@@ -93,12 +93,12 @@ namespace exlib {
 
 	template<typename Task,typename... Args>
 	void ThreadPool::add_task(Args&&... arguments) {
-		tasks.push(std::make_unique<Task>(std::forward<Args...>(arguments...)));
+		tasks.push(std::make_unique<Task>(std::forward<Args>(arguments)...));
 	}
 	template<typename Task,typename... Args>
 	void ThreadPool::add_task_sync(Args&&... arguments) {
 		std::lock_guard<std::mutex> guard(locker);
-		tasks.push(std::make_unique<Task>(std::forward<Args...>(arguments...)));
+		tasks.push(std::make_unique<Task>(std::forward<Args>(arguments)...));
 	}
 	inline bool ThreadPool::is_running() const {
 		return running;

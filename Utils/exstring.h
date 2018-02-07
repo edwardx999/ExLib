@@ -8,7 +8,8 @@
 
 namespace exlib {
 	template<typename T>
-	size_t strlen(T const* p) {
+	size_t strlen(T const* p)
+	{
 		assert(p!=nullptr);
 		size_t i=0;
 		while(p[i]!=0)
@@ -94,48 +95,63 @@ namespace exlib {
 		size_type find(const_pointer target,size_type pos=0) const;
 		size_type find(T ch,size_type pos=0) const;
 
-		reference operator[](size_type i) {
+		size_type rfind(T ch,size_type pos=npos) const;
+
+		reference operator[](size_type i)
+		{
 			return _data[i];
 		}
-		const_reference operator[](size_type i) const {
+		const_reference operator[](size_type i) const
+		{
 			return _data[i];
 		}
-		reference at(size_type i) {
+		reference at(size_type i)
+		{
 			if(i>=size())
 			{
 				throw std::out_of_range();
 			}
 			return _data[i];
 		}
-		const_reference at(size_type i) const {
+		const_reference at(size_type i) const
+		{
 			return at(i);
 		}
-		reference front() {
+		reference front()
+		{
 			return _data[0];
 		}
-		const_reference front() const {
+		const_reference front() const
+		{
 			return _data[0];
 		}
-		reference back() {
+		reference back()
+		{
 			return _data[size()-1];
 		}
-		const_reference back() const {
+		const_reference back() const
+		{
 			return _data[size()-1];
 		}
-		pointer data() {
+		pointer data()
+		{
 			return _data;
 		}
-		const_pointer data() const {
+		const_pointer data() const
+		{
 			return _data;
 		}
-		pointer c_str() {
+		pointer c_str()
+		{
 			return _data;
 		}
-		const_pointer c_str() const {
+		const_pointer c_str() const
+		{
 			return _data;
 		}
 
-		void clear() {
+		void clear()
+		{
 			_size=0;
 			_data[0]=0;
 		}
@@ -151,7 +167,8 @@ namespace exlib {
 	template<typename U>
 	string_base<T>::string_base(
 		U const* cp,
-		typename string_base<T>::size_type s) {
+		typename string_base<T>::size_type s)
+	{
 		assert(cp!=nullptr);
 		_size=s;
 		_data=new T[s+1];
@@ -162,7 +179,8 @@ namespace exlib {
 		_data[_capacity]=0;
 	}
 	template<typename T>
-	string_base<T>::string_base(typename string_base<T>::size_type s,T c) {
+	string_base<T>::string_base(typename string_base<T>::size_type s,T c)
+	{
 		_size=s;
 		_data=new typename string_base<T>::value_type[_size+1];
 		for(_capacity=0;_capacity<_size;++_capacity)
@@ -172,7 +190,8 @@ namespace exlib {
 		_data[_capacity]=0;
 	}
 	template<typename T>
-	string_base<T>::string_base(typename string_base<T>::size_type capacity):_capacity(capacity) {
+	string_base<T>::string_base(typename string_base<T>::size_type capacity):_capacity(capacity)
+	{
 		_data=new T[capacity+1];
 		_data[0]=0;
 		_size=0;
@@ -184,22 +203,26 @@ namespace exlib {
 	string_base<T>::string_base(string_base<U> const& other):string_base(other.data()) {}
 
 	template<typename T>
-	void string_base<T>::move(string_base<T>&& other) noexcept {
+	void string_base<T>::move(string_base<T>&& other) noexcept
+	{
 		_data=other._data;
 		_size=other._size;
 		_capacity=other._capacity;
 		other.release();
 	}
 	template<typename T>
-	string_base<T>::string_base(string_base<T>&& other) noexcept {
+	string_base<T>::string_base(string_base<T>&& other) noexcept
+	{
 		move(std::move(other));
 	}
 	template<typename T>
-	string_base<T>::~string_base() {
+	string_base<T>::~string_base()
+	{
 		delete[] _data;
 	}
 	template<typename T>
-	std::basic_ostream<T>& operator<<(std::basic_ostream<T>& os,string_base<T> const& str) {
+	std::basic_ostream<T>& operator<<(std::basic_ostream<T>& os,string_base<T> const& str)
+	{
 		if(str._data==nullptr)
 		{
 			return os;
@@ -207,17 +230,20 @@ namespace exlib {
 		return os<<str._data;
 	}
 	template<typename T>
-	typename string_base<T>::size_type string_base<T>::capacity() const {
+	typename string_base<T>::size_type string_base<T>::capacity() const
+	{
 		return _capacity;
 	}
 	template<typename T>
-	typename string_base<T>::size_type string_base<T>::size() const {
+	typename string_base<T>::size_type string_base<T>::size() const
+	{
 		return _size;
 	}
 
 	template<typename T>
 	template<typename U>
-	string_base<T>& string_base<T>::operator=(string_base<U> const& other) {
+	string_base<T>& string_base<T>::operator=(string_base<U> const& other)
+	{
 		if(_capacity<other.size())
 		{
 			delete[] _data;
@@ -233,51 +259,62 @@ namespace exlib {
 	}
 
 	template<typename T>
-	string_base<T>& string_base<T>::operator=(string_base<T>&& other) noexcept {
+	string_base<T>& string_base<T>::operator=(string_base<T>&& other) noexcept
+	{
 		assert(this!=&other);
 		delete[] _data;
 		move(std::move(other));
 		return *this;
 	}
 	template<typename T>
-	typename string_base<T>::iterator string_base<T>::begin() {
+	typename string_base<T>::iterator string_base<T>::begin()
+	{
 		return _data;
 	}
 	template<typename T>
-	typename string_base<T>::const_iterator string_base<T>::begin() const {
+	typename string_base<T>::const_iterator string_base<T>::begin() const
+	{
 		return begin();
 	}
 	template<typename T>
-	typename string_base<T>::iterator string_base<T>::end() {
+	typename string_base<T>::iterator string_base<T>::end()
+	{
 		return _data+_size;
 	}
 	template<typename T>
-	typename string_base<T>::const_iterator string_base<T>::cend() const {
+	typename string_base<T>::const_iterator string_base<T>::cend() const
+	{
 		return end();
 	}
 	template<typename T>
-	typename string_base<T>::reverse_iterator string_base<T>::rbegin() {
+	typename string_base<T>::reverse_iterator string_base<T>::rbegin()
+	{
 		return string_base<T>::reverse_iterator(end());
 	}
 	template<typename T>
-	typename string_base<T>::const_reverse_iterator string_base<T>::crbegin() const {
+	typename string_base<T>::const_reverse_iterator string_base<T>::crbegin() const
+	{
 		return rbegin();
 	}
 	template<typename T>
-	typename string_base<T>::reverse_iterator string_base<T>::rend() {
+	typename string_base<T>::reverse_iterator string_base<T>::rend()
+	{
 		return string_base<T>::reverse_iterator(begin());
 	}
 	template<typename T>
-	typename string_base<T>::const_reverse_iterator string_base<T>::crend() const {
+	typename string_base<T>::const_reverse_iterator string_base<T>::crend() const
+	{
 		return rend;
 	}
 
 	template<typename T>
-	typename string_base<T>::size_type string_base<T>::max_size() const {
+	typename string_base<T>::size_type string_base<T>::max_size() const
+	{
 		return ~(0L);
 	}
 	template<typename T>
-	void string_base<T>::shrink_to_fit() {
+	void string_base<T>::shrink_to_fit()
+	{
 		if(_capacity==_size)
 		{
 			return;
@@ -292,11 +329,13 @@ namespace exlib {
 		_data=np;
 	}
 	template<typename T>
-	bool string_base<T>::empty() const {
+	bool string_base<T>::empty() const
+	{
 		return _size==0;
 	}
 	template<typename T>
-	void string_base<T>::reserve(typename string_base<T>::size_type s) {
+	void string_base<T>::reserve(typename string_base<T>::size_type s)
+	{
 		if(_capacity>=s)
 		{
 			return;
@@ -313,7 +352,8 @@ namespace exlib {
 	}
 
 	template<typename T>
-	void string_base<T>::push_back(T cr) {
+	void string_base<T>::push_back(T cr)
+	{
 		if(_size>=_capacity)
 		{
 			reserve(_capacity*2);
@@ -322,11 +362,13 @@ namespace exlib {
 		++_size;
 	}
 	template<typename T>
-	void string_base<T>::pop_back() {
+	void string_base<T>::pop_back()
+	{
 		_data[--_size]=0;
 	}
 	template<typename T>
-	void string_base<T>::erase(typename string_base<T>::size_type pos) {
+	void string_base<T>::erase(typename string_base<T>::size_type pos)
+	{
 		--_size;
 		while(pos<_size)
 		{
@@ -336,17 +378,20 @@ namespace exlib {
 		_data[pos]=0;
 	}
 	template<typename T>
-	void string_base<T>::erase(typename string_base<T>::iterator pos) {
+	void string_base<T>::erase(typename string_base<T>::iterator pos)
+	{
 		erase(static_cast<typename string_base<T>::size_type>(pos-begin()));
 	}
 	template<typename T>
-	void string_base<T>::erase(typename string_base<T>::iterator begin,typename string_base<T>::iterator end) {
+	void string_base<T>::erase(typename string_base<T>::iterator begin,typename string_base<T>::iterator end)
+	{
 		typedef typename string_base<T>::size_type st;
 		erase(static_cast<st>(begin-_data),
 			static_cast<st>(end-_data));
 	}
 	template<typename T>
-	void string_base<T>::erase(typename string_base<T>::size_type begin,typename string_base<T>::size_type end) {
+	void string_base<T>::erase(typename string_base<T>::size_type begin,typename string_base<T>::size_type end)
+	{
 		size_t i,j;
 		for(i=end,j=begin;i<_size;++i,++j)
 		{
@@ -356,7 +401,8 @@ namespace exlib {
 		_size=j;
 	}
 	template<typename T>
-	string_base<T> string_base<T>::operator+(string_base<T> const& other) const {
+	string_base<T> string_base<T>::operator+(string_base<T> const& other) const
+	{
 		typedef typename string_base<T>::size_type st;
 		string_base<T> ret;
 		ret.reserve(size()+other.size());
@@ -373,7 +419,8 @@ namespace exlib {
 		return ret;
 	}
 	template<typename T>
-	string_base<T>& string_base<T>::operator+=(string_base<T> const& other) {
+	string_base<T>& string_base<T>::operator+=(string_base<T> const& other)
+	{
 		typedef typename string_base<T>::size_type st;
 		reserve(size()+other.size());
 		st limit=other.size();
@@ -385,7 +432,8 @@ namespace exlib {
 		return *this;
 	}
 	template<typename T>
-	string_base<T> string_base<T>::substr(typename string_base<T>::size_type begin,typename string_base<T>::size_type end) const {
+	string_base<T> string_base<T>::substr(typename string_base<T>::size_type begin,typename string_base<T>::size_type end) const
+	{
 		string_base<T> ret;
 		ret.reserve(end-begin);
 		for(;begin<end;++begin,++ret._size)
@@ -396,13 +444,15 @@ namespace exlib {
 		return ret;
 	}
 	template<typename T>
-	string_base<T> string_base<T>::substr(typename string_base<T>::iterator begin,typename string_base<T>::iterator end) const {
+	string_base<T> string_base<T>::substr(typename string_base<T>::iterator begin,typename string_base<T>::iterator end) const
+	{
 		typedef typename string_base<T>::size_type st;
 		return substr(st(begin-_data),st(end-_data));
 	}
 
 	template<typename T>
-	bool string_base<T>::operator==(string_base<T> const& other) const {
+	bool string_base<T>::operator==(string_base<T> const& other) const
+	{
 		if(other.size()==size())
 		{
 			for(size_t i=0;i<size();++i)
@@ -421,7 +471,8 @@ namespace exlib {
 	void string_base<T>::insert(
 		typename string_base<T>::size_type pos,
 		T c,
-		typename string_base<T>::size_type count) {
+		typename string_base<T>::size_type count)
+	{
 		typedef typename string_base<T>::size_type st;
 		st new_size=count+_size;
 		reserve(new_size);
@@ -445,7 +496,8 @@ namespace exlib {
 	template<typename T>
 	typename string_base<T>::size_type string_base<T>::find(
 		string_base<T> const& target,
-		typename string_base<T>::size_type pos=0) const {
+		typename string_base<T>::size_type pos=0) const
+	{
 		return find(target.data(),pos,target.size());
 	}
 
@@ -453,7 +505,8 @@ namespace exlib {
 	typename string_base<T>::size_type string_base<T>::find(
 		typename string_base<T>::const_pointer target,
 		typename string_base<T>::size_type pos,
-		typename string_base<T>::size_type count) const {
+		typename string_base<T>::size_type count) const
+	{
 		typedef typename string_base<T>::size_type st;
 		if(count==0)
 		{
@@ -486,12 +539,14 @@ namespace exlib {
 	template<typename T>
 	typename string_base<T>::size_type string_base<T>::find(
 		typename string_base<T>::const_pointer target,
-		typename string_base<T>::size_type pos=0) const {
+		typename string_base<T>::size_type pos=0) const
+	{
 		return find(target,pos,strlen(target));
 	}
 
 	template<typename T>
-	typename string_base<T>::size_type string_base<T>::find(T ch,size_type pos=0) const {
+	typename string_base<T>::size_type string_base<T>::find(T ch,size_type pos=0) const
+	{
 		for(typename string_base<T>::size_type i=pos;i<size();++i)
 		{
 			if((*this)[i]==ch)
@@ -503,10 +558,30 @@ namespace exlib {
 	}
 
 	template<typename T>
-	void string_base<T>::release() {
+	void string_base<T>::release()
+	{
 		_data=nullptr;
 		_size=0;
 		_capacity=0;
+	}
+
+	template<typename T>
+	typename string_base<T>::size_type rfind(T ch,typename string_base<T>::size_type pos) const
+	{
+		if(pos>_size)
+		{
+			pos=_size;
+		}
+		pos=pos-1;
+		do
+		{
+			if(_data[pos]==ch)
+			{
+				return pos;
+			}
+			--pos;
+		} while(pos>0);
+		return npos;
 	}
 }
 #endif
