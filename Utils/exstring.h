@@ -1,11 +1,11 @@
 #ifndef EXSTRING_H
 #define EXSTRING_H
-#ifndef CUSTSTRING_H
-#define CUSTSTRING_H
 #include <iostream>
 #include <stdexcept>
 #include <new>
 #include <assert.h>
+#include <string>
+
 namespace exlib {
 	template<typename T>
 	size_t strlen(T const* p) {
@@ -86,8 +86,8 @@ namespace exlib {
 
 		string_base operator+(string_base const&) const;
 		string_base& operator+=(string_base const&);
-		string_base substring(size_type begin,size_type end) const;
-		string_base substring(iterator begin,iterator end) const;
+		string_base substr(size_type begin,size_type end) const;
+		string_base substr(iterator begin,iterator end) const;
 
 		size_type find(string_base const& target,size_type pos=0) const;
 		size_type find(const_pointer target,size_type pos,size_type count) const;
@@ -145,7 +145,7 @@ namespace exlib {
 
 	template<typename T>
 	template<typename U>
-	string_base<T>::string_base(U const* cp): string_base(cp,cust::strlen(cp)) {}
+	string_base<T>::string_base(U const* cp): string_base(cp,exlib::strlen(cp)) {}
 
 	template<typename T>
 	template<typename U>
@@ -385,7 +385,7 @@ namespace exlib {
 		return *this;
 	}
 	template<typename T>
-	string_base<T> string_base<T>::substring(typename string_base<T>::size_type begin,typename string_base<T>::size_type end) const {
+	string_base<T> string_base<T>::substr(typename string_base<T>::size_type begin,typename string_base<T>::size_type end) const {
 		string_base<T> ret;
 		ret.reserve(end-begin);
 		for(;begin<end;++begin,++ret._size)
@@ -396,9 +396,9 @@ namespace exlib {
 		return ret;
 	}
 	template<typename T>
-	string_base<T> string_base<T>::substring(typename string_base<T>::iterator begin,typename string_base<T>::iterator end) const {
+	string_base<T> string_base<T>::substr(typename string_base<T>::iterator begin,typename string_base<T>::iterator end) const {
 		typedef typename string_base<T>::size_type st;
-		return substring(st(begin-_data),st(end-_data));
+		return substr(st(begin-_data),st(end-_data));
 	}
 
 	template<typename T>
@@ -509,5 +509,4 @@ namespace exlib {
 		_capacity=0;
 	}
 }
-#endif
 #endif
