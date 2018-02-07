@@ -71,6 +71,7 @@ namespace exlib {
 
 		size_type rfind(T ch,size_type pos=npos) const;
 
+
 		reference operator[](size_type i) { return _data[i]; }
 		const_reference operator[](size_type i) const { return _data[i]; }
 		reference at(size_type i)
@@ -160,6 +161,7 @@ namespace exlib {
 		~string_base();
 		size_type capacity() const { return _capacity; }
 		void shrink_to_fit();
+		void resize(size_type);
 		void reserve(size_type);
 		void release();
 
@@ -348,6 +350,15 @@ namespace exlib {
 		_capacity=_size;
 		_data=np;
 	}
+
+	template<typename T,typename CharT,typename Alloc>
+	void string_base<T,CharT,Alloc>::resize(typename string_base<T,CharT,Alloc>::size_type s)
+	{
+		reserve(s);
+		_size=s;
+		_data[s]=0;
+	}
+
 	template<typename T,typename CharT,typename Alloc>
 	void string_base<T,CharT,Alloc>::reserve(typename string_base<T,CharT,Alloc>::size_type s)
 	{
@@ -378,11 +389,13 @@ namespace exlib {
 		_data[_size]=cr;
 		++_size;
 	}
+
 	template<typename T,typename CharT,typename Alloc>
 	void string_base<T,CharT,Alloc>::pop_back()
 	{
 		_data[--_size]=0;
 	}
+
 	template<typename T,typename CharT,typename Alloc>
 	void string_base<T,CharT,Alloc>::erase(typename string_base<T,CharT,Alloc>::size_type pos)
 	{
@@ -410,6 +423,7 @@ namespace exlib {
 		erase(static_cast<st>(begin-_data),
 			static_cast<st>(end-_data));
 	}
+
 	template<typename T,typename CharT,typename Alloc>
 	void string_base<T,CharT,Alloc>::erase(
 		typename string_base<T,CharT,Alloc>::size_type begin,
@@ -423,6 +437,7 @@ namespace exlib {
 		_data[j]=0;
 		_size=j;
 	}
+
 	template<typename T,typename CharT,typename Alloc>
 	string_base<T,CharT,Alloc> string_base<T,CharT,Alloc>::operator+(string_base<T,CharT,Alloc> const& other) const
 	{
@@ -441,6 +456,7 @@ namespace exlib {
 		ret[ret._size]=0;
 		return ret;
 	}
+
 	template<typename T,typename CharT,typename Alloc>
 	template<typename U,typename CharU>
 	string_base<T,CharT,Alloc>& string_base<T,CharT,Alloc>::operator+=(string_alg<U,CharU> const& other)
@@ -455,6 +471,7 @@ namespace exlib {
 		(*this)[_size]=0;
 		return *this;
 	}
+
 	template<typename T,typename CharT,typename Alloc>
 	template<typename U,typename CharU,typename AllocU>
 	string_base<T,CharT,Alloc>& string_base<T,CharT,Alloc>::operator+=(string_base<U,CharU,AllocU> const& other)
@@ -476,6 +493,7 @@ namespace exlib {
 		ret[ret._size]=0;
 		return ret;
 	}
+
 	template<typename T,typename CharT,typename Alloc>
 	string_base<T,CharT,Alloc> string_base<T,CharT,Alloc>::substr(
 		typename string_base<T,CharT,Alloc>::iterator begin,
