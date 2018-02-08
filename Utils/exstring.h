@@ -1,3 +1,19 @@
+/*
+Copyright(C) 2017 Edward Xie
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 #ifndef EXSTRING_H
 #define EXSTRING_H
 #include <iostream>
@@ -7,6 +23,10 @@
 #include <string>
 #include <algorithm>
 #include <limits>
+#include "exmeta.h"
+make_has_method(get)
+make_has_method(size)
+make_has_method(data)
 namespace exlib {
 	template<typename T>
 	size_t strlen(T const* p)
@@ -136,6 +156,7 @@ namespace exlib {
 	private:
 		size_type _capacity;
 		void move(string_base&&) noexcept;
+		void reallocate(size_type);
 	public:
 		string_base();
 		template<typename U>
@@ -145,17 +166,16 @@ namespace exlib {
 		string_base(U const*,size_type s);
 		string_base(size_type capacity);
 		string_base(string_base&&) noexcept;
-		template<typename U,typename CharU>
-		string_base(string_alg<U,CharU> const&);
-		template<typename U,typename CharU,typename AllocU>
-		string_base(string_base<U,CharU,AllocU> const&);
-		string_base(string_base const&);
 
-		template<typename U,typename CharU>
-		string_base& operator=(string_alg<U,CharU> const&);
-		template<typename U,typename CharU,typename AllocU>
-		string_base& operator=(string_base<U,CharU,AllocU> const&);
-		string_base& operator=(string_base const&);
+		template<typename String>
+		string_base(String const&);
+		string_base(string_base const& other);
+
+		template<typename String>
+		string_base& operator=(String const&);
+		string_base& operator=(string_base const& other);
+		template<typename U>
+		string_base& operator=(U const*);
 		string_base& operator=(string_base&&) noexcept;
 
 		~string_base();
@@ -258,15 +278,28 @@ namespace exlib {
 	string_base<T,CharT,Alloc>::string_base():string_alg<T,CharT>(nullptr,0),_capacity(0) {}
 
 	template<typename T,typename CharT,typename Alloc>
-	template<typename U,typename CharU>
-	string_base<T,CharT,Alloc>::string_base(string_alg<U,CharU> const& other):string_base(other.data(),other.size()) {}
-
-	template<typename T,typename CharT,typename Alloc>
-	template<typename U,typename CharU,typename AllocU>
-	string_base<T,CharT,Alloc>::string_base(string_base<U,CharU,AllocU> const& other):string_base(other.data(),other.size()) {}
+	template<typename String>
+	string_base<T,CharT,Alloc>::string_base(String const& other):string_base(other.data(),other.size()) {}
 
 	template<typename T,typename CharT,typename Alloc>
 	string_base<T,CharT,Alloc>::string_base(string_base<T,CharT,Alloc> const& other):string_base(other.data(),other.size()) {}
+
+	template<typename T,typename CharT,typename Alloc>
+	void string_base<T,CharT,Alloc>::reallocate(typename string_base<T,CharT,Alloc>::size_type s)
+	{
+		typedef typename string_base<T,CharT,Alloc>::size_type st;
+		typedef typename string_base<T,CharT,Alloc>::pointer pointer;
+		pointer np=allocate(s+1);
+		st i;
+		for(i=0;i<_size;++i)
+		{
+			np[i]=_data[i];
+		}
+		np[i]=0;
+		deallocate(_data,_capacity+1);
+		_data=np;
+		_capacity=s;
+	}
 
 	template<typename T,typename CharT,typename Alloc>
 	void string_base<T,CharT,Alloc>::move(string_base<T,CharT,Alloc>&& other) noexcept
@@ -298,28 +331,47 @@ namespace exlib {
 	}
 
 	template<typename T,typename CharT,typename Alloc>
-	template<typename U,typename CharU>
-	string_base<T,CharT,Alloc>& string_base<T,CharT,Alloc>::operator=(string_alg<U,CharU> const& other)
+	template<typename String>
+	string_base<T,CharT,Alloc>& string_base<T,CharT,Alloc>::operator=(String const& other)
 	{
 		reserve(other.size());
-		for(_size=0;_size<other.size();++_size)
+		typename string_base<T,CharT,Alloc>::size_type s;
+		for(s=0;s<other.size();++s)
 		{
-			_data[_size]=other[_size];
+			_data[s]=other[s];
 		}
-		_data[_size]=0;
+		_data[s]=0;
+		_size=other.size();
 		return *this;
 	}
 
 	template<typename T,typename CharT,typename Alloc>
-	template<typename U,typename CharU,typename AllocU>
-	string_base<T,CharT,Alloc>& exlib::string_base<T,CharT,Alloc>::operator=(string_base<U,CharU,AllocU> const& other)
-	{
-		return ((*this)=static_cast<string_alg<U,CharU> const&>(other));
-	}
-	template<typename T,typename CharT,typename Alloc>
 	string_base<T,CharT,Alloc>& string_base<T,CharT,Alloc>::operator=(string_base<T,CharT,Alloc> const& other)
 	{
-		return ((*this)=static_cast<string_alg<T,CharT> const&>(other));
+		reserve(other.size());
+		typename string_base<T,CharT,Alloc>::size_type s;
+		for(s=0;s<other.size();++s)
+		{
+			_data[s]=other[s];
+		}
+		_data[s]=0;
+		_size=other.size();
+		return *this;
+	}
+
+	template<typename T,typename CharT,typename Alloc>
+	template<typename U>
+	string_base<T,CharT,Alloc>& string_base<T,CharT,Alloc>::operator=(U const* cp)
+	{
+		_size=exlib::strlen(cp);
+		reserve(_size);
+		typename string_base<T,CharT,Alloc>::size_type s;
+		for(s=0;s<_size;++s)
+		{
+			_data[s]=cp[s];
+		}
+		_data[s]=0;
+		return *this;
 	}
 
 	template<typename T,typename CharT,typename Alloc>
@@ -362,21 +414,11 @@ namespace exlib {
 	template<typename T,typename CharT,typename Alloc>
 	void string_base<T,CharT,Alloc>::reserve(typename string_base<T,CharT,Alloc>::size_type s)
 	{
-		typedef typename string_base<T,CharT,Alloc>::size_type st;
-		if(_capacity>=s&&_data!=nullptr)
+		if(_capacity>s&&_data!=nullptr)
 		{
 			return;
 		}
-		T* np=allocate(s+1);
-		st i=0;
-		for(i=0;i<_size;++i)
-		{
-			np[i]=_data[i];
-		}
-		np[i]=0;
-		deallocate(_data,_capacity+1);
-		_capacity=s;
-		_data=np;
+		reallocate(s);
 	}
 
 	template<typename T,typename CharT,typename Alloc>
@@ -384,7 +426,7 @@ namespace exlib {
 	{
 		if(_size>=_capacity)
 		{
-			reserve(_capacity*2);
+			reallocate(2*_size+1);
 		}
 		_data[_size]=cr;
 		++_size;
