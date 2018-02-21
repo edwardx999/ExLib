@@ -36,6 +36,9 @@
     <ClInclude Include="exmeta.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="exfiles.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">

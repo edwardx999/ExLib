@@ -24,9 +24,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #include <algorithm>
 #include <limits>
 #include "exmeta.h"
-make_has_method(get)
-make_has_method(size)
-make_has_method(data)
 namespace exlib {
 	template<typename T>
 	size_t strlen(T const* p)
