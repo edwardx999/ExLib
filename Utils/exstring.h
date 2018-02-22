@@ -679,5 +679,43 @@ namespace exlib {
 		} while(pos>0);
 		return npos;
 	}
+
+	/*
+		Creates ordinal lettering such that:
+		 0 -> "a"
+		 1 -> "b"
+		...
+		25 -> "z"
+		26 -> "aa"
+		27 -> "ab"
+		...
+		51 -> "az"
+		52 -> "ba"
+	*/
+	template<typename String,typename N,typename>
+	String ordinal_lettering(N n);
+
+	template<
+		typename String=std::string,
+		typename N,
+		typename=std::enable_if<std::is_integral<N>::value&&std::is_unsigned<N>::value>::type>
+		String ordinal_lettering(N n)
+	{
+		std::array<char,10> buffer;
+		unsigned char pos=9;
+		while(true)
+		{
+			buffer[pos]='a'+n%26;
+			n/=26;
+			if(n==0)
+			{
+				break;
+			}
+			n-=1;
+			--pos;
+		}
+
+		return String(buffer.data()+pos,10-pos);
+	}
 }
 #endif
