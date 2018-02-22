@@ -135,6 +135,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="exfiles.h" />
+    <ClInclude Include="exmath.h" />
     <ClInclude Include="exmem.h" />
     <ClInclude Include="exstdstring.h" />
     <ClInclude Include="exstring.h" />

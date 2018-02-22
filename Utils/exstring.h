@@ -23,7 +23,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #include <string>
 #include <algorithm>
 #include <limits>
-#include "exmeta.h"
+//#include "exmeta.h"
 namespace exlib {
 	template<typename T>
 	size_t strlen(T const* p)
