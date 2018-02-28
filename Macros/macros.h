@@ -27,53 +27,64 @@ along with this program.If not,see <https://www.gnu.org/licenses/>.
 #define MACROS_API __declspec(dllimport)
 #endif
 #include <Windows.h>
-#define VK_A exlib::VK_CODE(0x41)
-#define VK_B exlib::VK_CODE(0x42)
-#define VK_C exlib::VK_CODE(0x43)
-#define VK_D exlib::VK_CODE(0x44)
-#define VK_E exlib::VK_CODE(0x45)
-#define VK_F exlib::VK_CODE(0x46)
-#define VK_G exlib::VK_CODE(0x47)
-#define VK_H exlib::VK_CODE(0x48)
-#define VK_I exlib::VK_CODE(0x49)
-#define VK_J exlib::VK_CODE(0x4a)
-#define VK_K exlib::VK_CODE(0x4b)
-#define VK_L exlib::VK_CODE(0x4c)
-#define VK_M exlib::VK_CODE(0x4d)
-#define VK_N exlib::VK_CODE(0x4e)
-#define VK_O exlib::VK_CODE(0x4f)
-#define VK_P exlib::VK_CODE(0x50)
-#define VK_Q exlib::VK_CODE(0x51)
-#define VK_R exlib::VK_CODE(0x52)
-#define VK_S exlib::VK_CODE(0x53)
-#define VK_T exlib::VK_CODE(0x54)
-#define VK_U exlib::VK_CODE(0x55)
-#define VK_V exlib::VK_CODE(0x56)
-#define VK_W exlib::VK_CODE(0x57)
-#define VK_X exlib::VK_CODE(0x58)
-#define VK_Y exlib::VK_CODE(0x59)
-#define VK_Z exlib::VK_CODE(0x5a)
-#define VK_0 exlib::VK_CODE(0x30)
-#define VK_1 exlib::VK_CODE(0x31)
-#define VK_2 exlib::VK_CODE(0x32)
-#define VK_3 exlib::VK_CODE(0x33)
-#define VK_4 exlib::VK_CODE(0x34)
-#define VK_5 exlib::VK_CODE(0x35)
-#define VK_6 exlib::VK_CODE(0x36)
-#define VK_7 exlib::VK_CODE(0x37)
-#define VK_8 exlib::VK_CODE(0x38)
-#define VK_9 exlib::VK_CODE(0x39)
 #endif //_WINDOWS
-
-#define ME_MOUSE1 0
-#define ME_MOUSE2 1
-#define ME_MOUSE3 2
 namespace exlib {
 #ifdef _WINDOWS
 	typedef WORD VK_CODE;
 #else
 	typedef unsigned short VK_CODE;
 #endif //WINDOWS
+	enum vk_codes:VK_CODE {
+		VK_A
+	#ifdef _WINDOWS
+		=0x41
+	#endif
+		,
+		VK_B,
+		VK_C,
+		VK_D,
+		VK_E,
+		VK_F,
+		VK_G,
+		VK_H,
+		VK_I,
+		VK_J,
+		VK_K,
+		VK_L,
+		VK_M,
+		VK_N,
+		VK_O,
+		VK_P,
+		VK_Q,
+		VK_R,
+		VK_S,
+		VK_T,
+		VK_U,
+		VK_V,
+		VK_W,
+		VK_X,
+		VK_Y,
+		VK_Z,
+		VK_0
+	#ifdef _WINDOWS
+		=0x30
+	#endif
+		,
+		VK_1,
+		VK_2,
+		VK_3,
+		VK_4,
+		VK_5,
+		VK_6,
+		VK_7,
+		VK_8,
+		VK_9,
+	};
+	enum mouse_codes {
+		ME_MOUSE1,
+		ME_MOUSE2,
+		ME_MOUSE3,
+	};
 	typedef std::vector<VK_CODE> Combo;
 	/*
 		Converts a char to a virtual key code
@@ -359,7 +370,8 @@ namespace exlib {
 	class CommandList:public std::vector<std::unique_ptr<Command>> {
 	public:
 		template<typename CMD,typename... Args>
-		inline void add_command(Args... args) {
+		inline void add_command(Args... args)
+		{
 			this->emplace_back(std::make_unique<CMD>(args...));
 		}
 		void MACROS_API loop_until_key_pressed(VK_CODE esc_code=VK_ESCAPE);
@@ -382,17 +394,20 @@ namespace exlib {
 	std::ostream& operator<<(std::ostream& os,Point p);
 
 #ifdef _WINDOWS
-	inline POINT cursor_pos() {
+	inline POINT cursor_pos()
+	{
 		POINT pos;
 		GetCursorPos(&pos);
 		return pos;
 	}
 #endif _WINDOWS
-	inline std::ostream& operator<<(std::ostream& os,Point p) {
+	inline std::ostream& operator<<(std::ostream& os,Point p)
+	{
 		return os<<'('<<p.x<<','<<p.y<<')';
 	}
 #ifdef _WINDOWS
-	inline int inject_inputs(std::vector<INPUT>& inputs) {
+	inline int inject_inputs(std::vector<INPUT>& inputs)
+	{
 		return !(SendInput(inputs.size(),inputs.data(),sizeof(INPUT)));
 	}
 #endif //_WINDOWS

@@ -23,6 +23,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #include <string>
 #include <algorithm>
 #include <limits>
+#include <typeindex>
 //#include "exmeta.h"
 namespace exlib {
 	template<typename T>
@@ -64,7 +65,8 @@ namespace exlib {
 		friend std::basic_ostream<A>& operator<<(std::basic_ostream<A>&,string_alg<A,B> const&);
 
 		iterator begin() { return _data; }
-		const_iterator begin() const { return _data; }
+		const_iterator cbegin() const { return _data; }
+
 		iterator end() { return _data+_size; }
 		const_iterator cend() const { return _data+_size; }
 		reverse_iterator rbegin() { return reverse_iterator(end()); }
@@ -179,6 +181,7 @@ namespace exlib {
 		size_type capacity() const { return _capacity; }
 		void shrink_to_fit();
 		void resize(size_type);
+		void resize(size_type,T);
 		void reserve(size_type);
 		void release();
 
@@ -199,6 +202,7 @@ namespace exlib {
 		string_base& operator+=(string_base<U,CharU,AllocU> const&);
 		string_base substr(size_type begin,size_type end) const;
 		string_base substr(iterator begin,iterator end) const;
+		string_base& append(size_type count,T ch);
 
 		void clear()
 		{
@@ -230,9 +234,32 @@ namespace exlib {
 		typedef typename string_alg<T,CharT>::reverse_iterator reverse_iterator;
 		typedef typename string_alg<T,CharT>::const_reverse_iterator const_reverse_iterator;
 		weak_string_base(T* data):string_alg(data,exlib::strlen(data)) {}
+		weak_string_base(T* data,size_t size):string_alg(data,size) {}
 	};
 	typedef weak_string_base<char> weak_string;
 	typedef weak_string_base<wchar_t> weak_wstring;
+
+	template<typename T,typename CharT=std::char_traits<T>>
+	class string_manager_base:public string_alg<T,CharT> {
+	public:
+		typedef typename string_alg<T,CharT>::value_type value_type;
+		typedef typename string_alg<T,CharT>::pointer pointer;
+		typedef typename string_alg<T,CharT>::const_pointer const_pointer;
+		typedef typename string_alg<T,CharT>::reference reference;
+		typedef typename string_alg<T,CharT>::const_reference const_reference;
+		typedef typename string_alg<T,CharT>::size_type size_type;
+		typedef typename string_alg<T,CharT>::difference_type difference_type;
+
+		typedef typename string_alg<T,CharT>::iterator iterator;
+		typedef typename string_alg<T,CharT>::const_iterator const_iterator;
+		typedef typename string_alg<T,CharT>::reverse_iterator reverse_iterator;
+		typedef typename string_alg<T,CharT>::const_reverse_iterator const_reverse_iterator;
+		string_manager_base(T* data):string_alg(data,exlib::strlen(data)) {}
+		string_manager_base(T* data,size_t size):string_alg(data,size) {}
+		~string_manager_base() { delete[] data; }
+	};
+	typedef string_manager_base<char> string_manager;
+	typedef string_manager_base<char> wstring_manager;
 
 	template<typename T,typename CharT,typename Alloc>
 	template<typename U>
@@ -409,6 +436,17 @@ namespace exlib {
 	}
 
 	template<typename T,typename CharT,typename Alloc>
+	void string_base<T,CharT,Alloc>::resize(typename string_base<T,CharT,Alloc>::size_type s,T ch)
+	{
+		reserve(s);
+		for(;_size<s;++_size)
+		{
+			_data[_size]=ch;
+		}
+		_data[s]=0;
+	}
+
+	template<typename T,typename CharT,typename Alloc>
 	void string_base<T,CharT,Alloc>::reserve(typename string_base<T,CharT,Alloc>::size_type s)
 	{
 		if(_capacity>s&&_data!=nullptr)
@@ -445,6 +483,12 @@ namespace exlib {
 			++pos;
 		}
 		_data[pos]=0;
+	}
+	template<typename T,typename CharT,typename Alloc>
+	string_base<T,CharT,Alloc>& string_base<T,CharT,Alloc>::append(typename string_base<T,CharT,Alloc>::size_type count,T ch)
+	{
+		resize(_size+count,ch);
+		return *this;
 	}
 
 	template<typename T,typename CharT,typename Alloc>
@@ -681,32 +725,40 @@ namespace exlib {
 	}
 
 	/*
-		Creates ordinal lettering such that:
-		 0 -> "a"
-		 1 -> "b"
-		...
-		25 -> "z"
-		26 -> "aa"
-		27 -> "ab"
-		...
-		51 -> "az"
-		52 -> "ba"
+	Creates ordinal lettering such that:
+	0	-> "a"
+	1	-> "b"
+	...
+	25	-> "z"
+	26	-> "aa"
+	27	-> "ab"
+	...
+	51	-> "az"
+	52	-> "ba"
+	...
+	701	-> "zz"
+	702	-> "aaa"
+	703	-> "aab"
+	...
+	String must have constructor that takes in (char* string,size_t count).
+	Default buffer_size used to create the string is 15 (enough to fit 64 bit unsigned), increase if you need more.
 	*/
-	template<typename String,typename N,typename>
-	String ordinal_lettering(N n);
-
 	template<
 		typename String=std::string,
+		char alphabet_start='a',
+		unsigned int alphabet_size=26,
+		size_t buffer_size=15,
 		typename N,
-		typename=std::enable_if<std::is_integral<N>::value&&std::is_unsigned<N>::value>::type>
+		typename=std::enable_if<std::is_integral<N>::value&&std::is_unsigned<N>::value>::type
+	>
 		String ordinal_lettering(N n)
 	{
-		std::array<char,10> buffer;
-		unsigned char pos=9;
+		char buffer[buffer_size];
+		size_t pos=buffer_size-1;
 		while(true)
 		{
-			buffer[pos]='a'+n%26;
-			n/=26;
+			buffer[pos]=alphabet_start+n%alphabet_size;
+			n/=alphabet_size;
 			if(n==0)
 			{
 				break;
@@ -714,8 +766,46 @@ namespace exlib {
 			n-=1;
 			--pos;
 		}
+		return String(buffer+pos,buffer_size-pos);
+	}
+	template<typename String=std::string,
+		char alphabet_start='a',
+		unsigned int alphabet_size=26>
+		String ordinal_lettering(int n)
+	{
+		return ordinal_lettering<String,alphabet_start,alphabet_size,10>(static_cast<unsigned int>(n));
+	}
 
-		return String(buffer.data()+pos,10-pos);
+	template<typename String,typename StringType>
+	String front_padded_string(String const& in,size_t numpadding,StringType padding)
+	{
+		if(in.size()>=numpadding) return in;
+		size_t padding_needed=numpadding-in.size();
+		String out(padding_needed,padding);
+		out+=in;
+		return out;
+	}
+
+	template<typename String,typename StringType>
+	String back_padded_string(String const& in,size_t numpadding,StringType padding)
+	{
+		if(in.size()>=numpadding) return in;
+		size_t padding_needed=numpadding-in.size();
+		String out(in);
+		out.append(padding_needed,padding);
+		return out;
+	}
+
+	template<typename StringOut,typename StringIn>
+	StringOut string_cast(StringIn const& in)
+	{
+		StringOut out;
+		out.resize(in.size());
+		for(size_t i=0;i<in.size();++i)
+		{
+			out[i]=in[i];
+		}
+		return out;
 	}
 }
 #endif
