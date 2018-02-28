@@ -166,7 +166,7 @@ namespace exlib {
 		string_base(size_type capacity);
 		string_base(string_base&&) noexcept;
 
-		template<typename String>
+		template<typename String,typename>
 		string_base(String const&);
 		string_base(string_base const& other);
 
@@ -301,7 +301,7 @@ namespace exlib {
 	string_base<T,CharT,Alloc>::string_base():string_alg<T,CharT>(nullptr,0),_capacity(0) {}
 
 	template<typename T,typename CharT,typename Alloc>
-	template<typename String>
+	template<typename String,typename=std::enable_if<!std::is_integral<String>::value>::type>
 	string_base<T,CharT,Alloc>::string_base(String const& other):string_base(other.data(),other.size()) {}
 
 	template<typename T,typename CharT,typename Alloc>
