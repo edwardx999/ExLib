@@ -196,10 +196,9 @@ namespace exlib {
 		void insert(size_type pos,T c,size_type count=1);
 
 		string_base operator+(string_base const&) const;
-		template<typename U,typename CharU>
-		string_base& operator+=(string_alg<U,CharU> const&);
-		template<typename U,typename CharU,typename AllocU>
-		string_base& operator+=(string_base<U,CharU,AllocU> const&);
+		template<typename String>
+		string_base& operator+=(String const&);
+
 		string_base substr(size_type begin,size_type end) const;
 		string_base substr(iterator begin,iterator end) const;
 		string_base& append(size_type count,T ch);
@@ -541,25 +540,18 @@ namespace exlib {
 	}
 
 	template<typename T,typename CharT,typename Alloc>
-	template<typename U,typename CharU>
-	string_base<T,CharT,Alloc>& string_base<T,CharT,Alloc>::operator+=(string_alg<U,CharU> const& other)
+	template<typename String>
+	string_base<T,CharT,Alloc>& string_base<T,CharT,Alloc>::operator+=(String const& other)
 	{
 		typedef typename string_base<T,CharT,Alloc>::size_type st;
 		reserve(size()+other.size());
 		st limit=other.size();
 		for(st i=0;i<limit;++i,++_size)
 		{
-			(*this)[_size]=other[i];
+			_data[_size]=other[i];
 		}
-		(*this)[_size]=0;
+		_data[_size]=0;
 		return *this;
-	}
-
-	template<typename T,typename CharT,typename Alloc>
-	template<typename U,typename CharU,typename AllocU>
-	string_base<T,CharT,Alloc>& string_base<T,CharT,Alloc>::operator+=(string_base<U,CharU,AllocU> const& other)
-	{
-		return ((*this)+=static_cast<string_alg<U,CharU> const&>(other));
 	}
 
 	template<typename T,typename CharT,typename Alloc>
