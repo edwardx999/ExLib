@@ -120,7 +120,7 @@ namespace exlib {
 		Logger(Output& out):output(&out)
 		{}
 		/*
-		Logs to the output with a mutex lock. Do not call if your thread is holding onto the lock from lock().
+		Logs to the output with a mutex lock. Do not call if your thread is holding onto the lock from get_lock().
 		*/
 		template<typename T>
 		void log(T const& in)
@@ -129,7 +129,7 @@ namespace exlib {
 			(*output)<<in;
 		}
 		/*
-		Logs to the output without a mutex lock. Call if your thread is holding onto the lock from lock().
+		Logs to the output without a mutex lock. Call if your thread is holding onto the lock from get_lock().
 		*/
 		template<typename T>
 		void log_unsafe(T const& in)
@@ -139,7 +139,7 @@ namespace exlib {
 		/*
 		Returns a lock on this logger.
 		*/
-		std::unique_lock<std::mutex> lock()
+		std::unique_lock<std::mutex> get_lock()
 		{
 			return std::unique_lock<std::mutex>(locker);
 		}
