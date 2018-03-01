@@ -89,19 +89,60 @@ namespace exlib {
 		Calling wait on a pool that is not started will result in undefined behavior
 		*/
 		THREADPOOL_API void wait();
+
+		inline void join()
+		{
+			wait();
+		}
 	};
 
 	template<typename Task,typename... Args>
-	void ThreadPool::add_task(Args&&... arguments) {
+	void ThreadPool::add_task(Args&&... arguments)
+	{
 		tasks.push(std::make_unique<Task>(std::forward<Args>(arguments)...));
 	}
 	template<typename Task,typename... Args>
-	void ThreadPool::add_task_sync(Args&&... arguments) {
+	void ThreadPool::add_task_sync(Args&&... arguments)
+	{
 		std::lock_guard<std::mutex> guard(locker);
 		tasks.push(std::make_unique<Task>(std::forward<Args>(arguments)...));
 	}
-	inline bool ThreadPool::is_running() const {
+	inline bool ThreadPool::is_running() const
+	{
 		return running;
 	}
+
+	template<typename Output>
+	class Logger {
+		std::mutex locker;
+		Output* output;
+	public:
+		Logger(Output& out):output(&out)
+		{}
+		/*
+		Logs to the output with a mutex lock. Do not call if your thread is holding onto the lock from lock().
+		*/
+		template<typename T>
+		void log(T const& in)
+		{
+			std::lock_guard<std::mutex> guard(locker);
+			(*output)<<in;
+		}
+		/*
+		Logs to the output without a mutex lock. Call if your thread is holding onto the lock from lock().
+		*/
+		template<typename T>
+		void log_unsafe(T const& in)
+		{
+			(*output)<<in;
+		}
+		/*
+		Returns a lock on this logger.
+		*/
+		std::unique_lock<std::mutex> lock()
+		{
+			return std::unique_lock<std::mutex>(locker);
+		}
+	};
 }
 #endif // !THREAD_POOL_H

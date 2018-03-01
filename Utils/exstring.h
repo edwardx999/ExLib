@@ -56,25 +56,57 @@ namespace exlib {
 	protected:
 		pointer _data;
 		size_type _size;
-		string_alg(pointer data,size_type size):_data(data),_size(size) {}
-		string_alg() {}
+		string_alg(pointer data,size_type size):_data(data),_size(size)
+		{}
+		string_alg()
+		{}
 	public:
 		static size_type const npos=-1;
 
 		template<typename A,typename B>
 		friend std::basic_ostream<A>& operator<<(std::basic_ostream<A>&,string_alg<A,B> const&);
 
-		iterator begin() { return _data; }
-		const_iterator cbegin() const { return _data; }
+		iterator begin()
+		{
+			return _data;
+		}
+		const_iterator cbegin() const
+		{
+			return _data;
+		}
 
-		iterator end() { return _data+_size; }
-		const_iterator cend() const { return _data+_size; }
-		reverse_iterator rbegin() { return reverse_iterator(end()); }
-		const_reverse_iterator crbegin() const { return rbegin(); }
-		reverse_iterator rend() { return reverse_iterator(begin()); }
-		const_reverse_iterator crend() const { return rend(); }
-		size_type size() const { return _size; };
-		bool empty() const { return _size==0; }
+		iterator end()
+		{
+			return _data+_size;
+		}
+		const_iterator cend() const
+		{
+			return _data+_size;
+		}
+		reverse_iterator rbegin()
+		{
+			return reverse_iterator(end());
+		}
+		const_reverse_iterator crbegin() const
+		{
+			return rbegin();
+		}
+		reverse_iterator rend()
+		{
+			return reverse_iterator(begin());
+		}
+		const_reverse_iterator crend() const
+		{
+			return rend();
+		}
+		size_type size() const
+		{
+			return _size;
+		};
+		bool empty() const
+		{
+			return _size==0;
+		}
 
 		bool operator==(string_alg const&) const;
 		bool operator!=(string_alg const&) const;
@@ -91,8 +123,14 @@ namespace exlib {
 		size_type rfind(T ch,size_type pos=npos) const;
 
 
-		reference operator[](size_type i) { return _data[i]; }
-		const_reference operator[](size_type i) const { return _data[i]; }
+		reference operator[](size_type i)
+		{
+			return _data[i];
+		}
+		const_reference operator[](size_type i) const
+		{
+			return _data[i];
+		}
 		reference at(size_type i)
 		{
 			if(i>=size()||i<0)
@@ -109,8 +147,14 @@ namespace exlib {
 			}
 			return _data[i];
 		}
-		reference front() { return _data[0]; }
-		const_reference front() const { return _data[0]; }
+		reference front()
+		{
+			return _data[0];
+		}
+		const_reference front() const
+		{
+			return _data[0];
+		}
 		reference back()
 		{
 			return _data[size()-1];
@@ -178,7 +222,10 @@ namespace exlib {
 		string_base& operator=(string_base&&) noexcept;
 
 		~string_base();
-		size_type capacity() const { return _capacity; }
+		size_type capacity() const
+		{
+			return _capacity;
+		}
 		void shrink_to_fit();
 		void resize(size_type);
 		void resize(size_type,T);
@@ -232,8 +279,10 @@ namespace exlib {
 		typedef typename string_alg<T,CharT>::const_iterator const_iterator;
 		typedef typename string_alg<T,CharT>::reverse_iterator reverse_iterator;
 		typedef typename string_alg<T,CharT>::const_reverse_iterator const_reverse_iterator;
-		weak_string_base(T* data):string_alg(data,exlib::strlen(data)) {}
-		weak_string_base(T* data,size_t size):string_alg(data,size) {}
+		weak_string_base(T* data):string_alg(data,exlib::strlen(data))
+		{}
+		weak_string_base(T* data,size_t size):string_alg(data,size)
+		{}
 	};
 	typedef weak_string_base<char> weak_string;
 	typedef weak_string_base<wchar_t> weak_wstring;
@@ -253,16 +302,22 @@ namespace exlib {
 		typedef typename string_alg<T,CharT>::const_iterator const_iterator;
 		typedef typename string_alg<T,CharT>::reverse_iterator reverse_iterator;
 		typedef typename string_alg<T,CharT>::const_reverse_iterator const_reverse_iterator;
-		string_manager_base(T* data):string_alg(data,exlib::strlen(data)) {}
-		string_manager_base(T* data,size_t size):string_alg(data,size) {}
-		~string_manager_base() { delete[] data; }
+		string_manager_base(T* data):string_alg(data,exlib::strlen(data))
+		{}
+		string_manager_base(T* data,size_t size):string_alg(data,size)
+		{}
+		~string_manager_base()
+		{
+			delete[] data;
+		}
 	};
 	typedef string_manager_base<char> string_manager;
 	typedef string_manager_base<char> wstring_manager;
 
 	template<typename T,typename CharT,typename Alloc>
 	template<typename U>
-	string_base<T,CharT,Alloc>::string_base(U const* cp): string_base(cp,exlib::strlen(cp)) {}
+	string_base<T,CharT,Alloc>::string_base(U const* cp): string_base(cp,exlib::strlen(cp))
+	{}
 
 	template<typename T,typename CharT,typename Alloc>
 	template<typename U>
@@ -298,14 +353,17 @@ namespace exlib {
 		_size=0;
 	}
 	template<typename T,typename CharT,typename Alloc>
-	string_base<T,CharT,Alloc>::string_base():string_alg<T,CharT>(nullptr,0),_capacity(0) {}
+	string_base<T,CharT,Alloc>::string_base():string_alg<T,CharT>(nullptr,0),_capacity(0)
+	{}
 
 	template<typename T,typename CharT,typename Alloc>
 	template<typename String,typename=std::enable_if<!std::is_integral<String>::value>::type>
-	string_base<T,CharT,Alloc>::string_base(String const& other):string_base(other.data(),other.size()) {}
+	string_base<T,CharT,Alloc>::string_base(String const& other):string_base(other.data(),other.size())
+	{}
 
 	template<typename T,typename CharT,typename Alloc>
-	string_base<T,CharT,Alloc>::string_base(string_base<T,CharT,Alloc> const& other):string_base(other.data(),other.size()) {}
+	string_base<T,CharT,Alloc>::string_base(string_base<T,CharT,Alloc> const& other):string_base(other.data(),other.size())
+	{}
 
 	template<typename T,typename CharT,typename Alloc>
 	void string_base<T,CharT,Alloc>::reallocate(typename string_base<T,CharT,Alloc>::size_type s)
@@ -741,10 +799,12 @@ namespace exlib {
 		unsigned int alphabet_size=26,
 		size_t buffer_size=15,
 		typename N,
-		typename=std::enable_if<std::is_integral<N>::value&&std::is_unsigned<N>::value>::type
+		typename=std::enable_if<std::is_integral<N>::value>::type
 	>
-		String ordinal_lettering(N n)
+		String ordinal_lettering(N in)
 	{
+		typedef std::make_unsigned<N>::type uns;
+		uns& n=*reinterpret_cast<uns*>(&in);
 		char buffer[buffer_size];
 		size_t pos=buffer_size-1;
 		while(true)
@@ -759,13 +819,6 @@ namespace exlib {
 			--pos;
 		}
 		return String(buffer+pos,buffer_size-pos);
-	}
-	template<typename String=std::string,
-		char alphabet_start='a',
-		unsigned int alphabet_size=26>
-		String ordinal_lettering(int n)
-	{
-		return ordinal_lettering<String,alphabet_start,alphabet_size,10>(static_cast<unsigned int>(n));
 	}
 
 	template<typename String,typename StringType>

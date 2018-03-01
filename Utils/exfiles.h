@@ -22,8 +22,29 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #endif
 #include <stdio.h>
 namespace exlib {
+	/*
+		Returns a vector containing the filenames of all files in the first level of the given directory.
+	*/
 	template<typename String>
 	std::vector<String> files_in_dir(String const& path);
+
+	/*
+		Returns a String with any consecutive slashes replaced by a single slash.
+	*/
+	template<typename String,typename U>
+	String clean_multislashes(U const* input);
+
+	/*
+		Returns a String with any consecutive slashes replaced by a single slash.
+	*/
+	template<typename String>
+	String clean_multislashes(String const& input);
+
+	/*
+		Returns any consecutive slahes from the input, and returns the new size of the input string.
+	*/
+	template<typename T>
+	size_t remove_multislashes(T* input);
 
 #ifdef _WINDOWS
 	template<typename String>
@@ -47,5 +68,86 @@ namespace exlib {
 		return files;
 	}
 #endif
+
+	template<typename String,typename U>
+	String clean_multislashes(U const* input)
+	{
+		String out;
+		out.reserve(30);
+		bool found=false;
+		while(*input)
+		{
+			if(found)
+			{
+				if(*input!='\\'&&*input!='/')
+				{
+					found=false;
+					out.push_back(*input);
+				}
+			}
+			else
+			{
+				if(*input=='\\'||*input=='/')
+				{
+					found=true;
+				}
+				out.push_back(*input);
+			}
+			++input;
+		}
+		return out;
+	}
+
+	template<typename String>
+	String clean_multislashes(String const& input)
+	{
+		return clean_multislahes<String>(input.c_str());
+	}
+
+	template<typename T>
+	size_t remove_multislashes(T* input)
+	{
+		T* it=input;
+		struct keep {
+			T* start;
+			T* end;
+		};
+		std::vector<keep> keeps;
+		keeps.push_back({it,nullptr});
+		bool found=false;
+		int i=0;
+		while(*it)
+		{
+			if(keeps.back().end)//still in valid territory
+			{
+				if(*it!='/'&&*it!='\\')
+				{
+					keeps.push_back({it,nullptr});
+				}
+			}
+			else
+			{
+				if(*it=='/'||*it=='\\')
+				{
+					keeps.back().end=it+1;
+				}
+			}
+			++it;
+		}
+		keeps.back().end=it;
+		it=input;
+		for(auto& k:keeps)
+		{
+			while(k.start!=k.end)
+			{
+				*it=*k.start;
+				++it;
+				++k.start;
+			}
+		}
+		*it=0;
+		return it-input;
+	}
+
 }
 #endif
