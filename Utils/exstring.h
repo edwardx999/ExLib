@@ -792,6 +792,7 @@ namespace exlib {
 	...
 	String must have constructor that takes in (char* string,size_t count).
 	Default buffer_size used to create the string is 15 (enough to fit 64 bit unsigned), increase if you need more.
+	Giving negative values to this function will result in odd behavior.
 	*/
 	template<
 		typename String=std::string,
@@ -801,24 +802,23 @@ namespace exlib {
 		typename N,
 		typename=std::enable_if<std::is_integral<N>::value>::type
 	>
-		String ordinal_lettering(N in)
+		String ordinal_lettering(N n)
 	{
-		typedef std::make_unsigned<N>::type uns;
-		uns& n=*reinterpret_cast<uns*>(&in);
 		char buffer[buffer_size];
-		size_t pos=buffer_size-1;
+		char* end=buffer+buffer_size;
+		char* pos=end-1;
 		while(true)
 		{
-			buffer[pos]=alphabet_start+n%alphabet_size;
+			*pos=alphabet_start+n%alphabet_size;
 			n/=alphabet_size;
-			if(n==0)
+			if(n<=0)
 			{
 				break;
 			}
 			n-=1;
 			--pos;
 		}
-		return String(buffer+pos,buffer_size-pos);
+		return String(pos,end-pos);
 	}
 
 	template<typename String,typename StringType>

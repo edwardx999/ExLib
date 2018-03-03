@@ -61,7 +61,10 @@ namespace exlib {
 			FindNextFileA(hFind,&fdata);//gets rid of . and ..
 			do
 			{
-				files.emplace_back(fdata.cFileName);
+				if(!(fdata.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY))
+				{
+					files.emplace_back(fdata.cFileName);
+				}
 			} while(FindNextFileA(hFind,&fdata));
 		}
 		FindClose(hFind);

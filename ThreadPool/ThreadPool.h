@@ -40,7 +40,6 @@ namespace exlib {
 	};
 
 	class ThreadPool {
-		friend class std::thread;
 	private:
 		std::vector<std::thread> workers;
 		std::queue<std::unique_ptr<ThreadTask>> tasks;
@@ -123,26 +122,76 @@ namespace exlib {
 		Logs to the output with a mutex lock. Do not call if your thread is holding onto the lock from get_lock().
 		*/
 		template<typename T>
-		void log(T const& in)
-		{
-			std::lock_guard<std::mutex> guard(locker);
-			(*output)<<in;
-		}
+		void log(T const& in);
 		/*
 		Logs to the output without a mutex lock. Call if your thread is holding onto the lock from get_lock().
 		*/
 		template<typename T>
-		void log_unsafe(T const& in)
-		{
-			(*output)<<in;
-		}
+		void log_unsafe(T const& in);
 		/*
-		Returns a lock on this logger.
+		Returns a lock on this logger. Use log_unsafe() if holding onto the lock.
+		Used to facilitate multiple consecutive logs.
 		*/
-		std::unique_lock<std::mutex> get_lock()
-		{
-			return std::unique_lock<std::mutex>(locker);
-		}
+		std::unique_lock<std::mutex> get_lock();
 	};
+
+	template<typename Output>
+	std::unique_lock<std::mutex> Logger<Output>::get_lock()
+	{
+		return std::unique_lock<std::mutex>(locker);
+	}
+
+	template<typename Output>
+	template<typename T>
+	void Logger<Output>::log(T const& in)
+	{
+		std::lock_guard<std::mutex> guard(locker);
+		(*output)<<in;
+	}
+
+	template<typename Output>
+	template<typename T>
+	void Logger<Output>::log_unsafe(T const& in)
+	{
+		(*output)<<in;
+	}
+
+	template<>
+	template<typename T>
+	void Logger<std::string>::log(T const& in)
+	{
+		std::lock_guard<std::mutex> guard(locker);
+		(*output)+=in;
+	}
+
+	template<>
+	template<typename T>
+	void Logger<std::string>::log_unsafe(T const& in)
+	{
+		std::lock_guard<std::mutex> guard(locker);
+		(*output)+=in;
+	}
+
+	template<>
+	template<typename T>
+	void Logger<std::wstring>::log(T const& in)
+	{
+		std::lock_guard<std::mutex> guard(locker);
+		(*output)+=in;
+	}
+
+	template<>
+	template<typename T>
+	void Logger<std::wstring>::log_unsafe(T const& in)
+	{
+		std::lock_guard<std::mutex> guard(locker);
+		(*output)+=in;
+	}
+
+	typedef Logger<std::ofstream> FileLogger;
+	typedef Logger<std::ostream> OstreamLogger;
+	typedef Logger<std::wostream> WOstreamLogger;
+	typedef Logger<std::string> StringLogger;
+	typedef Logger<std::wstring> WStringLogger;
 }
 #endif // !THREAD_POOL_H

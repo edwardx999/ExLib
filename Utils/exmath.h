@@ -2,13 +2,13 @@
 #define EXMATH_H
 #include <type_traits>
 namespace exlib {
-	template<typename T,typename Out>
-	Out num_digits(T n,T base=10);
+	template<typename T>
+	unsigned int num_digits(T n,T base=10);
 
-	template<typename T,typename Out=std::enable_if<std::is_integral<T>::value,unsigned int>::type>
-	Out num_digits(T num,T base)
+	template<typename T>
+	unsigned int num_digits(T num,T base)
 	{
-		Out num_digits=1;
+		std::enable_if<std::is_integral<typename T>::value,unsigned int>::type num_digits=1;
 		while((num/=base)!=0)
 		{
 			++num_digits;

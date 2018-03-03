@@ -45,7 +45,7 @@ namespace exlib {
 	}
 	void ThreadPool::start() {
 		running=true;
-		for(unsigned int i=0;i<workers.size();++i)
+		for(size_t i=0;i<workers.size();++i)
 		{
 			workers[i]=std::thread(&ThreadPool::task_loop,this);
 		}
