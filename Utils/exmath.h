@@ -28,7 +28,7 @@ namespace exlib {
 		BigInteger(int64_t);
 
 		template<typename T>
-		friend operator<<(std::basic_ostream<T>,BigInteger const&);
+		friend void operator<<(std::basic_ostream<T>,BigInteger const&);
 
 		size_t size() const;
 		size_t capacity() const;
@@ -118,7 +118,7 @@ namespace exlib {
 		{
 			return false;
 		}
-		size_t limit=std::min(other.size
+		size_t limit=std::min(other.size(),size());
 	}
 }
 #endif
