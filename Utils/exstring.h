@@ -853,6 +853,9 @@ namespace exlib {
 		return out;
 	}
 
+	template<typename T>
+	T lowercase(T);
+
 	inline char lowercase(char a)
 	{
 		if(a>='A'&&a<='Z')
