@@ -58,7 +58,10 @@ namespace exlib {
 		{
 			return _data.end();
 		}
-
+		size_t size() const
+		{
+			return _data.size();
+		}
 	private:
 		template<typename U>
 		void _insert(U&& in,std::function<bool(T const&,T const&)> const& comp=std::less<T>())
