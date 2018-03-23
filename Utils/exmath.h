@@ -58,21 +58,24 @@ namespace exlib {
 		{
 			return _data.end();
 		}
-		void insert(T&& in,std::function<bool(T const&,T const&)> const& comp=std::less<T>())
+
+	private:
+		template<typename U>
+		void _insert(U&& in,std::function<bool(T const&,T const&)> const& comp=std::less<T>())
 		{
 			if(_data.empty()&&_max_size)
 			{
-				_data.insert(_data.begin(),std::forward<T>(in));
+				_data.insert(_data.begin(),std::forward<U>(in));
 				return;
 			}
 			if(comp(in,_data.front()))
 			{
-				_data.insert(_data.begin(),std::forward<T>(in));
+				_data.insert(_data.begin(),std::forward<U>(in));
 				goto end;
 			}
 			if(!(comp(in,_data.back())))
 			{
-				_data.insert(_data.end(),std::forward<T>(in));
+				_data.insert(_data.end(),std::forward<U>(in));
 				goto end;
 			}
 			auto b=_data.begin();
@@ -85,7 +88,7 @@ namespace exlib {
 				{
 					if(!(comp(in,*(m-1))))
 					{
-						_data.insert(m,std::forward<T>(in));
+						_data.insert(m,std::forward<U>(in));
 						goto end;
 					}
 					else
@@ -103,6 +106,15 @@ namespace exlib {
 			{
 				_data.erase(_data.end()-1);
 			}
+		}
+	public:
+		void insert(T&& in,std::function<bool(T const&,T const&)> const& comp=std::less<T>())
+		{
+			_insert(std::move(in),comp);
+		}
+		void insert(T const& in,std::function<bool(T const&,T const&)> const& comp=std::less<T>())
+		{
+			_insert(in,comp);
 		}
 	};
 	/*
