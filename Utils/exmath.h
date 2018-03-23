@@ -1,6 +1,8 @@
 #ifndef EXMATH_H
 #define EXMATH_H
 #include <type_traits>
+#include <vector>
+#include <functional>
 namespace exlib {
 	template<typename T>
 	unsigned int num_digits(T n,T base=10);
@@ -17,6 +19,92 @@ namespace exlib {
 		return num_digits;
 	}
 
+	template<typename T>
+	class LimitedSet {
+	public:
+		typedef typename ::std::vector<typename T>::iterator iterator;
+		typedef typename ::std::vector<typename T>::const_iterator const_iterator;
+	private:
+		size_t _max_size;
+		::std::vector<T> _data;
+	public:
+		LimitedSet(size_t s):_data(),_max_size(s)
+		{
+			_data.reserve(s);
+		}
+		LimitedSet():LimitedSet(0)
+		{}
+		void max_size(size_t s)
+		{
+			_max_size=s;
+		}
+		size_t max_size() const
+		{
+			return _max_size;
+		}
+		iterator begin()
+		{
+			return _data.begin();
+		}
+		iterator end()
+		{
+			return _data.end();
+		}
+		const_iterator begin() const
+		{
+			return _data.begin();
+		}
+		const_iterator end() const
+		{
+			return _data.end();
+		}
+		void insert(T&& in,std::function<bool(T const&,T const&)> const& comp=std::less<T>())
+		{
+			if(_data.empty()&&_max_size)
+			{
+				_data.insert(_data.begin(),std::forward<T>(in));
+				return;
+			}
+			if(comp(in,_data.front()))
+			{
+				_data.insert(_data.begin(),std::forward<T>(in));
+				goto end;
+			}
+			if(!(comp(in,_data.back())))
+			{
+				_data.insert(_data.end(),std::forward<T>(in));
+				goto end;
+			}
+			auto b=_data.begin();
+			auto e=_data.end();
+			decltype(b) m;
+			while(b<e)
+			{
+				m=b+std::distance(b,e)/2;
+				if(comp(in,*m))
+				{
+					if(!(comp(in,*(m-1))))
+					{
+						_data.insert(m,std::forward<T>(in));
+						goto end;
+					}
+					else
+					{
+						e=m;
+					}
+				}
+				else
+				{
+					b=m+1;
+				}
+			}
+		end:
+			if(_data.size()>_max_size)
+			{
+				_data.erase(_data.end()-1);
+			}
+		}
+	};
 	/*
 		Little-endian arbitrarily sized 2's complement integer.
 	*/
