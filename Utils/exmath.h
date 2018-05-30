@@ -19,6 +19,47 @@ namespace exlib {
 		return num_digits;
 	}
 
+	/*
+		Makes a container in which each element becomes the minimum element within hp of its index
+	*/
+	template<typename RandomAccessContainer,typename Comp>
+	RandomAccessContainer fattened_profile(RandomAccessContainer const& prof,size_t hp,Comp comp)
+	{
+		RandomAccessContainer res(prof.size());
+		auto el=prof.begin()-1;
+		auto rit=res.begin();
+		for(auto it=prof.begin();it<prof.end();++it,++rit)
+		{
+			decltype(it) begin,end;
+			if((it-prof.begin())<=hp)
+			{
+				begin=prof.begin();
+			}
+			else
+			{
+				begin=it-hp;
+			}
+			end=it+hp+1;
+			if(end>prof.end())
+			{
+				end=prof.end();
+			}
+			if(el<begin)
+			{
+				el=std::min_element(begin,end);
+			}
+			else
+			{
+				el=std::min(el,end-1,[=](auto const a,auto const b)
+				{
+					return comp(*a,*b);
+				});
+			}
+			*rit=*el;
+		}
+		return res;
+	}
+
 	template<typename T>
 	class LimitedSet {
 	public:
@@ -63,8 +104,8 @@ namespace exlib {
 			return _data.size();
 		}
 	private:
-		template<typename U>
-		void _insert(U&& in,std::function<bool(T const&,T const&)> const& comp=std::less<T>())
+		template<typename U,typename Comp>
+		void _insert(U&& in,Comp comp)
 		{
 			if(_data.empty()&&_max_size)
 			{
@@ -111,13 +152,23 @@ namespace exlib {
 			}
 		}
 	public:
-		void insert(T&& in,std::function<bool(T const&,T const&)> const& comp=std::less<T>())
+		template<typename Compare>
+		void insert(T&& in,Compare comp)
 		{
 			_insert(std::move(in),comp);
 		}
-		void insert(T const& in,std::function<bool(T const&,T const&)> const& comp=std::less<T>())
+		template<typename Compare>
+		void insert(T const& in,Compare comp)
 		{
 			_insert(in,comp);
+		}
+		void insert(T&& in)
+		{
+			_insert(std::move(in),std::less<T>());
+		}
+		void insert(T const& in)
+		{
+			_insert(in,std::less<T>());
 		}
 	};
 	/*
