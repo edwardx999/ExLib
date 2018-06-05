@@ -17,9 +17,112 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #ifndef EX_MEM_H
 #define EX_MEM_H
 #include <stdexcept>
+#include <vector>
 #include <type_traits>
+#include <array>
 #define FORCEINLINE __forceinline
 namespace exlib {
+	template<typename T>
+	class array_view {
+	public:
+		using const_iterator=typename std::vector<typename T>::const_iterator;
+		using const_reference=typename std::vector<typename T>::const_reference;
+		using const_pointer=typename std::vector<typename T>::const_pointer;
+		using value_type=T;
+		using const_reverse_iterator=typename std::vector<typename T>::const_reverse_iterator;
+		using size_type=typename std::vector<typename T>::size_type;
+		using difference_type=typename std::vector<typename T>::difference_type;
+	private:
+		T const *_data;
+		size_t _size;
+	public:
+		array_view():_data(0),_size(0)
+		{}
+		array_view(std::vector<T> const& v):_data(v.data()),_size(v.size())
+		{}
+		array_view(T const* data,size_t size):_data(data),_size(size)
+		{}
+		template<size_t N>
+		array_view(std::array<T,N> const& arr):_data(arr.data()),_size(arr.size())
+		{}
+		constexpr const_iterator begin() const noexcept
+		{
+			return const_iterator(_data);
+		}
+		constexpr const_iterator cbegin() const noexcept
+		{
+			return const_iterator(_data);
+		}
+		constexpr const_iterator end() const noexcept
+		{
+			return const_iterator(_data+size);
+		}
+		constexpr const_iterator cend() const noexcept
+		{
+			return const_iterator(_data+size);
+		}
+		constexpr const_reverse_iterator rbegin() const noexcept
+		{
+			return const_reverse_iterator(end());
+		}
+		constexpr const_reverse_iterator crbegin() const noexcept
+		{
+			return const_reverse_iterator(end());
+		}
+		constexpr const_reverse_iterator rend() const noexcept
+		{
+			return const_reverse_iterator(begin());
+		}
+		constexpr const_reverse_iterator crend() const noexcept
+		{
+			return const_reverse_iterator(begin());
+		}
+		constexpr const_reference operator[](size_t n) const
+		{
+			return _data[n];
+		}
+		constexpr const_reference at(size_t n) const
+		{
+			if(n>=_size)
+			{
+				throw std::out_of_range();
+			}
+			return _data[n];
+		}
+		constexpr const_reference front() const
+		{
+			return *_data;
+		}
+		constexpr const_reference back() const
+		{
+			return _data[_size-1];
+		}
+		constexpr const_pointer data() const noexcept
+		{
+			return _data;
+		}
+		constexpr size_t size() const noexcept
+		{
+			return _size;
+		}
+		constexpr size_t max_size() const noexcept
+		{
+			return std::numeric_limits<size_t>::max();
+		}
+		constexpr bool empty() const noexcept
+		{
+			return _size==0;
+		}
+		void data(T const* data) noexcept
+		{
+			_data=data;
+		}
+		void resize(size_t size) noexcept
+		{
+			_size=size;
+		}
+	};
+
 	template<typename T,size_t size>
 	class stack_buffer {
 	private:
@@ -28,11 +131,12 @@ namespace exlib {
 	public:
 		typedef T& reference;
 		typedef T const& const_reference;
-		typedef T* iterator;
-		typedef T const* const_iterator;
+		typedef typename std::vector<typename T>::iterator iterator;
+		typedef typename std::vector<typename T>::const_iterator const_iterator;
 
-		stack_buffer() noexcept:num(0) {}
-		~stack_buffer() noexcept
+		stack_buffer() noexcept:num(0)
+		{}
+		~stack_buffer()
 		{
 			if(!std::is_trivially_destructible<T>::value)
 			{
@@ -42,15 +146,15 @@ namespace exlib {
 				}
 			}
 		}
-		reference front() noexcept
+		reference front()
 		{
 			return *reinterpret_cast<T*>(data_buffer);
 		}
-		reference back() noexcept
+		reference back()
 		{
 			return *(reinterpret_cast<T*>(data_buffer)+num-1);
 		}
-		reference operator[](size_t i) noexcept
+		reference operator[](size_t i)
 		{
 			return *(reinterpret_cast<T*>(data_buffer)+i);
 		}
@@ -64,13 +168,13 @@ namespace exlib {
 		}
 		iterator begin() noexcept
 		{
-			return reinterpret_cast<T*>(data_buffer);
+			return iterator(reinterpret_cast<T*>(data_buffer));
 		}
 		iterator end() noexcept
 		{
-			return reinterpret_cast<T*>(data_buffer)+num;
+			return iterator(reinterpret_cast<T*>(data_buffer)+num);
 		}
-		void pop_back() noexcept
+		void pop_back()
 		{
 			back().~T();
 			--num;
