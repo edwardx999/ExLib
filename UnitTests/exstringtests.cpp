@@ -167,5 +167,18 @@ namespace UnitTests {
 			Assert::IsTrue(res<0);
 			Assert::IsTrue(res2>0);
 		}
+		TEST_METHOD(StrnCmpWindList3)
+		{
+			vector<std::string> ret=
+			{"00000000000000000009",
+			"10","00000011","13"};
+			auto exp=ret;
+			random_shuffle(ret.begin(),ret.end());
+			sort(ret.begin(),ret.end(),[](auto const& a,auto const& b)
+			{
+				return strncmp_wind(a.c_str(),b.c_str())<0;
+			});
+			Assert::AreEqual(exp,ret);
+		}
 	};
 }

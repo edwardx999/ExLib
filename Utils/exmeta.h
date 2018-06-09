@@ -56,4 +56,13 @@ namespace exlib {\
 #define make_has_method_concrete(METHOD_NAME,OUTPUT,...) include_has_method_h(METHOD_NAME,OUTPUT,__VA_ARGS__)
 #define make_has_method_proc(METHOD_NAME,OUTPUT_PROC) include_has_method_proc_h(METHOD_NAME,OUTPUT_PROC)
 
+//turns a function of one argument into repeated application of the function over multiple paramters
+#define multiapp(function_name) \
+template<typename T,typename... U> \
+void function_name(T const& in,U const&... args) \
+{ \
+	function_name(in); \
+	function_name(args...); \
+}
+
 #endif

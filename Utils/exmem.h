@@ -200,18 +200,18 @@ namespace exlib {
 			return size;
 		}
 		template<typename... Args>
-		void emplace_back(Args... args)
+		void emplace_back(Args&&... args)
 		{
-			new (reinterpret_cast<T*>(data_buffer)+num++) T(args...);
+			new (reinterpret_cast<T*>(data_buffer)+num++) T(std::forward<Args>(args)...);
 		}
 		template<typename... Args>
-		void emplace_back_checked(Args... args)
+		void emplace_back_checked(Args&&... args)
 		{
 			if(num>=size)
 			{
 				throw std::out_of_range();
 			}
-			new (reinterpret_cast<T*>(data_buffer)+num++) T(args...);
+			new (reinterpret_cast<T*>(data_buffer)+num++) T(std::forward<Args>(args)...);
 		}
 		T* data() noexcept
 		{
@@ -306,7 +306,7 @@ namespace exlib {
 			clear();
 		}
 		template<typename... Args>
-		void emplace(const_iterator pos,Args... args)
+		FORCEINLINE void emplace(const_iterator pos,Args&&... args)
 		{
 			if(_size==_capacity)
 			{
@@ -314,7 +314,7 @@ namespace exlib {
 			}
 			++_size;
 		}
-		void insert(const_iterator pos,T const& val);
+		FORCEINLINE void insert(const_iterator pos,T const& val);
 
 	};
 }
