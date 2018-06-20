@@ -33,6 +33,20 @@ namespace exlib {
 		virtual void execute()=0;
 	};
 
+	/*
+		Creates a ThreadTask that calls whatever object of type Task.
+	*/
+	template<typename Task>
+	class AutoTask:public ThreadTask {
+		Task task;
+	public:
+		AutoTask(Task task):task(task){}
+		void execute() override
+		{
+			task();
+		}
+	};
+
 	class ThreadPool {
 	private:
 		std::vector<std::thread> workers;
@@ -86,6 +100,7 @@ namespace exlib {
 		{
 			tasks.push(std::make_unique<Task>(std::forward<Args>(args)...));
 		}
+
 		/*
 			Adds a task of type Task constructed with args synchronized with running threads
 		*/
@@ -95,6 +110,7 @@ namespace exlib {
 			std::lock_guard<std::mutex> guard(locker);
 			tasks.push(std::make_unique<Task>(std::forward<Args>(args)...));
 		}
+
 		/*
 			Whether the thread pool is running
 		*/
@@ -117,7 +133,6 @@ namespace exlib {
 
 		/*
 			Waits for all tasks to be finished and then stops the thread pool
-			Calling wait on a pool that is not started will result in undefined behavior
 	   */
 		inline void wait()
 		{
@@ -130,7 +145,6 @@ namespace exlib {
 
 		/*
 			Stops as soon as all threads are done with their current tasks
-			Calling stop on a pool that is not started will result in undefined behavior
 		*/
 		inline void stop()
 		{
