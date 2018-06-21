@@ -38,6 +38,13 @@ namespace ExMathTests {
 			});
 			Assert::AreEqual(ex,res);
 		}
+		TEST_METHOD(fatten1a)
+		{
+			std::vector<unsigned int> in={1,2,3,4,5,6,7,8,9,10,1,2,3,4,5,6,8,0,10,112};
+			std::vector<unsigned int> ex={1,1,1,2,3,4,5,6,1, 1,1,1,1,2,3,0,0,0,0,0};
+			auto res=exlib::fattened_profile(in,2);
+			Assert::AreEqual(ex,res);
+		}
 		TEST_METHOD(fatten2)
 		{
 			std::vector<unsigned int> in={1,2,3,4,5,6,7,8 ,9 ,10,1 ,2 ,3,4,5,6,8 ,0  ,10 ,112};

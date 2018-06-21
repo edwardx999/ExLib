@@ -61,6 +61,30 @@ namespace exlib {
 		return res;
 	}
 
+	template<typename RandomAccessContainer>
+	RandomAccessContainer fattened_profile(RandomAccessContainer const& prof,size_t hp)
+	{
+		typedef std::decay<decltype(*prof.begin())>::type T;
+		if 
+#if __cplusplus > 201700L
+			constexpr
+#endif
+			(std::is_trivially_copyable<T>::value&&sizeof(T)<=2*sizeof(size_t))
+		{
+			return fattened_profile(prof,hp,[](auto a,auto b)
+			{
+				return a<b;
+			});
+		}
+		else
+		{
+			return fattened_profile(prof,hp,[](auto const& a,auto const& b)
+			{
+				return a<b;
+			});
+		}
+	}
+
 	template<typename T>
 	class LimitedSet {
 	public:
