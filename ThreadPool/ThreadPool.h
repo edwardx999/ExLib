@@ -1,5 +1,5 @@
 /*
-Copyright(C) 2017 Edward Xie
+Copyright(C) 2017-2018 Edward Xie
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -147,7 +147,7 @@ namespace exlib {
 			Overload for copying or moving existing ThreadTasks
 		*/
 		template<typename Task>
-		auto add_task(Task&& task) -> decltype(std::enable_if<std::is_convertible<std::add_pointer<std::remove_reference<Task>::type>::type,ThreadTaskA<Args...>*>::value>::type())
+		auto add_task(Task&& task) -> decltype(std::enable_if<std::is_convertible<std::add_pointer<Task>::type,ThreadTaskA<Args...>*>::value>::type())
 		{
 			tasks.push(std::make_unique<std::remove_reference<Task>::type>(std::forward<Task>(task)));
 		}
