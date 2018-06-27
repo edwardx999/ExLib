@@ -57,20 +57,24 @@ namespace exlib {
 	};
 
 	using ThreadTask=ThreadTaskA<>;
+
 	/*
 		Creates a ThreadTask that calls whatever object of type Task.
 	*/
-	template<typename Task>
-	class AutoTask:public ThreadTaskA<> {
+	template<typename Task,typename... Args>
+	class AutoTaskA:public ThreadTaskA<Args...> {
 		Task task;
 	public:
-		AutoTask(Task task):task(task)
+		AutoTaskA(Task task):task(task)
 		{}
-		void execute() override
+		void execute(Args... args) override
 		{
-			task();
+			task(args...);
 		}
 	};
+
+	template<typename Task>
+	using AutoTask=AutoTaskA<Task>;
 
 	template<typename... Args>
 	class ThreadPoolA {
@@ -80,7 +84,7 @@ namespace exlib {
 		std::queue<std::unique_ptr<Task>> tasks;
 		std::mutex locker;
 		std::atomic<bool> running;
-		inline void task_loop(Args&&... args)
+		inline void task_loop(Args... args)
 		{
 			while(running)
 			{
@@ -96,7 +100,7 @@ namespace exlib {
 				}
 				if(has_task)
 				{
-					task->execute(std::forward<Args>(args)...);
+					task->execute(args...);
 				}
 				else
 				{
@@ -122,11 +126,30 @@ namespace exlib {
 
 		/*
 			Adds a task of type Task constructed with args unsynchronized with running threads
-	   */
+		*/
 		template<typename ConsTask,typename... ConsArgs>
 		void add_task(ConsArgs&&... args)
 		{
 			tasks.push(std::make_unique<ConsTask>(std::forward<ConsArgs>(args)...));
+		}
+
+		/*
+			Overload for lambdas, std::functions, function pointers...,
+			anything with operator(Args...) defined and which is not a ThreadTaskA<Args...>
+		*/
+		template<typename Function>
+		auto add_task(Function func) -> decltype(func(std::declval<Args>()...),std::enable_if<!std::is_convertible<Function*,ThreadTaskA<Args...>*>::value>::type())
+		{
+			tasks.push(std::make_unique<AutoTaskA<decltype(func),Args...>>(func));
+		}
+
+		/*
+			Overload for copying or moving existing ThreadTasks
+		*/
+		template<typename Task>
+		auto add_task(Task&& task) -> decltype(std::enable_if<std::is_convertible<std::add_pointer<std::remove_reference<Task>::type>::type,ThreadTaskA<Args...>*>::value>::type())
+		{
+			tasks.push(std::make_unique<std::remove_reference<Task>::type>(std::forward<Task>(task)));
 		}
 
 		/*
@@ -137,6 +160,13 @@ namespace exlib {
 		{
 			std::lock_guard<std::mutex> guard(locker);
 			add_task<ConsTask>(std::forward<ConsArgs>(args)...);
+		}
+
+		template<typename Function>
+		void add_task_sync(Function func)
+		{
+			std::lock_guard<std::mutex> guard(locker);
+			add_task(func);
 		}
 
 		/*
@@ -150,12 +180,12 @@ namespace exlib {
 			Starts all the threads
 			Calling start on a pool that has not been stopped will result in undefined behavior
 		*/
-		void start(Args&&... args)
+		void start(Args... args)
 		{
 			running=true;
 			for(size_t i=0;i<workers.size();++i)
 			{
-				workers[i]=std::thread(&ThreadPoolA::task_loop,this,std::forward<Args>(args)...);
+				workers[i]=std::thread(&ThreadPoolA::task_loop,this,args...);
 			}
 		}
 
@@ -211,6 +241,7 @@ namespace exlib {
 
 		/*
 		Logs to the output without a mutex lock.
+		Specialize this function if you want a custom Logger
 		*/
 		template<typename T>
 		void log_unsafe(T const& in);
