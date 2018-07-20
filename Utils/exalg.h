@@ -221,44 +221,6 @@ namespace exlib {
 		return binary_find(begin,end,target,compare<std::decay<decltype(*begin)>::type>());
 	}
 
-	template<typename Key,typename Value>
-	struct map_pair {
-	private:
-		Key _key;
-		Value _value;
-	public:
-		using key_type=Key;
-		using mapped_type=Value;
-		template<typename A,typename B>
-		constexpr map_pair(A&& a,B&& b):_key(std::forward<A>(a)),_value(std::forward<B>(b))
-		{}
-		constexpr Key const& key() const{
-			return _key;
-		}
-		constexpr Value const& value() const
-		{
-			return value;
-		}
-		constexpr Value& value()
-		{
-			return value;
-		}
-	};
-
-	namespace detail {
-		template<typename Comp,typename Key,typename Value>
-		struct map_compare:protected Comp {
-			constexpr int operator()(Key const& target,map_pair<Key,Value> const& b) const
-			{
-				return Comp::operator()(target,b.key());
-			}
-			constexpr int operator()(map_pair<Key,Value> const& a,map_pair<Key,Value> const& b) const
-			{
-				return Comp::operator()(a.key(),b.key());
-			}
-		};
-	}
-
 	//converts three way comparison into a less than comparison
 	template<typename ThreeWayComp>
 	struct lt_comp:private ThreeWayComp {
@@ -289,7 +251,7 @@ namespace exlib {
 		}
 	};
 
-	//converts three way comparison into a greater than comparison
+	//converts three way comparison into a greater than or equal to comparison
 	template<typename ThreeWayComp>
 	struct ge_comp:private ThreeWayComp {
 		template<typename A,typename B>
@@ -309,7 +271,57 @@ namespace exlib {
 		}
 	};
 
-	//Comp defines operator()(Key(&),Key(&)) that returns <0, 0, or >0
+	//inverts three way comparison
+	template<typename ThreeWayComp>
+	struct inv_comp:private ThreeWayComp {
+		template<typename A,typename B>
+		constexpr int operator()(A const& a,B const& b) const
+		{
+			return ThreeWayComp::operator()(b,a);
+		}
+	};
+
+	//use this to initialize ct_map
+	template<typename Key,typename Value>
+	struct map_pair {
+	private:
+		Key _key;
+		Value _value;
+	public:
+		using key_type=Key;
+		using mapped_type=Value;
+		template<typename A,typename B>
+		constexpr map_pair(A&& a,B&& b):_key(std::forward<A>(a)),_value(std::forward<B>(b))
+		{}
+		constexpr Key const& key() const
+		{
+			return _key;
+		}
+		constexpr Value const& value() const
+		{
+			return _value;
+		}
+		constexpr Value& value()
+		{
+			return _value;
+		}
+	};
+
+	namespace detail {
+		template<typename Comp,typename Key,typename Value>
+		struct map_compare:protected Comp {
+			constexpr int operator()(Key const& target,map_pair<Key,Value> const& b) const
+			{
+				return Comp::operator()(target,b.key());
+			}
+			constexpr int operator()(map_pair<Key,Value> const& a,map_pair<Key,Value> const& b) const
+			{
+				return Comp::operator()(a.key(),b.key());
+			}
+		};
+	}
+
+	//Comp defines operator()(Key(&),Key(&)) that is a three-way comparison
 	template<typename Key,typename Value,size_t entries,typename Comp=compare<Key>>
 	class ct_map:protected detail::map_compare<Comp,Key,Value>,protected std::array<map_pair<Key,Value>,entries> {
 	public:
@@ -367,13 +379,14 @@ namespace exlib {
 		}
 	};
 
-
+	//inputs should be of type map_pair<Key,Value>
 	template<typename Comp,typename First,typename... Rest>
 	constexpr auto make_ct_map(First&& f,Rest&&... r)
 	{
 		return ct_map<First::key_type,First::mapped_type,1+sizeof...(r),Comp>(std::forward<First>(f),std::forward<Rest>(r)...);
 	}
 
+	//inputs should be of type map_pair<Key,Value>
 	template<typename First,typename... T>
 	constexpr auto make_ct_map(First&& k,T&&... rest)
 	{
