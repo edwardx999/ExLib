@@ -146,6 +146,12 @@ namespace exlib {
 		return detail::concat(a,b,std::make_index_sequence<N>(),std::make_index_sequence<M>());
 	}
 
+	template<typename A,typename B,typename... C>
+	constexpr auto concat(A const& a,B const& b,C const&... c)
+	{
+		return concat(concat(a,b),c...);
+	}
+
 	template<typename T>
 	struct compare {
 		constexpr int operator()(T const& a,T const& b) const
@@ -369,6 +375,13 @@ namespace exlib {
 			qsort(begin(),end(),lt_comp<key_compare>());
 		}
 
+	private:
+		template<size_t... Is>
+		constexpr ct_map(std::array<value_type,entries> const& in,std::index_sequence<Is...>):Data{{in[I]...}}
+		{}
+	public:
+		constexpr ct_map(std::array<value_type,entries> const& in):ct_map(in,std::make_index_sequence<entries>())
+		{}
 		constexpr iterator find(Key const& k)
 		{
 			return binary_find(begin(),end(),k,static_cast<key_compare>(*this));
@@ -391,6 +404,36 @@ namespace exlib {
 	constexpr auto make_ct_map(First&& k,T&&... rest)
 	{
 		return make_ct_map<compare<First::key_type>>(std::forward<First>(k),std::forward<T>(rest)...);
+	}
+
+	template<typename Comp,typename T,size_t N>
+	constexpr auto make_ct_map(std::array<T,N> const& in)
+	{
+		return ct_map<T::key_type,T::mapped_type,N,Comp>(in);
+	}
+
+	template<typename T,size_t N>
+	constexpr auto make_ct_map(std::array<T,N> const& in)
+	{
+		return make_ct_map<comp<First::key_type>>(in);
+	}
+
+	template<typename Type,typename... Args>
+	constexpr auto make_array(Args&&... args)
+	{
+		return std::array<Type,sizeof...(Args)>{
+			{
+				std::forward<Args>(args)...
+			}};
+	}
+
+	template<typename F,typename... Args>
+	constexpr auto make_array(F&& arg,Args&&... args)
+	{
+		return std::array<std::decay<F>::type,sizeof...(args)+1> {
+			{
+				std::forward<F>(arg),std::forward<Args>(args)...
+			}};
 	}
 
 	template<typename FindNext,typename... IndParser>
