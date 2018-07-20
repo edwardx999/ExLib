@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <random>
 using namespace exlib;
 using namespace std;
 namespace Microsoft {
@@ -127,7 +128,10 @@ namespace UnitTests {
 		{
 			vector<char*> ret={"1","02","2","3","4","5","6","7","8","9","010","10","11","103","0104"};
 			auto exp=ret;
-			random_shuffle(ret.begin(),ret.end());
+			std::random_device rd;
+			std::mt19937 g(rd());
+
+			std::shuffle(ret.begin(),ret.end(),g);
 			sort(ret.begin(),ret.end(),[](auto a,auto b)
 			{
 				return strncmp_wind(a,b)<0;
@@ -151,7 +155,10 @@ namespace UnitTests {
 				"My Show - Episode 13 - Car.mp4",
 				"My Show - Episode 14 - Make.mp4",};
 			auto exp=ret;
-			random_shuffle(ret.begin(),ret.end());
+			std::random_device rd;
+			std::mt19937 g(rd());
+
+			std::shuffle(ret.begin(),ret.end(),g);
 			sort(ret.begin(),ret.end(),[](auto const& a,auto const& b)
 			{
 				return strncmp_wind(a,b)<0;
@@ -173,7 +180,10 @@ namespace UnitTests {
 			{"00000000000000000009",
 			"10","00000011","13"};
 			auto exp=ret;
-			random_shuffle(ret.begin(),ret.end());
+			std::random_device rd;
+			std::mt19937 g(rd());
+
+			std::shuffle(ret.begin(),ret.end(),g);
 			sort(ret.begin(),ret.end(),[](auto const& a,auto const& b)
 			{
 				return strncmp_wind(a.c_str(),b.c_str())<0;

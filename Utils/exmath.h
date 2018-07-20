@@ -4,12 +4,27 @@
 #include <vector>
 #include <functional>
 #include <algorithm>
+#include <array>
+#if defined(_CONSTEXPR17)
+#define EX_CONSTEXPR _CONSTEXPR17
+#elif defined(_HAS_CXX17) || __cplusplus>201100L
+#define EX_CONSTEXPR constexpr
+#else
+#define EX_CONSTEXPR
+#endif
+
+#define CONSTEXPR
+#ifdef _CONSTEXPR_IF
+#define EX_CONSTIF _CONSTEXPR_IF
+#elif defined(_HAS_CXX17) || __cplusplus>201700L
+#define EX_CONSTIF constexpr
+#else
+#define EX_CONSTIF
+#endif
 namespace exlib {
-	template<typename T>
-	unsigned int num_digits(T n,T base=10);
 
 	template<typename T>
-	unsigned int num_digits(T num,T base)
+	EX_CONSTEXPR unsigned int num_digits(T num,T base=10)
 	{
 		static_assert(std::is_integral<typename T>::value,"Requires integral type");
 		unsigned int num_digits=1;
@@ -18,6 +33,53 @@ namespace exlib {
 			++num_digits;
 		}
 		return num_digits;
+	}
+
+	template<unsigned long long val,typename CharType=char>
+	constexpr auto to_string_unsigned()
+	{
+		std::array<CharType,num_digits(val)+1> number{{}};
+		auto v=val;
+		number.back()='\0';
+		auto it=number.end()-2;
+		do
+		{
+			*it=v%10+'0';
+			--it;
+			v/=10;
+		} while(v);
+		return number;
+	}
+
+	template<long long val,typename CharType=char>
+	constexpr auto to_string()
+	{
+		if constexpr(val<0)
+		{
+			std::array<CharType,num_digits(val)+2> number{{}};
+			auto v=val;
+			number.back()='\0';
+			number.front()='-';
+			auto it=number.end()-2;
+			do
+			{
+				if constexpr(-1%10==-1)
+				{
+					*it=-(v%10)+'0';
+				}
+				else
+				{
+					*it=10-(v%10)+'0';
+				}
+				--it;
+				v/=10;
+			} while(v);
+			return number;
+		}
+		else
+		{
+			return to_string_unsigned<val,CharType>();
+		}
 	}
 
 	/*
@@ -65,7 +127,7 @@ namespace exlib {
 	RandomAccessContainer fattened_profile(RandomAccessContainer const& prof,size_t hp)
 	{
 		typedef std::decay<decltype(*prof.begin())>::type T;
-		if 
+		if
 #if __cplusplus > 201700L
 			constexpr
 #endif
@@ -300,4 +362,6 @@ namespace exlib {
 		size_t limit=std::min(other.size(),size());
 	}
 }
+#undef EX_CONSTIF
+#undef EX_CONSTEXPR
 #endif

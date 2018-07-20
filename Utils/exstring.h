@@ -24,10 +24,32 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #include <algorithm>
 #include <limits>
 #include <typeindex>
+#include <utility>
 //#include "exmeta.h"
 namespace exlib {
+	
+	template<typename T,typename U>
+	constexpr int strcmp(T const* a,U const* b)
+	{
+		for(size_t i=0;;++i)
+		{
+			if(a[i]<b[i])
+			{
+				return -1;
+			}
+			if(a[i]>b[i])
+			{
+				return 1;
+			}
+			if(a[i]==0)
+			{
+				return 0;
+			}
+		}
+	}
+
 	template<typename T>
-	size_t strlen(T const* p)
+	constexpr size_t strlen(T const* p)
 	{
 		assert(p!=nullptr);
 		size_t i=0;
@@ -872,11 +894,11 @@ namespace exlib {
 		{
 			if(*b==0)
 			{
-				return *a;
+				return *a!=0?1:0;
 			}
 			else if(*a==0)
 			{
-				return -*b;
+				return -1;
 			}
 			else if(*b!=*a)
 			{
@@ -925,11 +947,11 @@ namespace exlib {
 		{
 			if(*b==0)
 			{
-				return *a;
+				return *a==0?0:1;
 			}
 			if(*a==0)
 			{
-				return -*b;
+				return -1;
 			}
 			if(is_digit(*a)&&is_digit(*b))
 			{

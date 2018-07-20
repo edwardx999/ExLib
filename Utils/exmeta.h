@@ -64,5 +64,4 @@ void function_name(T const& in,U const&... args) \
 	function_name(in); \
 	function_name(args...); \
 }
-
 #endif

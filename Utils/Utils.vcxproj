@@ -136,10 +136,13 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="exalg.h" />
     <ClInclude Include="exfiles.h" />
     <ClInclude Include="exmath.h" />
     <ClInclude Include="exmem.h" />
-    <ClInclude Include="exsexp.h" />
+    <ClInclude Include="exsexp.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="exstring.h" />
     <ClInclude Include="exmeta.h" />
     <ClInclude Include="targetver.h" />

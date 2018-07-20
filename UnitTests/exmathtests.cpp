@@ -19,6 +19,14 @@ namespace Microsoft {
 				}
 				return ret;
 			}
+			static std::wstring ToString(uint64_t in)
+			{
+				return std::to_wstring(in);
+			}
+			static std::wstring ToString(int64_t in)
+			{
+				return std::to_wstring(in);
+			}
 		}
 	}
 }
@@ -50,6 +58,16 @@ namespace ExMathTests {
 			std::vector<unsigned int> in={1,2,3,4,5,6,7,8 ,9 ,10,1 ,2 ,3,4,5,6,8 ,0  ,10 ,112};
 			std::vector<unsigned int> ex={3,4,5,6,7,8,9,10,10,10,10,10,5,6,8,8,10,112,112,112};
 			auto res=exlib::fattened_profile(in,2,[](auto a,auto b)
+			{
+				return a>b;
+			});
+			Assert::AreEqual(ex,res);
+		}
+		TEST_METHOD(fatten3)
+		{
+			std::vector<unsigned int> in={1,2,3,4,5,6,7 ,8 ,9 ,10,1 ,2 ,3 ,4,5,6,8  ,0  ,10 ,112};
+			std::vector<unsigned int> ex={4,5,6,7,8,9,10,10,10,10,10,10,10,8,8,8,112,112,112,112};
+			auto res=exlib::fattened_profile(in,3,[](auto a,auto b)
 			{
 				return a>b;
 			});

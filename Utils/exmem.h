@@ -33,17 +33,17 @@ namespace exlib {
 		using size_type=typename std::vector<typename T>::size_type;
 		using difference_type=typename std::vector<typename T>::difference_type;
 	private:
-		T const *_data;
+		T* _data;
 		size_t _size;
 	public:
-		array_view():_data(0),_size(0)
+		constexpr array_view():_data(0),_size(0)
 		{}
 		array_view(std::vector<T> const& v):_data(v.data()),_size(v.size())
 		{}
-		array_view(T const* data,size_t size):_data(data),_size(size)
+		constexpr array_view(T const* data,size_t size):_data(data),_size(size)
 		{}
 		template<size_t N>
-		array_view(std::array<T,N> const& arr):_data(arr.data()),_size(arr.size())
+		constexpr array_view(std::array<T,N> const& arr):_data(arr.data()),_size(arr.size())
 		{}
 		constexpr const_iterator begin() const noexcept
 		{
@@ -113,11 +113,11 @@ namespace exlib {
 		{
 			return _size==0;
 		}
-		void data(T const* data) noexcept
+		constexpr void data(T const* data) noexcept
 		{
 			_data=data;
 		}
-		void resize(size_t size) noexcept
+		constexpr void resize(size_t size) noexcept
 		{
 			_size=size;
 		}

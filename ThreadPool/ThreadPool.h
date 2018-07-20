@@ -26,22 +26,7 @@ namespace exlib {
 
 	namespace {
 		template<typename... Args>
-		struct no_references;
-
-		template<>
-		struct no_references<> {
-			constexpr static bool const value=true;
-		};
-
-		template<typename T>
-		struct no_references<T> {
-			constexpr static bool const value=!std::is_reference<T>::value;
-		};
-
-		template<typename First,typename... Args>
-		struct no_references<First,Args...> {
-			constexpr static bool const value=no_references<First>::value&&no_references<Args...>::value;
-		};
+		using no_references=std::conjunction<std::negation<std::is_reference<Args>>...>;
 	}
 	/*
 	Overload void execute(...) to use this as a task in ThreadPool
@@ -118,10 +103,19 @@ namespace exlib {
 		*/
 		inline explicit ThreadPoolA(size_t num_threads):workers(num_threads)
 		{}
+
 		/*
 			Creates a thread pool with number of threads equal to the hardware concurrency
-			*/
-		inline ThreadPoolA():ThreadPoolA(std::thread::hardware_concurrency())
+		*/
+		inline ThreadPoolA():ThreadPoolA([]()
+		{
+			auto const nt=std::thread::hardware_concurrency();
+			if(nt)
+			{
+				return nt;
+			}
+			return decltype(nt)(1);
+		}())
 		{}
 
 		/*
@@ -133,12 +127,26 @@ namespace exlib {
 			tasks.push(std::make_unique<ConsTask>(std::forward<ConsArgs>(args)...));
 		}
 
+	private:
+		template<typename T>
+		struct is_thread_task:public std::is_convertible<T*,ThreadTaskA<Args...>*> {};
+
+		template<typename T>
+		struct is_thread_task<T const&>:public is_thread_task<T> {};
+
+		template<typename T>
+		struct is_thread_task<T&>:public is_thread_task<T> {};
+
+		template<typename T>
+		struct is_thread_task<T&&>:public is_thread_task<T> {};
+	public:
+
 		/*
 			Overload for lambdas, std::functions, function pointers...,
 			anything with operator(Args...) defined and which is not a ThreadTaskA<Args...>
 		*/
 		template<typename Function>
-		auto add_task(Function func) -> decltype(func(std::declval<Args>()...),std::enable_if<!std::is_convertible<Function*,ThreadTaskA<Args...>*>::value>::type())
+		auto add_task(Function func) -> decltype(func(std::declval<Args>()...),std::enable_if<!is_thread_task<Function>::value>::type())
 		{
 			tasks.push(std::make_unique<AutoTaskA<decltype(func),Args...>>(func));
 		}
@@ -146,10 +154,10 @@ namespace exlib {
 		/*
 			Overload for copying or moving existing ThreadTasks
 		*/
-		template<typename Task>
-		auto add_task(Task&& task) -> decltype(std::enable_if<std::is_convertible<std::add_pointer<Task>::type,ThreadTaskA<Args...>*>::value>::type())
+		template<typename ATask>
+		auto add_task(ATask&& task) -> decltype(std::enable_if<is_thread_task<ATask>::value>::type())
 		{
-			tasks.push(std::make_unique<std::remove_reference<Task>::type>(std::forward<Task>(task)));
+			tasks.push(std::make_unique<std::remove_reference<ATask>::type>(std::forward<ATask>(task)));
 		}
 
 		/*
@@ -162,13 +170,38 @@ namespace exlib {
 			add_task<ConsTask>(std::forward<ConsArgs>(args)...);
 		}
 
-		template<typename Function>
-		void add_task_sync(Function func)
+		/*
+		Overload for copying or moving existing ThreadTasks
+		*/
+		template<typename ATask>
+		void add_task_sync(ATask&& task)
 		{
 			std::lock_guard<std::mutex> guard(locker);
-			add_task(func);
+			add_task(std::forward<ATask>(task));
 		}
 
+	private:
+		template<typename First>
+		void add_tasks_base(First&& first)
+		{
+			add_task(std::forward<First>(first));
+		}
+
+		template<typename First,typename... Rest>
+		void add_tasks_base(First&& f,Rest&&... rest)
+		{
+			add_task(std::forward<First>(f));
+			add_tasks_base(std::forward<Rest>(rest)...);
+		}
+
+	public:
+		template<typename... Tasks>
+		void add_tasks_sync(Tasks&&... tasks)
+		{
+			static_assert(sizeof...(tasks)>0,"Arguments needed");
+			std::lock_guard<std::mutex> guard(locker);
+			add_tasks_base(std::forward<Tasks>(tasks)...);
+		}
 		/*
 			Whether the thread pool is running
 		*/
