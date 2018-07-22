@@ -95,33 +95,13 @@ namespace exlib {
 		isort(begin,end,less<T>());
 	}
 
-	namespace detail {
-		template<typename T,size_t N,typename Comp>
-		constexpr void sort(std::array<T,N>& a,Comp c,size_t left,size_t right)
-		{
-			if(left<right)
-			{
-				size_t pivot=left;
-				for(size_t i=left+1;i<right;++i)
-				{
-					if(c(a[i],a[left]))
-					{
-						swap(a[i],a[++pivot]);
-					}
-				}
-				swap(a[left],a[pivot]);
-				sort(a,c,left,pivot);
-				sort(a,c,pivot+1,right);
-			}
-		}
-	}
-
 	//comp is two-way "less-than" operator
 	template<typename T,size_t N,typename Comp>
 	constexpr std::array<T,N> sorted(std::array<T,N> const& arr,Comp c)
 	{
 		auto sorted=arr;
-		detail::sort(sorted,c,0,N);
+		if constexpr(N<10) isort(arr.begin(),arr.end(),c);
+		else qsort(arr.begin(),arr.end(),c);
 		return sorted;
 	}
 
@@ -193,6 +173,8 @@ namespace exlib {
 	template<>
 	struct compare<char*>:public compare<char const*> {};
 
+	//returns the iterator it for which c(target,*it)==0
+	//if this is not found, end is returned
 	template<typename it,typename T,typename ThreeWayComp>
 	constexpr it binary_find(it begin,it end,T const& target,ThreeWayComp c)
 	{
@@ -202,7 +184,7 @@ namespace exlib {
 			it i=(end-begin)/2+begin;
 			if(i>=end)
 			{
-				break;
+				return old_end;
 			}
 			auto const res=c(target,*i);
 			if(res==0)
@@ -218,13 +200,12 @@ namespace exlib {
 				begin=i+1;
 			}
 		}
-		return old_end;
 	}
 
 	template<typename it,typename T>
 	constexpr it binary_find(it begin,it end,T const& target)
 	{
-		return binary_find(begin,end,target,compare<std::decay<decltype(*begin)>::type>());
+		return binary_find(begin,end,target,compare<typename std::decay<decltype(*begin)>::type>());
 	}
 
 	//converts three way comparison into a less than comparison
@@ -316,7 +297,8 @@ namespace exlib {
 	namespace detail {
 		template<typename Comp,typename Key,typename Value>
 		struct map_compare:protected Comp {
-			constexpr int operator()(Key const& target,map_pair<Key,Value> const& b) const
+			template<typename Conv>
+			constexpr int operator()(Conv const& target,map_pair<Key,Value> const& b) const
 			{
 				return Comp::operator()(target,b.key());
 			}
@@ -382,11 +364,13 @@ namespace exlib {
 	public:
 		constexpr ct_map(std::array<value_type,entries> const& in):ct_map(in,std::make_index_sequence<entries>())
 		{}
-		constexpr iterator find(Key const& k)
+		template<typename T>
+		constexpr iterator find(T const& k)
 		{
 			return binary_find(begin(),end(),k,static_cast<key_compare>(*this));
 		}
-		constexpr const_iterator find(Key const& k) const
+		template<typename T>
+		constexpr const_iterator find(T const& k) const
 		{
 			return binary_find(begin(),end(),k,static_cast<key_compare>(*this));
 		}

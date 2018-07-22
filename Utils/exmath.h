@@ -5,6 +5,7 @@
 #include <functional>
 #include <algorithm>
 #include <array>
+#include <cstdlib>
 #if defined(_CONSTEXPR17)
 #define EX_CONSTEXPR _CONSTEXPR17
 #elif defined(_HAS_CXX17) || __cplusplus>201100L
@@ -23,6 +24,37 @@
 #endif
 namespace exlib {
 
+	enum class conv_error {
+		none,out_of_range,invalid_characters
+	};
+
+	struct conv_res {
+		conv_error ce;
+		char const* last;
+		operator bool() const
+		{
+			return ce!=conv_error::none;
+		}
+	};
+
+	//the following parse algorithms take in null-terminated strings
+	conv_res parse(char const* str,double& out)
+	{
+		int& err=errno;
+		err=0;
+		char* end;
+		double res=std::strtod(str,&end);
+		if(err==ERANGE)
+		{
+			return {conv_error::out_of_range,end};
+		}
+		if(end==str)
+		{
+			return {conv_error::invalid_characters,end};
+		}
+		return {conv_error::none,end};
+	}
+	
 	template<typename T>
 	EX_CONSTEXPR unsigned int num_digits(T num,T base=10)
 	{
