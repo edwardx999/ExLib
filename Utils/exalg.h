@@ -42,8 +42,8 @@ namespace exlib {
 	struct less<char*>:public less<char const*> {};
 
 	//comp is two-way "less-than" operator
-	template<typename iter,typename Comp>
-	constexpr void qsort(iter begin,iter end,Comp comp)
+	template<typename TwoWayIter,typename Comp>
+	constexpr void qsort(TwoWayIter begin,TwoWayIter end,Comp comp)
 	{
 		if(begin!=end)
 		{
@@ -72,24 +72,30 @@ namespace exlib {
 	}
 
 	//comp is two-way "less-than" operator
-	template<typename iter,typename Comp>
-	constexpr void isort(iter begin,iter end,Comp comp)
+	template<typename TwoWayIter,typename Comp>
+	constexpr void isort(TwoWayIter begin,TwoWayIter end,Comp comp)
 	{
-		for(auto it=begin;it!=end;++it)
+		for(auto i=begin;i!=end;++i)
 		{
-			for(auto j=begin;j!=it;++j)
+			auto el=i;
+			for(auto j=i;j--!=begin;)
 			{
-				if(comp(*it,*j))
+				if(comp(*el,*j))
 				{
-					swap(*it,*j);
+					swap(*el,*j);
+					--el;
+				}
+				else
+				{
+					break;
 				}
 			}
 		}
 	}
 
 	//sort by exlib::less
-	template<typename iter>
-	constexpr void isort(iter begin,iter end)
+	template<typename TwoWayIter>
+	constexpr void isort(TwoWayIter begin,TwoWayIter end)
 	{
 		using T=typename std::decay<decltype(*begin)>::type;
 		isort(begin,end,less<T>());

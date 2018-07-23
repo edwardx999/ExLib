@@ -426,11 +426,8 @@ namespace exlib {
 	template<typename U,typename CharU>
 	std::basic_ostream<U>& operator<<(std::basic_ostream<U>& os,string_alg<U,CharU> const& str)
 	{
-		if(str._data==nullptr)
-		{
-			return os;
-		}
-		return os<<str._data;
+		os.write(str._data,str._size);
+		return os;
 	}
 
 	template<typename T,typename CharT,typename Alloc>

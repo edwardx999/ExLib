@@ -91,12 +91,12 @@ namespace exlib {
 	}
 
 	template<typename T>
-	auto parse(char const* str,T& out) -> decltype(std::enable_if<std::is_unsigned<T>::value,conv_res>::type{})
+	auto parse(char const* str,T& out,int base=10) -> decltype(std::enable_if<std::is_unsigned<T>::value,conv_res>::type{})
 	{
 		int& err=errno;
 		err=0;
 		char* end;
-		unsigned long long res=std::strtoull(str,&end,10);
+		unsigned long long res=std::strtoull(str,&end,base);
 		if(err==ERANGE)
 		{
 			return {conv_error::out_of_range,end};
@@ -119,12 +119,12 @@ namespace exlib {
 	}
 
 	template<typename T>
-	auto parse(char const* str,T& out) -> decltype(std::enable_if<std::is_signed<T>::value,conv_res>::type{})
+	auto parse(char const* str,T& out,int base=10) -> decltype(std::enable_if<std::is_signed<T>::value,conv_res>::type{})
 	{
 		int& err=errno;
 		err=0;
 		char* end;
-		long long res=std::strtoll(str,&end,10);
+		long long res=std::strtoll(str,&end,base);
 		if(err==ERANGE)
 		{
 			return {conv_error::out_of_range,end};
@@ -157,7 +157,7 @@ namespace exlib {
 	}
 
 	template<typename T>
-	EX_CONSTEXPR unsigned int num_digits(T num,T base=10)
+	EX_CONSTEXPR unsigned int num_digits(T num,unsigned int base=10)
 	{
 		static_assert(std::is_integral<typename T>::value,"Requires integral type");
 		unsigned int num_digits=1;
