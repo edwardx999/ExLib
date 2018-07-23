@@ -1,3 +1,19 @@
+/*
+Copyright(C) 2017 Edward Xie
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 #ifndef EXMATH_H
 #define EXMATH_H
 #include <type_traits>
@@ -52,9 +68,94 @@ namespace exlib {
 		{
 			return {conv_error::invalid_characters,end};
 		}
+		out=res;
 		return {conv_error::none,end};
 	}
-	
+
+	conv_res parse(char const* str,float& out)
+	{
+		int& err=errno;
+		err=0;
+		char* end;
+		float res=std::strtof(str,&end);
+		if(err==ERANGE)
+		{
+			return {conv_error::out_of_range,end};
+		}
+		if(end==str)
+		{
+			return {conv_error::invalid_characters,end};
+		}
+		out=res;
+		return {conv_error::none,end};
+	}
+
+	template<typename T>
+	auto parse(char const* str,T& out) -> decltype(std::enable_if<std::is_unsigned<T>::value,conv_res>::type{})
+	{
+		int& err=errno;
+		err=0;
+		char* end;
+		unsigned long long res=std::strtoull(str,&end,10);
+		if(err==ERANGE)
+		{
+			return {conv_error::out_of_range,end};
+		}
+		if(end==str)
+		{
+			return {conv_error::invalid_characters,end};
+		}
+		constexpr unsigned long long max=std::numeric_limits<T>::max();
+		constexpr unsigned long long ullmax=std::numeric_limits<unsigned long long>::max();
+		if EX_CONSTIF(max<ullmax)
+		{
+			if(res>max)
+			{
+				return {conv_error::out_of_range,end};
+			}
+		}
+		out=res;
+		return {conv_error::none,end};
+	}
+
+	template<typename T>
+	auto parse(char const* str,T& out) -> decltype(std::enable_if<std::is_signed<T>::value,conv_res>::type{})
+	{
+		int& err=errno;
+		err=0;
+		char* end;
+		long long res=std::strtoll(str,&end,10);
+		if(err==ERANGE)
+		{
+			return {conv_error::out_of_range,end};
+		}
+		if(end==str)
+		{
+			return {conv_error::invalid_characters,end};
+		}
+		
+		constexpr long long max=std::numeric_limits<T>::max();
+		constexpr long long llmax=std::numeric_limits<unsigned long long>::max();
+		if EX_CONSTIF(max<llmax)
+		{
+			if(res>max)
+			{
+				return {conv_error::out_of_range,end};
+			}
+		}
+		constexpr long long min=std::numeric_limits<T>::max();
+		constexpr long long llmin=std::numeric_limits<unsigned long long>::max();
+		if EX_CONSTIF(min>llmin)
+		{
+			if(res<min)
+			{
+				return {conv_error::out_of_range,end};
+			}
+		}
+		out=res;
+		return {conv_error::none,end};
+	}
+
 	template<typename T>
 	EX_CONSTEXPR unsigned int num_digits(T num,T base=10)
 	{
