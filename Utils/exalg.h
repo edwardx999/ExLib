@@ -71,25 +71,31 @@ namespace exlib {
 		qsort(begin,end,less<T>());
 	}
 
+	//inserts the element AT elem into the range [begin,elem] according to comp assuming the range is sorted
+	template<typename RanIter,typename Comp>
+	constexpr void insert_back(RanIter const begin,RanIter elem,Comp comp)
+	{
+		for(auto j=elem;j--!=begin;)
+		{
+			if(comp(*elem,*j))
+			{
+				swap(*elem,*j);
+				--elem;
+			}
+			else
+			{
+				return;
+			}
+		}
+	}
+
 	//comp is two-way "less-than" operator
-	template<typename TwoWayIter,typename Comp>
-	constexpr void isort(TwoWayIter begin,TwoWayIter end,Comp comp)
+	template<typename RanIter,typename Comp>
+	constexpr void isort(RanIter const begin,RanIter end,Comp comp)
 	{
 		for(auto i=begin;i!=end;++i)
 		{
-			auto el=i;
-			for(auto j=i;j--!=begin;)
-			{
-				if(comp(*el,*j))
-				{
-					swap(*el,*j);
-					--el;
-				}
-				else
-				{
-					break;
-				}
-			}
+			insert_back(begin,i,comp);
 		}
 	}
 
@@ -106,8 +112,8 @@ namespace exlib {
 	constexpr std::array<T,N> sorted(std::array<T,N> const& arr,Comp c)
 	{
 		auto sorted=arr;
-		if constexpr(N<10) isort(arr.begin(),arr.end(),c);
-		else qsort(arr.begin(),arr.end(),c);
+		if constexpr(N<10) isort(sorted.begin(),sorted.end(),c);
+		else qsort(sorted.begin(),sorted.end(),c);
 		return sorted;
 	}
 

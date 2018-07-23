@@ -349,7 +349,7 @@ namespace exlib {
 	{
 		assert(cp!=nullptr);
 		_size=s;
-		_data=allocate(s+1);
+		_data=Alloc::allocate(s+1);
 		for(_capacity=0;_capacity<_size;++_capacity)
 		{
 			_data[_capacity]=cp[_capacity];
@@ -360,7 +360,7 @@ namespace exlib {
 	string_base<T,CharT,Alloc>::string_base(typename string_base<T,CharT,Alloc>::size_type s,T c)
 	{
 		_size=s;
-		_data=allocate(s+1);
+		_data=Alloc::allocate(s+1);
 		for(_capacity=0;_capacity<_size;++_capacity)
 		{
 			_data[_capacity]=c;
@@ -370,7 +370,7 @@ namespace exlib {
 	template<typename T,typename CharT,typename Alloc>
 	string_base<T,CharT,Alloc>::string_base(typename string_base<T,CharT,Alloc>::size_type capacity):_capacity(capacity)
 	{
-		_data=allocate(_capacity+1);
+		_data=Alloc::allocate(_capacity+1);
 		_data[0]=0;
 		_size=0;
 	}
@@ -392,14 +392,14 @@ namespace exlib {
 	{
 		typedef typename string_base<T,CharT,Alloc>::size_type st;
 		typedef typename string_base<T,CharT,Alloc>::pointer pointer;
-		pointer np=allocate(s+1);
+		pointer np=Alloc::allocate(s+1);
 		st i;
 		for(i=0;i<_size;++i)
 		{
 			np[i]=_data[i];
 		}
 		np[i]=0;
-		deallocate(_data,_capacity+1);
+		Alloc::deallocate(_data,_capacity+1);
 		_data=np;
 		_capacity=s;
 	}
@@ -570,7 +570,7 @@ namespace exlib {
 	template<typename T,typename CharT,typename Alloc>
 	void string_base<T,CharT,Alloc>::erase(typename string_base<T,CharT,Alloc>::iterator pos)
 	{
-		erase(static_cast<typename string_base<T,CharT,Alloc>::size_type>(pos-begin()));
+		erase(static_cast<typename string_base<T,CharT,Alloc>::size_type>(pos-string_alg<T,CharT>::begin()));
 	}
 
 	template<typename T,typename CharT,typename Alloc>
@@ -602,8 +602,8 @@ namespace exlib {
 	{
 		typedef typename string_base<T,CharT,Alloc>::size_type st;
 		string_base<T,CharT,Alloc> ret;
-		ret.reserve(size()+other.size());
-		for(;ret._size<size();++ret._size)
+		ret.reserve(string_alg<T,CharT>::size()+other.size());
+		for(;ret._size<string_alg<T,CharT>::size();++ret._size)
 		{
 			ret[ret._size]=(*this)[ret._size];
 		}
@@ -621,7 +621,7 @@ namespace exlib {
 	string_base<T,CharT,Alloc>& string_base<T,CharT,Alloc>::operator+=(String const& other)
 	{
 		typedef typename string_base<T,CharT,Alloc>::size_type st;
-		reserve(size()+other.size());
+		reserve(string_alg<T,CharT>::size()+other.size());
 		st limit=other.size();
 		for(st i=0;i<limit;++i,++_size)
 		{

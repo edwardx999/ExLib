@@ -54,7 +54,7 @@ namespace exlib {
 	};
 
 	//the following parse algorithms take in null-terminated strings
-	conv_res parse(char const* str,double& out)
+	inline conv_res parse(char const* str,double& out)
 	{
 		int& err=errno;
 		err=0;
@@ -72,7 +72,7 @@ namespace exlib {
 		return {conv_error::none,end};
 	}
 
-	conv_res parse(char const* str,float& out)
+	inline conv_res parse(char const* str,float& out)
 	{
 		int& err=errno;
 		err=0;
@@ -91,7 +91,7 @@ namespace exlib {
 	}
 
 	template<typename T>
-	auto parse(char const* str,T& out,int base=10) -> decltype(std::enable_if<std::is_unsigned<T>::value,conv_res>::type{})
+	auto parse(char const* str,T& out,int base=10) -> decltype(std::enable_if<std::is_unsigned<T>::value,conv_res>::type())
 	{
 		int& err=errno;
 		err=0;
@@ -119,7 +119,7 @@ namespace exlib {
 	}
 
 	template<typename T>
-	auto parse(char const* str,T& out,int base=10) -> decltype(std::enable_if<std::is_signed<T>::value,conv_res>::type{})
+	auto parse(char const* str,T& out,int base=10) -> decltype(std::enable_if<std::is_signed<T>::value,conv_res>::type())
 	{
 		int& err=errno;
 		err=0;
@@ -159,7 +159,7 @@ namespace exlib {
 	template<typename T>
 	EX_CONSTEXPR unsigned int num_digits(T num,unsigned int base=10)
 	{
-		static_assert(std::is_integral<typename T>::value,"Requires integral type");
+		static_assert(std::is_integral<T>::value,"Requires integral type");
 		unsigned int num_digits=1;
 		while((num/=base)!=0)
 		{

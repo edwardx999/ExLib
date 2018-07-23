@@ -64,4 +64,82 @@ void function_name(T const& in,U const&... args) \
 	function_name(in); \
 	function_name(args...); \
 }
+
+
+
+namespace exlib {
+
+	namespace {
+		template<typename T>
+		struct is_random_access_h {
+		private:
+			template<typename U>
+			constexpr static auto val(int) -> decltype(*std::declval<U>(),std::declval<U>()<std::declval<U>(),std::declval<U>()[size_t()],bool())
+			{
+				return true;
+			}
+			template<typename>
+			constexpr static bool val(...)
+			{
+				return false;
+			}
+		public:
+			constexpr static bool value=val<T>(0);
+		};
+
+		template<typename T>
+		struct is_forward_access_h {
+		private:
+			template<typename U>
+			constexpr static auto val(int) -> decltype(*std::declval<U>(),std::declval<U>()++,bool())
+			{
+				return true;
+			}
+			template<typename>
+			constexpr static bool val(...)
+			{
+				return false;
+			}
+		public:
+			constexpr static bool value=val<T>(0);
+		};
+
+		template<typename T>
+		struct is_bi_access_h {
+		private:
+			template<typename U>
+			constexpr static auto val(int) -> decltype(*std::declval<U>(),std::declval<U>()++,std::declval<U>()--,bool())
+			{
+				return true;
+			}
+			template<typename>
+			constexpr static bool val(...)
+			{
+				return false;
+			}
+		public:
+			constexpr static bool value=val<T>(0);
+		};
+	}
+
+	template<typename T>
+	using is_rand_iter=std::integral_constant<bool,is_random_access_h<T>::value>;
+
+	template<typename T>
+	using is_forward_iter=std::integral_constant<bool,is_forward_access_h<T>::value>;
+
+	template<typename T>
+	using is_bidir_iter=std::integral_constant<bool,is_bi_access_h<T>::value>;
+
+#if __cplusplus>201700L
+	template<typename T>
+	inline constexpr bool is_rand_iter_v=is_rand_iter<T>::value;
+
+	template<typename T>
+	inline constexpr bool is_forward_iter_v=is_forward_iter<T>::value;
+
+	template<typename T>
+	inline constexpr bool is_bidir_iter_v=is_bidir_iter<T>::value;
+#endif
+}
 #endif
