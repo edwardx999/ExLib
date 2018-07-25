@@ -229,7 +229,7 @@ namespace exlib {
 	template<typename it,typename T>
 	constexpr it binary_find(it begin,it end,T const& target)
 	{
-		return binary_find(begin,end,target,compare<typename std::decay<decltype(*begin)>::type>());
+		return binary_find(begin,end,target,compare<typename std::decay_t<decltype(*begin)>>());
 	}
 
 	//converts three way comparison into a less than comparison
@@ -497,8 +497,8 @@ namespace exlib {
 			return apply_ind_jump_h(i,std::make_index_sequence<N>(),std::forward<std::tuple<Funcs...>>(funcs),std::forward<Args>(args)...);
 		}
 
-		template<size_t I,size_t Max,typename Tuple,typename... Args>
-		constexpr auto apply_ind_linear(size_t i,Tuple&& funcs,Args&&... args)
+		template<typename Ret,size_t I,size_t Max,typename Tuple,typename... Args>
+		constexpr Ret apply_ind_linear_h(size_t i,Tuple&& funcs,Args&&... args)
 		{
 			if constexpr(I<Max)
 			{
@@ -506,7 +506,7 @@ namespace exlib {
 				{
 					return std::get<I>(std::forward<Tuple>(funcs))(std::forward<Args>(args)...);
 				}
-				return apply_ind_linear<I+1,Max>(i,std::forward<Tuple>(funcs),std::forward<Args>(args)...);
+				return apply_ind_linear_h<Ret,I+1,Max>(i,std::forward<Tuple>(funcs),std::forward<Args>(args)...);
 			}
 			else
 			{
@@ -514,34 +514,57 @@ namespace exlib {
 			}
 		}
 
-		template<size_t NumFuncs,typename Tuple,typename... Args>
-		constexpr auto apply_ind_linear(size_t i,Tuple&& funcs,Args&&... args)
+		template<typename Ret,size_t NumFuncs,typename Tuple,typename... Args>
+		constexpr Ret apply_ind_linear(size_t i,Tuple&& funcs,Args&&... args)
 		{
-			return apply_ind_linear<0,NumFuncs>(i,std::forward<Tuple>(funcs),std::forward<Args>(args)...);
+			return apply_ind_linear_h<Ret,0,NumFuncs>(i,std::forward<Tuple>(funcs),std::forward<Args>(args)...);
 		}
 
-		template<typename Tuple,typename... Args>
-		constexpr auto apply_ind_linear(size_t i,Tuple&& funcs,Args&&... args)
-		{
-			using T=std::remove_const_t<std::remove_reference_t<Tuple>>;
-			constexpr size_t S=get_max<T>::value;
-			return apply_ind_linear<S>(i,std::forward<Tuple>(funcs),std::forward<Args>(args)...);
-		}
+	}
+
+	//Returns Ret(std::get<i>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...))
+	//assuming i is less than NumFuncs, otherwise behavior is undefined (subject to change)
+	//other overloads automatically determine Ret and NumFuncs if they are not supplied
+	template<typename Ret,size_t NumFuncs,typename Funcs,typename... Args>
+	constexpr auto apply_ind(size_t i,Funcs&& funcs,Args&&... args)
+	{
+		//linear search is the current reference implementation and will be changed
+		return detail::apply_ind_linear<Ret,NumFuncs>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
+	}
+
+	template<size_t NumFuncs,typename Ret,typename Funcs,typename... Args>
+	constexpr auto apply_ind(size_t i,Funcs&& funcs,Args&&... args)
+	{
+		return apply_ind<Ret,NumFuncs>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 	}
 
 	template<size_t NumFuncs,typename Funcs,typename... Args>
 	constexpr auto apply_ind(size_t i,Funcs&& funcs,Args&&... args)
 	{
-		return detail::apply_ind_linear<NumFuncs>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
+		if constexpr(NumFuncs==0)
+		{
+			return;
+		}
+		else
+		{
+			using Ret=std::decay_t<decltype(std::get<0>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...))>;
+			return apply_ind<Ret,NumFuncs>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
+		}
 	}
 
-	//returns std::get<i>(funcs)(args...)
+	template<typename Ret,typename Funcs,typename... Args>
+	constexpr auto apply_ind(size_t i,Funcs&& funcs,Args&&... args)
+	{
+		constexpr size_t N=get_max<std::remove_const_t<std::remove_reference_t<Funcs>>>::value;
+		return apply_ind<Ret,N>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
+	}
+
 	template<typename Funcs,typename... Args>
 	constexpr auto apply_ind(size_t i,Funcs&& funcs,Args&&... args)
 	{
-		return detail::apply_ind_linear(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
+		constexpr size_t N=get_max<std::remove_const_t<std::remove_reference_t<Funcs>>>::value;
+		return apply_ind<N>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 	}
-
 
 	template<typename FindNext,typename... IndParser>
 	class CSVParserBase:protected FindNext,protected std::tuple<IndParser...> {
