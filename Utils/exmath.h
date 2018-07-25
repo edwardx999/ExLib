@@ -91,7 +91,7 @@ namespace exlib {
 	}
 
 	template<typename T>
-	auto parse(char const* str,T& out,int base=10) -> decltype(std::enable_if<std::is_unsigned<T>::value,conv_res>::type())
+	auto parse(char const* str,T& out,int base=10) -> typename std::enable_if<std::is_unsigned<T>::value,conv_res>::type
 	{
 		int& err=errno;
 		err=0;
@@ -119,7 +119,7 @@ namespace exlib {
 	}
 
 	template<typename T>
-	auto parse(char const* str,T& out,int base=10) -> decltype(std::enable_if<std::is_signed<T>::value,conv_res>::type())
+	auto parse(char const* str,T& out,int base=10) -> typename std::enable_if<std::is_signed<T>::value,conv_res>::type
 	{
 		int& err=errno;
 		err=0;
@@ -175,12 +175,16 @@ namespace exlib {
 		auto v=val;
 		number.back()='\0';
 		auto it=number.end()-2;
-		do
+		while(true)
 		{
 			*it=v%10+'0';
-			--it;
 			v/=10;
-		} while(v);
+			if(v==0)
+			{
+				break;
+			}
+			--it;
+		};
 		return number;
 	}
 
@@ -194,7 +198,7 @@ namespace exlib {
 			number.back()='\0';
 			number.front()='-';
 			auto it=number.end()-2;
-			do
+			while(true)
 			{
 				if constexpr(-1%10==-1)
 				{
@@ -204,9 +208,13 @@ namespace exlib {
 				{
 					*it=10-(v%10)+'0';
 				}
-				--it;
 				v/=10;
-			} while(v);
+				if(v==0)
+				{
+					break;
+				}
+				--it;
+			}
 			return number;
 		}
 		else

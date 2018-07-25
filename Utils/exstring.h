@@ -816,13 +816,13 @@ namespace exlib {
 	template<
 		typename String=std::string,
 		char alphabet_start='a',
-		unsigned int alphabet_size=26,
+		unsigned int alphabet_size='z'-alphabet_start+1,
 		size_t buffer_size=15,
-		typename N,
-		typename=std::enable_if<std::is_integral<N>::value>::type
+		typename N
 	>
 		String ordinal_lettering(N n)
 	{
+		static_assert(std::is_integral<N>::value,"Integral type required");
 		char buffer[buffer_size];
 		char* end=buffer+buffer_size;
 		char* pos=end-1;
