@@ -476,25 +476,24 @@ namespace exlib {
 
 	namespace detail {
 
-		template<size_t I,typename Funcs,typename...Args>
-		constexpr auto apply_single(Funcs&& funcs,Args&&... args)
+		template<typename Ret,size_t I,typename Funcs,typename...Args>
+		constexpr Ret apply_single(Funcs&& funcs,Args&&... args)
 		{
-			std::get<I>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...);
+			return std::get<I>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...);
 		}
 
-		template<size_t... Is,typename Funcs,typename... Args>
-		constexpr auto apply_ind_jump_h(size_t i,std::index_sequence<Is...>,Funcs&& funcs,Args&&... args)
+		template<typename Ret,size_t... Is,typename Funcs,typename... Args>
+		constexpr Ret apply_ind_jump_h(size_t i,std::index_sequence<Is...>,Funcs&& funcs,Args&&... args)
 		{
-			using Ret=decltype(std::get<I>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...));
 			using Func=Ret(Funcs&&,Args&&...);
-			static constexpr Func* jtable[]={&apply_single<Is,Funcs,Args...>...};
+			static constexpr Func* jtable[]={&apply_single<Ret,Is,Funcs,Args...>...};
 			return jtable[i](std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 		}
 
-		template<size_t N,typename Funcs,typename... Args>
-		constexpr auto apply_ind_jump(size_t i,Funcs&& funcs,Args&&... args)
+		template<typename Ret,size_t N,typename Funcs,typename... Args>
+		constexpr Ret apply_ind_jump(size_t i,Funcs&& funcs,Args&&... args)
 		{
-			return apply_ind_jump_h(i,std::make_index_sequence<N>(),std::forward<std::tuple<Funcs...>>(funcs),std::forward<Args>(args)...);
+			return apply_ind_jump_h<Ret>(i,std::make_index_sequence<N>(),std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 		}
 
 		template<typename Ret,size_t I,size_t Max,typename Tuple,typename... Args>
@@ -529,7 +528,7 @@ namespace exlib {
 	constexpr auto apply_ind(size_t i,Funcs&& funcs,Args&&... args)
 	{
 		//linear search is the current reference implementation and will be changed
-		return detail::apply_ind_linear<Ret,NumFuncs>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
+		return detail::apply_ind_jump<Ret,NumFuncs>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 	}
 
 	template<size_t NumFuncs,typename Ret,typename Funcs,typename... Args>
