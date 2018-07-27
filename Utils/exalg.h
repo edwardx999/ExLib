@@ -17,8 +17,16 @@ namespace exlib {
 		b=std::move(temp);
 	}
 
+	template<typename T=void>
+	struct less;
+
 	template<typename T>
-	struct less:public std::less<T> {};
+	struct less {
+		constexpr bool operator()(T const& a,T const& b) const
+		{
+			return a<b;
+		}
+	};
 
 	template<>
 	struct less<char const*> {
@@ -44,6 +52,16 @@ namespace exlib {
 
 	template<>
 	struct less<char*>:public less<char const*> {};
+
+	template<>
+	struct less<void>:public less<char const*> {
+		using less<char const*>::operator();
+		template<typename A,typename B>
+		constexpr auto operator()(A const& a,B const& b) const -> typename std::enable_if<!std::is_convertible<A,char const*>::value||!std::is_convertible<B,char const*>::value,bool>::type
+		{
+			return a<b;
+		}
+	};
 
 	//comp is two-way "less-than" operator
 	template<typename TwoWayIter,typename Comp>
@@ -71,7 +89,7 @@ namespace exlib {
 	template<typename iter>
 	constexpr void qsort(iter begin,iter end)
 	{
-		using T=typename std::decay<decltype(*begin)>::type;
+		using T=typename std::remove_cv_t<std::remove_reference_t<decltype(*begin)>>;
 		qsort(begin,end,less<T>());
 	}
 
@@ -94,7 +112,7 @@ namespace exlib {
 	template<typename TwoWayIter>
 	constexpr void insert_back(TwoWayIter const begin,TwoWayIter elem)
 	{
-		using T=typename std::decay<decltype(*begin)>::type;
+		using T=typename std::remove_cv_t<std::remove_reference_t<decltype(*begin)>>;
 		insert_back(begin,elem,less<T>());
 	}
 
@@ -115,7 +133,7 @@ namespace exlib {
 	template<typename TwoWayIter>
 	constexpr void isort(TwoWayIter begin,TwoWayIter end)
 	{
-		using T=typename std::decay<decltype(*begin)>::type;
+		using T=typename std::remove_cv_t<std::remove_reference_t<decltype(*begin)>>;
 		isort(begin,end,less<T>());
 	}
 
@@ -156,7 +174,7 @@ namespace exlib {
 		return concat(concat(a,b),c...);
 	}
 
-	template<typename T>
+	template<typename T=void>
 	struct compare {
 		constexpr int operator()(T const& a,T const& b) const
 		{
@@ -197,6 +215,18 @@ namespace exlib {
 	template<>
 	struct compare<char*>:public compare<char const*> {};
 
+	template<>
+	struct compare<void>:public compare<char const*> {
+		using compare<char const*>::operator();
+		template<typename A,typename B>
+		constexpr auto operator()(A const& a,B const& b) const -> typename std::enable_if<!std::is_convertible<A,char const*>::value||!std::is_convertible<B,char const*>::value,bool>::type
+		{
+			if(a<b) return -1;
+			if(a==b) return 0;
+			return 1;
+		}
+	};
+
 	//returns the iterator it for which c(target,*it)==0
 	//if this is not found, end is returned
 	template<typename it,typename T,typename ThreeWayComp>
@@ -233,7 +263,7 @@ namespace exlib {
 	}
 
 	//converts three way comparison into a less than comparison
-	template<typename ThreeWayComp>
+	template<typename ThreeWayComp=compare<void>>
 	struct lt_comp:private ThreeWayComp {
 		template<typename A,typename B>
 		constexpr bool operator()(A const& a,B const& b) const
@@ -243,7 +273,7 @@ namespace exlib {
 	};
 
 	//converts three way comparison into a greater than comparison
-	template<typename ThreeWayComp>
+	template<typename ThreeWayComp=compare<void>>
 	struct gt_comp:private ThreeWayComp {
 		template<typename A,typename B>
 		constexpr bool operator()(A const& a,B const& b) const
@@ -253,7 +283,7 @@ namespace exlib {
 	};
 
 	//converts three way comparison into a less than or equal to comparison
-	template<typename ThreeWayComp>
+	template<typename ThreeWayComp=compare<void>>
 	struct le_comp:private ThreeWayComp {
 		template<typename A,typename B>
 		constexpr bool operator()(A const& a,B const& b) const
@@ -263,7 +293,7 @@ namespace exlib {
 	};
 
 	//converts three way comparison into a greater than or equal to comparison
-	template<typename ThreeWayComp>
+	template<typename ThreeWayComp=compare<void>>
 	struct ge_comp:private ThreeWayComp {
 		template<typename A,typename B>
 		constexpr bool operator()(A const& a,B const& b) const
@@ -273,7 +303,7 @@ namespace exlib {
 	};
 
 	//converts three way comparison into equality comparison
-	template<typename ThreeWayComp>
+	template<typename ThreeWayComp=compare<void>>
 	struct eq_comp:private ThreeWayComp {
 		template<typename A,typename B>
 		constexpr bool operator()(A const& a,B const& b) const
@@ -282,15 +312,28 @@ namespace exlib {
 		}
 	};
 
-	//inverts three way comparison
-	template<typename ThreeWayComp>
-	struct inv_comp:private ThreeWayComp {
+	//converts three way comparison into inequality comparison
+	template<typename ThreeWayComp=compare<void>>
+	struct ne_comp:private ThreeWayComp {
+		template<typename A,typename B>
+		constexpr bool operator()(A const& b,B const& b) const
+		{
+			return ThreeWayComp::operator()(a,b)!=0;
+		}
+	};
+
+	//inverts comparison
+	template<typename Comp=compare<void>>
+	struct inv_comp:private Comp {
 		template<typename A,typename B>
 		constexpr int operator()(A const& a,B const& b) const
 		{
-			return ThreeWayComp::operator()(b,a);
+			return Comp::operator()(b,a);
 		}
 	};
+
+	template<typename T=void>
+	using greater=inv_comp<less<T>>;
 
 	//use this to initialize ct_map
 	template<typename Key,typename Value>

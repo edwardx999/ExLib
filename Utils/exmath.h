@@ -272,7 +272,7 @@ namespace exlib {
 #if __cplusplus > 201700L
 			constexpr
 #endif
-			(std::is_trivially_copyable<T>::value&&sizeof(T)<=2*sizeof(size_t))
+			(std::is_trivially_copyable<T>::value&&sizeof(T)<=sizeof(size_t))
 		{
 			return fattened_profile(prof,hp,[](auto a,auto b)
 			{
