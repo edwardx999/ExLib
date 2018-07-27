@@ -519,6 +519,36 @@ namespace exlib {
 			return apply_ind_linear_h<Ret,0,NumFuncs>(i,std::forward<Tuple>(funcs),std::forward<Args>(args)...);
 		}
 
+		template<typename Ret,size_t Lower,size_t Upper,typename Funcs,typename... Args>
+		constexpr Ret apply_ind_bh(size_t i,Funcs&& funcs,Args&&... args)
+		{
+			if constexpr(Lower<Upper)
+			{
+				constexpr size_t I=(Upper-Lower)/2+Lower;
+				if(i==I)
+				{
+					return apply_single<Ret,I>(std::forward<Funcs>(funcs),std::forward<Args>(args)...);
+				}
+				else if(i<I)
+				{
+					return apply_ind_bh<Ret,Lower,I>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
+				}
+				else
+				{
+					return apply_ind_bh<Ret,I+1,Upper>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
+				}
+			}
+			else
+			{
+				throw std::invalid_argument("Index too high");
+			}
+		}
+
+		template<typename Ret,size_t NumFuncs,typename Funcs,typename... Args>
+		constexpr Ret apply_ind_bsearch(size_t i,Funcs&& funcs,Args&&... args)
+		{
+			return apply_ind_bh<Ret,0,NumFuncs>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
+		}
 	}
 
 	//Returns Ret(std::get<i>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...))
@@ -527,8 +557,16 @@ namespace exlib {
 	template<typename Ret,size_t NumFuncs,typename Funcs,typename... Args>
 	constexpr auto apply_ind(size_t i,Funcs&& funcs,Args&&... args)
 	{
-		//linear search is the current reference implementation and will be changed
-		return detail::apply_ind_jump<Ret,NumFuncs>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
+		//MSVC currently can't inline the function pointers used by jump so I have a somewhat arbitrary
+		//heuristic for choosing which apply to use
+		if constexpr(NumFuncs<2)
+		{
+			return detail::apply_ind_bsearch<Ret,NumFuncs>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
+		}
+		else
+		{
+			return detail::apply_ind_jump<Ret,NumFuncs>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
+		}
 	}
 
 	template<size_t NumFuncs,typename Ret,typename Funcs,typename... Args>
@@ -554,14 +592,14 @@ namespace exlib {
 	template<typename Ret,typename Funcs,typename... Args>
 	constexpr auto apply_ind(size_t i,Funcs&& funcs,Args&&... args)
 	{
-		constexpr size_t N=get_max<std::remove_const_t<std::remove_reference_t<Funcs>>>::value;
+		constexpr size_t N=get_max<std::remove_cv_t<std::remove_reference_t<Funcs>>>::value;
 		return apply_ind<Ret,N>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 	}
 
 	template<typename Funcs,typename... Args>
 	constexpr auto apply_ind(size_t i,Funcs&& funcs,Args&&... args)
 	{
-		constexpr size_t N=get_max<std::remove_const_t<std::remove_reference_t<Funcs>>>::value;
+		constexpr size_t N=get_max<std::remove_cv_t<std::remove_reference_t<Funcs>>>::value;
 		return apply_ind<N>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 	}
 
