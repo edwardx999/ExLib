@@ -562,7 +562,7 @@ namespace exlib {
 		}
 	}
 
-	//Returns Ret(std::get<i>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...))
+	//Returns Ret(std::get<i>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...)), Ret can be void
 	//assuming i is less than NumFuncs, otherwise behavior is undefined (subject to change)
 	//other overloads automatically determine Ret and NumFuncs if they are not supplied
 	template<typename Ret,size_t NumFuncs,typename Funcs,typename... Args>
@@ -570,7 +570,7 @@ namespace exlib {
 	{
 		//MSVC currently can't inline the function pointers used by jump so I have a somewhat arbitrary
 		//heuristic for choosing which apply to use
-		if constexpr(NumFuncs<8)
+		if constexpr(NumFuncs<4)
 		{
 			return detail::apply_ind_bsearch<Ret,NumFuncs>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 		}
@@ -595,7 +595,7 @@ namespace exlib {
 		}
 		else
 		{
-			using Ret=std::decay_t<decltype(std::get<0>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...))>;
+			using Ret=decltype(std::get<0>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...));
 			return apply_ind<Ret,NumFuncs>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 		}
 	}
