@@ -471,15 +471,26 @@ namespace exlib {
 #endif
 
 	public:
-		constexpr static size_t const value=gm<T>::value;
+		constexpr static size_t const value=gm<std::remove_cv_t<std::remove_reference_t<T>>>::value;
 	};
+
+#if __cplusplus>201700L
+	template<typename T>
+	constexpr size_t get_max_v=get_max<T>::value;
 
 	namespace detail {
 
 		template<typename Ret,size_t I,typename Funcs,typename...Args>
 		constexpr Ret apply_single(Funcs&& funcs,Args&&... args)
 		{
-			return std::get<I>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...);
+			if constexpr(std::is_void_v<Ret>)
+			{
+				std::get<I>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...);
+			}
+			else
+			{
+				return std::get<I>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...);
+			}
 		}
 
 		template<typename Ret,size_t... Is,typename Funcs,typename... Args>
@@ -503,7 +514,7 @@ namespace exlib {
 			{
 				if(i==I)
 				{
-					return std::get<I>(std::forward<Tuple>(funcs))(std::forward<Args>(args)...);
+					return apply_single<Ret,I>(std::forward<Tuple>(funcs))(std::forward<Args>(args)...);
 				}
 				return apply_ind_linear_h<Ret,I+1,Max>(i,std::forward<Tuple>(funcs),std::forward<Args>(args)...);
 			}
@@ -559,7 +570,7 @@ namespace exlib {
 	{
 		//MSVC currently can't inline the function pointers used by jump so I have a somewhat arbitrary
 		//heuristic for choosing which apply to use
-		if constexpr(NumFuncs<2)
+		if constexpr(NumFuncs<8)
 		{
 			return detail::apply_ind_bsearch<Ret,NumFuncs>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 		}
@@ -602,7 +613,7 @@ namespace exlib {
 		constexpr size_t N=get_max<std::remove_cv_t<std::remove_reference_t<Funcs>>>::value;
 		return apply_ind<N>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 	}
-
+#endif
 	template<typename FindNext,typename... IndParser>
 	class CSVParserBase:protected FindNext,protected std::tuple<IndParser...> {
 
