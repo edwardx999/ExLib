@@ -40,6 +40,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #endif
 namespace exlib {
 
+	template<typename T1,typename T2> constexpr auto abs_dif(T1 x,T2 y) ->
+		decltype(x-y)
+	{
+		return (x>y?x-y:y-x);
+	}
+
 	//coerce forces VarType into FixedType by rounding
 	template<typename FixedType,typename VarType>
 	struct coerce_value {
@@ -277,8 +283,8 @@ namespace exlib {
 				return {conv_error::out_of_range,end};
 			}
 		}
-		constexpr long long min=std::numeric_limits<T>::max();
-		constexpr long long llmin=std::numeric_limits<unsigned long long>::max();
+		constexpr long long min=std::numeric_limits<T>::min();
+		constexpr long long llmin=std::numeric_limits<unsigned long long>::min();
 		if EX_CONSTIF(min>llmin)
 		{
 			if(res<min)
