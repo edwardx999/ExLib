@@ -316,7 +316,7 @@ namespace exlib {
 	template<typename ThreeWayComp=compare<void>>
 	struct ne_comp:private ThreeWayComp {
 		template<typename A,typename B>
-		constexpr bool operator()(A const& b,B const& b) const
+		constexpr bool operator()(A const& a,B const& b) const
 		{
 			return ThreeWayComp::operator()(a,b)!=0;
 		}

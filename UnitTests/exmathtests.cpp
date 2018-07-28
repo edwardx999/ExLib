@@ -34,7 +34,7 @@ namespace Microsoft {
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
 namespace ExMathTests {
-	TEST_CLASS(UnitTest1)
+	TEST_CLASS(Fatten)
 	{
 		TEST_METHOD(fatten1)
 		{
@@ -65,13 +65,43 @@ namespace ExMathTests {
 		}
 		TEST_METHOD(fatten3)
 		{
-			std::vector<unsigned int> in={1,2,3,4,5,6,7 ,8 ,9 ,10,1 ,2 ,3 ,4,5,6,8  ,0  ,10 ,112};
-			std::vector<unsigned int> ex={4,5,6,7,8,9,10,10,10,10,10,10,10,8,8,8,112,112,112,112};
+			std::vector<unsigned int> in={1,2,3,4,5,6,7 ,8 ,9 ,10,1 ,2 ,3 ,4,5,6 ,8  ,0  ,10 ,112};
+			std::vector<unsigned int> ex={4,5,6,7,8,9,10,10,10,10,10,10,10,8,8,10,112,112,112,112};
 			auto res=exlib::fattened_profile(in,3,[](auto a,auto b)
 			{
 				return a>b;
 			});
 			Assert::AreEqual(ex,res);
+		}
+	};
+
+	TEST_CLASS(MaybeFixed)
+	{
+		TEST_METHOD(mfvar)
+		{
+			exlib::maybe_fixed<> mf(0.5f,1);
+			Assert::AreEqual(10,mf(10,20));
+			mf.index(0);
+			Assert::AreEqual(5,mf(10,20));
+		}
+		TEST_METHOD(mffix)
+		{
+			exlib::maybe_fixed<> mf(100);
+			Assert::AreEqual(100,mf(10,20));
+			mf.fix_from(10,20);
+			Assert::AreEqual(100,mf(10,20));
+			mf.fix(19);
+			Assert::AreEqual(19,mf(10,20));
+		}
+		TEST_METHOD(mffix2)
+		{
+			exlib::maybe_fixed<> mf(100);
+			Assert::AreEqual(100,mf(10,20));
+			mf.variant(10,2);
+			mf.fix_from(10,20,30);
+			Assert::AreEqual(300,mf(1110,20));
+			mf.fix(19);
+			Assert::AreEqual(19,mf(10,20));
 		}
 	};
 }

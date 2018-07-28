@@ -40,6 +40,140 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #endif
 namespace exlib {
 
+	//coerce forces VarType into FixedType by rounding
+	template<typename FixedType,typename VarType>
+	struct coerce_value {
+		static constexpr FixedType coerce(VarType vt)
+		{
+			return FixedType(std::round(vt));
+		}
+	};
+
+	//A value that has a fixed or variant value. If the value is not fixed (index!=fixed_index), its value is determined by multiplying
+	//variant() by bases[index]
+	//constexpr currently not allowed for unions so some of them do not work; just ignore for it as it doesn't cause a compiler error
+	template<typename FixedType=int,typename VarType=float,typename IndexType=unsigned int,typename CoerceValue=coerce_value<FixedType,VarType>>
+	struct maybe_fixed:protected CoerceValue {
+	public:
+		static constexpr IndexType const fixed_index=-1;
+	private:
+		struct ft_const {};
+		struct vt_const {};
+		IndexType _index;
+		union {
+			FixedType ft;
+			VarType vt;
+		};
+	public:
+		//fixed value at 0
+		constexpr maybe_fixed():_index(fixed_index),ft(0)
+		{}
+		//creates a fixed value
+		constexpr maybe_fixed(FixedType ft):_index(fixed_index),ft(ft)
+		{}
+		//creates a variable value with index
+		constexpr maybe_fixed(VarType vt,IndexType index):_index(index),vt(vt)
+		{}
+		//whether the value is fixed
+		constexpr bool fixed() const
+		{
+			return _index==fixed_index;
+		}
+		//the variable index
+		constexpr IndexType index() const
+		{
+			return _index;
+		}
+		//sets the variable index
+		constexpr void index(IndexType idx)
+		{
+			_index=idx;
+		}
+		//if the value is fixed, returns that fixed value. Otherwises returns bases[index()]*variant().
+		//index value checked
+		template<size_t N>
+		constexpr FixedType value(std::array<FixedType,N> const& bases) const
+		{
+			if(_index==fixed_index)
+			{
+				return ft;
+			}
+			if(_index<N)
+			{
+				return CoerceValue::coerce(bases[_index]*vt);
+			}
+			throw std::out_of_range("Index too high");
+		}
+		//automatic conversion to array for convenience
+		template<typename... Bases>
+		constexpr FixedType value(Bases... bases) const
+		{
+			return value(std::array<FixedType,sizeof...(Bases)>{
+				{
+					bases...
+				}});
+		}
+
+		//if the value is fixed, returns that fixed value. Otherwises returns bases[index()]*variant().
+		//index value unchecked
+		template<size_t N>
+		constexpr FixedType operator()(std::array<FixedType,N> const& bases) const
+		{
+			if(_index==fixed_index)
+			{
+				return ft;
+			}
+			return CoerceValue::coerce(bases[_index]*vt);
+		}
+		//automatic conversion to array for convenience
+		template<typename... Bases>
+		constexpr FixedType operator()(Bases... bases) const
+		{
+			return operator()(std::array<FixedType,sizeof...(Bases)>{
+				{
+					bases...
+				}});
+		}
+
+		//fixes the value to be ft
+		constexpr void fix(FixedType ft)
+		{
+			_index=fixed_index;
+			this->ft=ft;
+		}
+
+		//does nothing if value is already fixed, otherwises fixes the value to bases[index]*variant()
+		template<size_t N>
+		constexpr void fix_from(std::array<FixedType,N> const& bases)
+		{
+			if(_index==fixed_index) return;
+			ft=operator()(bases);
+			_index=fixed_index;
+		}
+
+		//automatic conversion to array for convenience
+		template<typename... Bases>
+		constexpr void fix_from(Bases... bases)
+		{
+			fix_from(std::array<FixedType,sizeof...(Bases)>{
+				{
+					bases...
+				}});
+		}
+
+		//the variable amount, undefined if value is fixed
+		constexpr VarType variant() const
+		{
+			return vt;
+		}
+
+		//sets the variable amount and basis to use
+		constexpr void variant(VarType vt,IndexType index=1)
+		{
+			_index=index;
+			this->vt=vt;
+		}
+	};
 	enum class conv_error {
 		none,out_of_range,invalid_characters
 	};
@@ -133,7 +267,7 @@ namespace exlib {
 		{
 			return {conv_error::invalid_characters,end};
 		}
-		
+
 		constexpr long long max=std::numeric_limits<T>::max();
 		constexpr long long llmax=std::numeric_limits<unsigned long long>::max();
 		if EX_CONSTIF(max<llmax)
