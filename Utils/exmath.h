@@ -299,7 +299,7 @@ namespace exlib {
 	template<typename T>
 	EX_CONSTEXPR unsigned int num_digits(T num,unsigned int base=10)
 	{
-		static_assert(std::is_integral<T>::value,"Requires integral type");
+		//static_assert(std::is_integral<T>::value,"Requires integral type");
 		unsigned int num_digits=1;
 		while((num/=base)!=0)
 		{
@@ -328,38 +328,46 @@ namespace exlib {
 		return number;
 	}
 
-	template<long long val,typename CharType=char>
+	template<auto val,typename CharType=char>
 	constexpr auto to_string()
 	{
-		if constexpr(val<0)
+		using T=decltype(val);
+		if constexpr(std::is_integral_v<T>)
 		{
-			std::array<CharType,num_digits(val)+2> number{{}};
-			auto v=val;
-			number.back()='\0';
-			number.front()='-';
-			auto it=number.end()-2;
-			while(true)
+			if constexpr(std::is_unsigned_v<T>||val>=0)
 			{
-				if constexpr(-1%10==-1)
-				{
-					*it=-(v%10)+'0';
-				}
-				else
-				{
-					*it=10-(v%10)+'0';
-				}
-				v/=10;
-				if(v==0)
-				{
-					break;
-				}
-				--it;
+				return to_string_unsigned<val,CharType>();
 			}
-			return number;
+			else
+			{
+				std::array<CharType,num_digits(val)+2> number{{}};
+				auto v=val;
+				number.back()='\0';
+				number.front()='-';
+				auto it=number.end()-2;
+				while(true)
+				{
+					if constexpr(-1%10==-1)
+					{
+						*it=-(v%10)+'0';
+					}
+					else
+					{
+						*it=10-(v%10)+'0';
+					}
+					v/=10;
+					if(v==0)
+					{
+						break;
+					}
+					--it;
+				}
+				return number;
+			}
 		}
 		else
 		{
-			return to_string_unsigned<val,CharType>();
+			static_assert(false,"Integral type required");
 		}
 	}
 
