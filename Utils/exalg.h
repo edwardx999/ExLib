@@ -89,7 +89,7 @@ namespace exlib {
 	template<typename iter>
 	constexpr void qsort(iter begin,iter end)
 	{
-		using T=typename std::remove_cv_t<std::remove_reference_t<decltype(*begin)>>;
+		using T=typename std::decay<decltype(*begin)>::type;
 		qsort(begin,end,less<T>());
 	}
 
@@ -112,7 +112,7 @@ namespace exlib {
 	template<typename TwoWayIter>
 	constexpr void insert_back(TwoWayIter const begin,TwoWayIter elem)
 	{
-		using T=typename std::remove_cv_t<std::remove_reference_t<decltype(*begin)>>;
+		using T=typename std::decay<decltype(*begin)>::type;
 		insert_back(begin,elem,less<T>());
 	}
 
@@ -133,7 +133,7 @@ namespace exlib {
 	template<typename TwoWayIter>
 	constexpr void isort(TwoWayIter begin,TwoWayIter end)
 	{
-		using T=typename std::remove_cv_t<std::remove_reference_t<decltype(*begin)>>;
+		using T=typename std::decay<decltype(*begin)>::type;
 		isort(begin,end,less<T>());
 	}
 
@@ -153,21 +153,41 @@ namespace exlib {
 		return sorted(arr,less<T>());
 	}
 
+	template<typename T>
+	struct array_size:array_size<typename std::remove_cv<typename std::remove_reference<T>::type>::type> {};
+
+	template<typename T,size_t N>
+	struct array_size<std::array<T,N>>:std::integral_constant<size_t,N> {};
+
+	template<typename T,size_t N>
+	struct array_size<T[N]>:std::integral_constant<size_t,N> {};
+
+#if __cplusplus >= 201700L
+	template<typename T>
+	inline constexpr size_t array_size_v=array_size<T>::value;
+#endif
+
 	namespace detail {
-		template<typename T,size_t N,size_t M,size_t... I,size_t... J>
-		constexpr auto concat(std::array<T,N> const& a,std::array<T,M> const& b,std::index_sequence<I...>,std::index_sequence<J...>)
+
+		template<typename Arr1,typename Arr2,size_t... I,size_t... J>
+		constexpr auto concat(Arr1 const& a,Arr2 const& b,std::index_sequence<I...>,std::index_sequence<J...>)
 		{
-			std::array<T,N+M> ret{{a[I]...,b[J]...}};
+			using T=std::remove_cv_t<std::remove_reference_t<decltype(a[0])>>;
+			std::array<T,sizeof...(I)+sizeof...(J)> ret{{a[I]...,b[J]...}};
 			return ret;
 		}
 	}
 
-	template<typename T,size_t N,size_t M>
-	constexpr auto concat(std::array<T,N> const& a,std::array<T,M> const& b)
+	//concatenate arrays (std::array<T,N> or T[N]) and returns an std::array<T,CombinedLen> of the two
+	template<typename A,typename B>
+	constexpr auto concat(A const& a,B const& b)
 	{
+		constexpr size_t N=array_size<A>::value;
+		constexpr size_t M=array_size<B>::value;
 		return detail::concat(a,b,std::make_index_sequence<N>(),std::make_index_sequence<M>());
 	}
 
+	//concatenate arrays (std::array<T,N> or T[N]) and returns an std::array<T,CombinedLen> of the arrays
 	template<typename A,typename B,typename... C>
 	constexpr auto concat(A const& a,B const& b,C const&... c)
 	{
@@ -259,7 +279,7 @@ namespace exlib {
 	template<typename it,typename T>
 	constexpr it binary_find(it begin,it end,T const& target)
 	{
-		return binary_find(begin,end,target,compare<typename std::decay_t<decltype(*begin)>>());
+		return binary_find(begin,end,target,compare<typename std::decay<decltype(*begin)>::type>());
 	}
 
 	//converts three way comparison into a less than comparison
@@ -326,7 +346,7 @@ namespace exlib {
 	template<typename Comp=compare<void>>
 	struct inv_comp:private Comp {
 		template<typename A,typename B>
-		constexpr int operator()(A const& a,B const& b) const
+		constexpr auto operator()(A const& a,B const& b) const
 		{
 			return Comp::operator()(b,a);
 		}
@@ -481,13 +501,14 @@ namespace exlib {
 	template<typename F,typename... Args>
 	constexpr auto make_array(F&& arg,Args&&... args)
 	{
-		return std::array<std::decay<F>::type,sizeof...(args)+1> {
+		return std::array<typename std::remove_cv<typename std::remove_reference<F>::type>::type,sizeof...(args)+1>
+		{
 			{
 				std::forward<F>(arg),std::forward<Args>(args)...
 			}};
 	}
 
-	//the number of element accessible by std::get
+	//the number of elements accessible by std::get
 	template<typename T>
 	struct get_max {
 	private:
@@ -526,14 +547,7 @@ namespace exlib {
 		template<typename Ret,size_t I,typename Funcs,typename...Args>
 		constexpr Ret apply_single(Funcs&& funcs,Args&&... args)
 		{
-			if constexpr(std::is_void_v<Ret>)
-			{
-				std::get<I>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...);
-			}
-			else
-			{
-				return std::get<I>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...);
-			}
+			return static_cast<Ret>(std::get<I>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...));
 		}
 
 		template<typename Ret,size_t... Is,typename Funcs,typename... Args>
@@ -609,7 +623,7 @@ namespace exlib {
 	//assuming i is less than NumFuncs, otherwise behavior is undefined (subject to change)
 	//other overloads automatically determine Ret and NumFuncs if they are not supplied
 	template<typename Ret,size_t NumFuncs,typename Funcs,typename... Args>
-	constexpr auto apply_ind(size_t i,Funcs&& funcs,Args&&... args)
+	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&&... args)
 	{
 		//MSVC currently can't inline the function pointers used by jump so I have a somewhat arbitrary
 		//heuristic for choosing which apply to use
@@ -624,13 +638,13 @@ namespace exlib {
 	}
 
 	template<size_t NumFuncs,typename Ret,typename Funcs,typename... Args>
-	constexpr auto apply_ind(size_t i,Funcs&& funcs,Args&&... args)
+	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&&... args)
 	{
 		return apply_ind<Ret,NumFuncs>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 	}
 
 	template<size_t NumFuncs,typename Funcs,typename... Args>
-	constexpr auto apply_ind(size_t i,Funcs&& funcs,Args&&... args)
+	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&&... args)
 	{
 		if constexpr(NumFuncs==0)
 		{
@@ -644,14 +658,14 @@ namespace exlib {
 	}
 
 	template<typename Ret,typename Funcs,typename... Args>
-	constexpr auto apply_ind(size_t i,Funcs&& funcs,Args&&... args)
+	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&&... args)
 	{
 		constexpr size_t N=get_max<std::remove_cv_t<std::remove_reference_t<Funcs>>>::value;
 		return apply_ind<Ret,N>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 	}
 
 	template<typename Funcs,typename... Args>
-	constexpr auto apply_ind(size_t i,Funcs&& funcs,Args&&... args)
+	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&&... args)
 	{
 		constexpr size_t N=get_max<std::remove_cv_t<std::remove_reference_t<Funcs>>>::value;
 		return apply_ind<N>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);

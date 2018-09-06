@@ -285,6 +285,7 @@ namespace exlib {
 		/*
 		Returns a lock on this logger. Can use log_unsafe() if holding onto the lock.
 		*/
+		[[deprecated("use variable argument log instead")]]
 		std::unique_lock<std::mutex> get_lock();
 	};
 
@@ -336,5 +337,10 @@ namespace exlib {
 	typedef Logger<std::wostream> WOstreamLogger;
 	typedef Logger<std::string> StringLogger;
 	typedef Logger<std::wstring> WStringLogger;
+
+#if __cplusplus>=201700L
+	template<typename Output>
+	Logger(Output&)->Logger<Output>;
+#endif
 }
 #endif // !THREAD_POOL_H

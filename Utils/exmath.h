@@ -40,6 +40,34 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #endif
 namespace exlib {
 
+	template<typename T,typename U>
+	constexpr U clamp(T val,U min,U max)
+	{
+		if(val>max)
+		{
+			return max;
+		}
+		if(val<min)
+		{
+			return min;
+		}
+		return static_cast<U>(val);
+	}
+
+	template<typename U,typename T>
+	constexpr U clamp(T val)
+	{
+		if(val>std::numeric_limits<U>::max())
+		{
+			return std::numeric_limits<U>::max();
+		}
+		if(val<std::numeric_limits<U>::min())
+		{
+			return std::numeric_limits<U>::min();
+		}
+		return static_cast<U>(val);
+	}
+
 	template<typename T1,typename T2> constexpr auto abs_dif(T1 x,T2 y) ->
 		decltype(x-y)
 	{
