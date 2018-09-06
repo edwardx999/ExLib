@@ -355,34 +355,12 @@ namespace exlib {
 			return arr;
 		}
 
-		template<typename CharType>
+		/*template<typename CharType>
 		constexpr auto const& digit_array()
 		{
 			static constexpr auto arr=make_digit_array<CharType>();
 			return arr;
-		}
-	}
-
-	template<unsigned long long val,int base,typename CharType=char>
-	constexpr auto to_string_unsigned()
-	{
-		static_assert(base>=2&&base<=36,"Base must be between 2 & 36");
-		std::array<CharType,num_digits(val,base)+1> number{{}};
-		constexpr auto digits=detail::make_digit_array<CharType>();
-		auto v=val;
-		number.back()='\0';
-		auto it=number.end()-2;
-		while(true)
-		{
-			*it=digits[v%base];
-			v/=base;
-			if(v==0)
-			{
-				break;
-			}
-			--it;
-		};
-		return number;
+		}*/
 	}
 
 	template<auto val,int base,typename CharType=char>
@@ -390,13 +368,28 @@ namespace exlib {
 	{
 		using T=decltype(val);
 		static_assert(std::is_integral_v<T>,"Integer type required");
+		constexpr auto digits=detail::make_digit_array<CharType>();
 		if constexpr(std::is_unsigned_v<T>||val>=0)
 		{
-			return to_string_unsigned<val,base,CharType>();
+			std::array<CharType,num_digits(val,base)+1> number{{}};
+			constexpr auto digits=detail::make_digit_array<CharType>();
+			auto v=val;
+			number.back()='\0';
+			auto it=number.end()-2;
+			while(true)
+			{
+				*it=digits[v%base];
+				v/=base;
+				if(v==0)
+				{
+					break;
+				}
+				--it;
+			};
+			return number;
 		}
 		else
 		{
-			constexpr auto digits=detail::make_digit_array<CharType>();
 			std::array<CharType,num_digits(val,base)+2> number{{}};
 			auto v=val;
 			number.back()='\0';
@@ -423,12 +416,6 @@ namespace exlib {
 		}
 	}
 
-	template<unsigned long long val,typename CharType,int base=10>
-	constexpr auto to_string_unsigned()
-	{
-		return to_string_unsigned<val,base,CharType>();
-	}
-
 	template<auto val,typename CharType,int base=10>
 	constexpr auto to_string()
 	{
@@ -441,12 +428,11 @@ namespace exlib {
 		return to_string<val,10,char>();
 	}
 
-	template<unsigned long long val>
-	constexpr auto to_string_unsigned()
+	template<unsigned long long val,typename CharType=char>
+	[[deprecated]] constexpr auto to_string_unsigned()
 	{
-		return to_string<val,10,char>();
+		return to_string<val,CharType>();
 	}
-
 #endif
 	/*
 		Makes a container in which each element becomes the minimum element within hp of its index
