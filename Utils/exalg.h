@@ -446,7 +446,7 @@ namespace exlib {
 
 	private:
 		template<size_t... Is>
-		constexpr ct_map(std::array<value_type,entries> const& in,std::index_sequence<Is...>):Data{{in[I]...}}
+		constexpr ct_map(std::array<value_type,entries> const& in,std::index_sequence<Is...>):Data{{in[Is]...}}
 		{}
 	public:
 		constexpr ct_map(std::array<value_type,entries> const& in):ct_map(in,std::make_index_sequence<entries>())
@@ -486,7 +486,7 @@ namespace exlib {
 	template<typename T,size_t N>
 	constexpr auto make_ct_map(std::array<T,N> const& in)
 	{
-		return make_ct_map<comp<First::key_type>>(in);
+		return make_ct_map<compare<First::key_type>>(in);
 	}
 
 	template<typename Type,typename... Args>
