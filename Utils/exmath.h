@@ -342,7 +342,7 @@ namespace exlib {
 		template<typename CharType>
 		constexpr auto make_digit_array()
 		{
-			std::array<CharType,36> arr{{}};
+			std::array<CharType,'9'-'0'+1+'z'-'a'+1> arr{{}};
 			size_t pos=0;
 			for(CharType i='0';i<='9';++pos,++i)
 			{
@@ -368,7 +368,7 @@ namespace exlib {
 	{
 		static_assert(base>=2&&base<=36,"Base must be between 2 & 36");
 		std::array<CharType,num_digits(val,base)+1> number{{}};
-		static constexpr auto digits=detail::make_digit_array<CharType>();
+		constexpr auto digits=detail::make_digit_array<CharType>();
 		auto v=val;
 		number.back()='\0';
 		auto it=number.end()-2;
@@ -396,7 +396,7 @@ namespace exlib {
 		}
 		else
 		{
-			static constexpr auto digits=detail::make_digit_array<CharType>();
+			constexpr auto digits=detail::make_digit_array<CharType>();
 			std::array<CharType,num_digits(val,base)+2> number{{}};
 			auto v=val;
 			number.back()='\0';
