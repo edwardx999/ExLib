@@ -336,17 +336,46 @@ namespace exlib {
 		return num_digits;
 	}
 
-	template<unsigned long long val,typename CharType=char>
+#if __cplusplus>201700L
+
+	namespace detail {
+		template<typename CharType>
+		constexpr auto make_digit_array()
+		{
+			std::array<CharType,36> arr{{}};
+			size_t pos=0;
+			for(CharType i='0';i<='9';++pos,++i)
+			{
+				arr[pos]=i;
+			}
+			for(CharType i='a';i<='z';++pos,++i)
+			{
+				arr[pos]=i;
+			}
+			return arr;
+		}
+
+		template<typename CharType>
+		constexpr auto const& digit_array()
+		{
+			static constexpr auto arr=make_digit_array<CharType>();
+			return arr;
+		}
+	}
+
+	template<unsigned long long val,int base,typename CharType=char>
 	constexpr auto to_string_unsigned()
 	{
-		std::array<CharType,num_digits(val)+1> number{{}};
+		static_assert(base>=2&&base<=36,"Base must be between 2 & 36");
+		std::array<CharType,num_digits(val,base)+1> number{{}};
+		static constexpr auto digits=detail::make_digit_array<CharType>();
 		auto v=val;
 		number.back()='\0';
 		auto it=number.end()-2;
 		while(true)
 		{
-			*it=v%10+'0';
-			v/=10;
+			*it=digits[v%base];
+			v/=base;
 			if(v==0)
 			{
 				break;
@@ -356,49 +385,69 @@ namespace exlib {
 		return number;
 	}
 
-	template<auto val,typename CharType=char>
+	template<auto val,int base,typename CharType=char>
 	constexpr auto to_string()
 	{
 		using T=decltype(val);
-		if constexpr(std::is_integral_v<T>)
+		static_assert(std::is_integral_v<T>,"Integer type required");
+		if constexpr(std::is_unsigned_v<T>||val>=0)
 		{
-			if constexpr(std::is_unsigned_v<T>||val>=0)
-			{
-				return to_string_unsigned<val,CharType>();
-			}
-			else
-			{
-				std::array<CharType,num_digits(val)+2> number{{}};
-				auto v=val;
-				number.back()='\0';
-				number.front()='-';
-				auto it=number.end()-2;
-				while(true)
-				{
-					if constexpr(-1%10==-1)
-					{
-						*it=-(v%10)+'0';
-					}
-					else
-					{
-						*it=10-(v%10)+'0';
-					}
-					v/=10;
-					if(v==0)
-					{
-						break;
-					}
-					--it;
-				}
-				return number;
-			}
+			return to_string_unsigned<val,base,CharType>();
 		}
 		else
 		{
-			static_assert(false,"Integral type required");
+			static constexpr auto digits=detail::make_digit_array<CharType>();
+			std::array<CharType,num_digits(val,base)+2> number{{}};
+			auto v=val;
+			number.back()='\0';
+			number.front()='-';
+			auto it=number.end()-2;
+			while(true)
+			{
+				if constexpr(-1%base==-1)
+				{
+					*it=digits[(-(v%base))];
+				}
+				else
+				{
+					*it=digits[base-(v%base)];
+				}
+				v/=base;
+				if(v==0)
+				{
+					break;
+				}
+				--it;
+			}
+			return number;
 		}
 	}
 
+	template<unsigned long long val,typename CharType,int base=10>
+	constexpr auto to_string_unsigned()
+	{
+		return to_string_unsigned<val,base,CharType>();
+	}
+
+	template<auto val,typename CharType,int base=10>
+	constexpr auto to_string()
+	{
+		return to_string<val,base,CharType>();
+	}
+
+	template<auto val>
+	constexpr auto to_string()
+	{
+		return to_string<val,10,char>();
+	}
+
+	template<unsigned long long val>
+	constexpr auto to_string_unsigned()
+	{
+		return to_string<val,10,char>();
+	}
+
+#endif
 	/*
 		Makes a container in which each element becomes the minimum element within hp of its index
 	*/

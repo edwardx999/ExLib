@@ -619,9 +619,9 @@ namespace exlib {
 		}
 	}
 
-	//Returns Ret(std::get<i>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...)), Ret can be void
-	//assuming i is less than NumFuncs, otherwise behavior is undefined (subject to change)
-	//other overloads automatically determine Ret and NumFuncs if they are not supplied
+	//Returns static_cast<Ret>(std::get<i>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...)); Ret can be void.
+	//Assumes i is less than NumFuncs, otherwise behavior is undefined.
+	//Other overloads automatically determine Ret and NumFuncs if they are not supplied.
 	template<typename Ret,size_t NumFuncs,typename Funcs,typename... Args>
 	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&&... args)
 	{
