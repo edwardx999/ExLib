@@ -503,20 +503,19 @@ namespace exlib {
 	}
 
 	template<typename Type,typename... Args>
-	constexpr auto make_array(Args&&... args)
+	constexpr auto make_array(Args&&... args)->std::array<Type,sizeof...(Args)>
 	{
-		return std::array<Type,sizeof...(Args)>{
-			{
+		return std::array<Type,sizeof...(Args)>
+			{{
 				std::forward<Args>(args)...
 			}};
 	}
 
 	template<typename F,typename... Args>
-	constexpr auto make_array(F&& arg,Args&&... args)
+	constexpr auto make_array(F&& arg,Args&&... args)->std::array<typename std::decay<F>::type,sizeof...(args)+1>
 	{
-		return std::array<typename std::remove_cv<typename std::remove_reference<F>::type>::type,sizeof...(args)+1>
-		{
-			{
+		return std::array<typename std::decay<F>::type,sizeof...(args)+1>
+			{{
 				std::forward<F>(arg),std::forward<Args>(args)...
 			}};
 	}
