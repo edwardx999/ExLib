@@ -1,18 +1,15 @@
 /*
-Copyright(C) 2017 Edward Xie
+Copyright 2018 Edward Xie
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), 
+to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 #ifndef EXMETA_H
 #define EXMETA_H
@@ -57,15 +54,13 @@ namespace exlib {\
 #define make_has_method_proc(METHOD_NAME,OUTPUT_PROC) include_has_method_proc_h(METHOD_NAME,OUTPUT_PROC)
 
 //turns a function of one argument into repeated application of the function over multiple paramters
-#define multiapp(function_name) \
+#define multiapp(function_name)
 template<typename T,typename... U> \
 void function_name(T const& in,U const&... args) \
 { \
 	function_name(in); \
 	function_name(args...); \
 }
-
-
 
 namespace exlib {
 
@@ -133,13 +128,13 @@ namespace exlib {
 
 #if __cplusplus>201700L
 	template<typename T>
-	inline constexpr bool is_rand_iter_v=is_rand_iter<T>::value;
+	constexpr bool is_rand_iter_v=is_rand_iter<T>::value;
 
 	template<typename T>
-	inline constexpr bool is_forward_iter_v=is_forward_iter<T>::value;
+	constexpr bool is_forward_iter_v=is_forward_iter<T>::value;
 
 	template<typename T>
-	inline constexpr bool is_bidir_iter_v=is_bidir_iter<T>::value;
+	constexpr bool is_bidir_iter_v=is_bidir_iter<T>::value;
 #endif
 }
 #endif
