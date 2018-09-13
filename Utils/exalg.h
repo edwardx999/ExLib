@@ -22,6 +22,16 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <exception>
 namespace exlib {
 
+	//wraps a function pointer (or really anything callable) in a lambda
+	template<typename FuncPointer>
+	constexpr auto wrap(FuncPointer fp)
+	{
+		return [=](auto&&... args)
+		{
+			return fp(std::forward<decltype(args)>(args)...);
+		};
+	}
+
 	template<typename A>
 	constexpr void swap(A& a,A& b)
 	{
@@ -502,21 +512,24 @@ namespace exlib {
 		return make_ct_map<compare<First::key_type>>(in);
 	}
 
-	template<typename Type,typename... Args>
-	constexpr auto make_array(Args&&... args)->std::array<Type,sizeof...(Args)>
-	{
-		return std::array<Type,sizeof...(Args)>
-			{{
-				std::forward<Args>(args)...
-			}};
+	namespace detail {
+		template<typename B,typename... R>
+		struct ma_ret{
+			using type=B;
+		};
+
+		template<typename... R>
+		struct ma_ret<void,R...> {
+			using type=typename std::common_type<R...>::type;
+		};
 	}
 
-	template<typename F,typename... Args>
-	constexpr auto make_array(F&& arg,Args&&... args)->std::array<typename std::decay<F>::type,sizeof...(args)+1>
+	template<typename Type=void,typename... Args>
+	constexpr std::array<typename detail::ma_ret<Type,Args...>::type,sizeof...(Args)> make_array(Args&&... args)
 	{
-		return std::array<typename std::decay<F>::type,sizeof...(args)+1>
+		return 
 			{{
-				std::forward<F>(arg),std::forward<Args>(args)...
+				std::forward<Args>(args)...
 			}};
 	}
 
