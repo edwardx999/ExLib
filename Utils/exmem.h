@@ -1,14 +1,14 @@
 /*
 Copyright 2018 Edward Xie
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), 
-to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
 and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 #ifndef EX_MEM_H
@@ -17,108 +17,697 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <vector>
 #include <type_traits>
 #include <array>
+#include <algorithm>
 #define FORCEINLINE __forceinline
+#if __cplusplus>=201700l
+#define IFCONSTEXPR constexpr
+#else
+#define IFCONSTEXPR
+#endif
 namespace exlib {
-	template<typename T>
-	class array_view {
-	public:
-		using const_iterator=typename std::vector<typename T>::const_iterator;
-		using const_reference=typename std::vector<typename T>::const_reference;
-		using const_pointer=typename std::vector<typename T>::const_pointer;
-		using value_type=T;
-		using const_reverse_iterator=typename std::vector<typename T>::const_reverse_iterator;
-		using size_type=typename std::vector<typename T>::size_type;
-		using difference_type=typename std::vector<typename T>::difference_type;
-	private:
-		T* _data;
-		size_t _size;
-	public:
-		constexpr array_view():_data(0),_size(0)
-		{}
-		array_view(std::vector<T> const& v):_data(v.data()),_size(v.size())
-		{}
-		constexpr array_view(T const* data,size_t size):_data(data),_size(size)
-		{}
+
+
+	namespace detail {
+
+		template<typename... Types>
+		struct type_pack;
+
+		template<>
+		struct type_pack<> {};
+
+		template<typename T>
+		struct type_pack<T> {
+			using type=T;
+		};
+
+		template<typename T,typename... U>
+		struct type_pack<T,U...> {
+			using type=T;
+			using next=type_pack<U...>;
+		};
+
+		template<typename T>
+		struct type_pack_size;
+
+		template<>
+		struct type_pack_size<type_pack<>>:std::integral_constant<size_t,0> {};
+
+		template<typename T>
+		struct type_pack_size<type_pack<T>>:std::integral_constant<size_t,sizeof(T)> {};
+
+		template<typename T,typename... Rest>
+		struct type_pack_size<type_pack<T,Rest...>>:
+			std::integral_constant<size_t,
+			sizeof(T)+
+			type_pack_size<type_pack<Rest...>>::value> {};
+
+		template<typename T>
+		struct type_pack_count;
+
+		template<typename... T>
+		struct type_pack_count<type_pack<T...>>:std::integral_constant<size_t,sizeof...(T)> {};
+
+		template<size_t Idx,typename TypePack>
+		struct type_pack_get;
+
+		template<typename First,typename... Rest>
+		struct type_pack_get<0,type_pack<First,Rest...>> {
+			using type=First;
+		};
+
+		template<size_t Idx,typename First,typename... Rest>
+		struct type_pack_get<Idx,type_pack<First,Rest...>>:type_pack_get<Idx-1,type_pack<Rest...>> {};
+
 		template<size_t N>
-		constexpr array_view(std::array<T,N> const& arr):_data(arr.data()),_size(arr.size())
-		{}
-		constexpr const_iterator begin() const noexcept
-		{
-			return const_iterator(_data);
-		}
-		constexpr const_iterator cbegin() const noexcept
-		{
-			return const_iterator(_data);
-		}
-		constexpr const_iterator end() const noexcept
-		{
-			return const_iterator(_data+size);
-		}
-		constexpr const_iterator cend() const noexcept
-		{
-			return const_iterator(_data+size);
-		}
-		constexpr const_reverse_iterator rbegin() const noexcept
-		{
-			return const_reverse_iterator(end());
-		}
-		constexpr const_reverse_iterator crbegin() const noexcept
-		{
-			return const_reverse_iterator(end());
-		}
-		constexpr const_reverse_iterator rend() const noexcept
-		{
-			return const_reverse_iterator(begin());
-		}
-		constexpr const_reverse_iterator crend() const noexcept
-		{
-			return const_reverse_iterator(begin());
-		}
-		constexpr const_reference operator[](size_t n) const
-		{
-			return _data[n];
-		}
-		constexpr const_reference at(size_t n) const
-		{
-			if(n>=_size)
+		struct mvector_to_alloc {
+			char d[N];
+		};
+
+		template<typename TypePack,template<typename> typename Allocator=std::allocator>
+		class mvector:protected Allocator<mvector_to_alloc<type_pack_size<TypePack>::value>> {
+		protected:
+			template<size_t I>
+			using get_t=typename type_pack_get<I,TypePack>::type;
+		public:
+			static constexpr size_t type_count=type_pack_count<TypePack>::value;
+		private:
+			template<size_t I,size_t... Is>
+			static constexpr size_t get_alignment(std::index_sequence<I,Is...>)
 			{
-				throw std::out_of_range();
+				return std::max(alignof(get_t<I>),get_alignment(std::index_sequence<Is...>()));
 			}
-			return _data[n];
-		}
-		constexpr const_reference front() const
-		{
-			return *_data;
-		}
-		constexpr const_reference back() const
-		{
-			return _data[_size-1];
-		}
-		constexpr const_pointer data() const noexcept
-		{
-			return _data;
-		}
-		constexpr size_t size() const noexcept
-		{
-			return _size;
-		}
-		constexpr size_t max_size() const noexcept
-		{
-			return std::numeric_limits<size_t>::max();
-		}
-		constexpr bool empty() const noexcept
-		{
-			return _size==0;
-		}
-		constexpr void data(T const* data) noexcept
-		{
-			_data=data;
-		}
-		constexpr void resize(size_t size) noexcept
-		{
-			_size=size;
-		}
-	};
+			static constexpr size_t get_alignment(std::index_sequence<>)
+			{
+				return 0;
+			}
+		protected:
+			static constexpr size_t alignment=get_alignment(std::make_index_sequence<type_count>());
+			template<typename T>
+			struct iterator_base {
+				using value_type=T;
+				using difference_type=std::ptrdiff_t;
+				using pointer=T*;
+				using reference=T&;
+			private:
+				T* base;
+			public:
+				iterator_base()
+				{}
+				iterator_base(T* base):base(base)
+				{}
+				iterator_base(iterator_base const&)=default;
+				iterator_base& operator=(iterator_base const&)=default;
+				T& operator*() const
+				{
+					return *base;
+				}
+				T* operator->() const
+				{
+					return base;
+				}
+				iterator_base operator++(int)
+				{
+					return iterator(base++);
+				}
+				iterator_base& operator++()
+				{
+					++base;
+					return *this;
+				}
+				iterator_base operator--(int)
+				{
+					return iterator(base--);
+				}
+				iterator_base& operator--()
+				{
+					--base;
+					return *this;
+				}
+				std::ptrdiff_t operator-(iterator_base other) const
+				{
+					return base-other.base;
+				}
+				iterator_base operator+(std::ptrdiff_t s) const
+				{
+					return iterator_base(base+s);
+				}
+				iterator_base operator-(std::ptrdiff_t s) const
+				{
+					return iterator_base(base-s);
+				}
+				iterator_base& operator+=(std::ptrdiff_t s)
+				{
+					base+=s;
+					return *this;
+				}
+				iterator_base& operator-=(std::ptrdiff_t s)
+				{
+					base-=s;
+					return *this;
+				}
+				T& operator[](size_t s) const
+				{
+					return base[s];
+				}
+#define comp(op) bool operator##op##(iterator_base other) const { return base ## op ## other.base ;}
+				comp(<)
+					comp(>)
+					comp(==)
+					comp(>=)
+					comp(<=)
+					comp(!=)
+#undef comp
+			};
+
+			template<typename T>
+			struct riterator_base {
+				using value_type=T;
+				using difference_type=std::ptrdiff_t;
+				using pointer=T*;
+				using reference=T&;
+			private:
+				T* base;
+			public:
+				riterator_base()
+				{}
+				riterator_base(T* base):base(base)
+				{}
+				riterator_base(riterator_base const&)=default;
+				riterator_base& operator=(riterator_base const&)=default;
+				T& operator*() const
+				{
+					return *(base-1);
+				}
+				T* operator->() const
+				{
+					return base-1;
+				}
+				riterator_base operator--(int)
+				{
+					return iterator(base++);
+				}
+				riterator_base& operator--()
+				{
+					++base;
+					return *this;
+				}
+				riterator_base operator++(int)
+				{
+					return iterator(base--);
+				}
+				riterator_base& operator++()
+				{
+					--base;
+					return *this;
+				}
+				std::ptrdiff_t operator-(riterator_base other) const
+				{
+					return other.base-base;
+				}
+				riterator_base operator+(std::ptrdiff_t s) const
+				{
+					return riterator_base(base-s);
+				}
+				riterator_base operator-(std::ptrdiff_t s) const
+				{
+					return riterator_base(base+s);
+				}
+				riterator_base& operator+=(std::ptrdiff_t s)
+				{
+					base-=s;
+					return *this;
+				}
+				riterator_base& operator-=(std::ptrdiff_t s)
+				{
+					base+=s;
+					return *this;
+				}
+				T& operator[](size_t s) const
+				{
+					return *(base-s-1);
+				}
+#define comp(op) bool operator##op##(riterator_base other){ return other.base ## op ## base ;}
+				comp(<)
+					comp(>)
+					comp(==)
+					comp(>=)
+					comp(<=)
+					comp(!=)
+#undef comp
+			};
+		public:
+			template<size_t I>
+			using value_type=get_t<I>;
+			template<size_t I>
+			using reference=get_t<I>&;
+			template<size_t I>
+			using const_reference=get_t<I> const&;
+			template<size_t I>
+			using pointer=get_t<I>*;
+			template<size_t I>
+			using const_pointer=get_t<I> const*;
+
+			template<size_t I>
+			struct iterator:iterator_base<get_t<I>> {
+				using iterator_base::iterator_base;
+			};
+			template<size_t I>
+			struct const_iterator:iterator_base<get_t<I> const> {
+				using iterator_base::iterator_base;
+			};
+
+			template<size_t I>
+			struct reverse_iterator:riterator_base<get_t<I>> {
+				using riterator_base::riterator_base;
+			};
+			template<size_t I>
+			struct const_reverse_iterator:riterator_base<get_t<I> const> {
+				using riterator_base::riterator_base;
+			};
+
+			using size_type=size_t;
+			using difference_type=std::ptrdiff_t;
+
+		protected:
+			using _AllocType=mvector_to_alloc<type_pack_size<TypePack>::value>;
+			using _Alloc=Allocator<_AllocType>;
+		public:
+			using allocator_type=_Alloc;
+		protected:
+			char* do_alloc(size_t amount)
+			{
+				return reinterpret_cast<char*>(_Alloc::allocate(amount));
+			}
+			void do_dealloc(char* what)
+			{
+				_Alloc::deallocate(reinterpret_cast<_AllocType*>(what),_cap);
+			}
+			size_t _cap;
+			char* _data;
+			size_t _size;
+		private:
+			template<size_t B,size_t E>
+			struct size_up_to_h:std::integral_constant<size_t,sizeof(get_t<B>)+size_up_to_h<B+1,E>::value> {};
+
+			template<size_t N>
+			struct size_up_to_h<N,N>:std::integral_constant<size_t,0> {};
+
+			template<size_t I>
+			using size_up_to=size_up_to_h<0,I>;
+		protected:
+			template<size_t I>
+			size_t type_offset() const
+			{
+				return size_up_to<I>::value*_cap;
+			}
+		public:
+			template<size_t I=0>
+			iterator<I> begin() noexcept
+			{
+				auto const o=type_offset<I>();
+				return iterator<I>(reinterpret_cast<get_t<I>*>(_data+o));
+			}
+			template<size_t I=0>
+			const_iterator<I> begin() const noexcept
+			{
+				auto const o=type_offset<I>();
+				return const_iterator<I>(reinterpret_cast<get_t<I> const*>(_data+o));
+			}
+			template<size_t I=0>
+			const_iterator<I> cbegin() const noexcept
+			{
+				return begin<I>();
+			}
+			template<size_t I=0>
+			iterator<I> end() noexcept
+			{
+				auto const o=type_offset<I>();
+				return iterator<I>(reinterpret_cast<get_t<I>*>(_data+o)+_size);
+			}
+			template<size_t I=0>
+			const_iterator<I> end() const noexcept
+			{
+				auto const o=type_offset<I>();
+				return const_iterator<I>(reinterpret_cast<get_t<I> const*>(_data+o)+_size);
+			}
+			template<size_t I=0>
+			const_iterator<I> cend() const noexcept
+			{
+				return end<I>();
+			}
+
+			template<size_t I=0>
+			reverse_iterator<I> rbegin() noexcept
+			{
+				auto const o=type_offset<I>();
+				return reverse_iterator<I>(reinterpret_cast<get_t<I>*>(_data+o)+_size);
+			}
+			template<size_t I=0>
+			const_reverse_iterator<I> rbegin() const noexcept
+			{
+				auto const o=type_offset<I>();
+				return const_reverse_iterator<I>(reinterpret_cast<get_t<I> const*>(_data+o)+_size);
+			}
+			template<size_t I=0>
+			const_reverse_iterator<I> crbegin() const noexcept
+			{
+				return rbegin<I>();
+			}
+			template<size_t I=0>
+			reverse_iterator<I> rend() noexcept
+			{
+				auto const o=type_offset<I>();
+				return reverse_iterator<I>(reinterpret_cast<get_t<I>*>(_data+o));
+			}
+			template<size_t I=0>
+			const_reverse_iterator<I> rend() const noexcept
+			{
+				auto const o=type_offset<I>();
+				return const_reverse_iterator<I>(reinterpret_cast<get_t<I> const*>(_data+o));
+			}
+			template<size_t I=0>
+			const_reverse_iterator<I> crend() const noexcept
+			{
+				return rend<I>();
+			}
+		protected:
+			template<size_t I>
+			void move_range(char* new_buffer)
+			{
+				using type=get_t<I>;
+				size_t const offset=type_offset<I>();
+				type* old=reinterpret_cast<type*>(_data+offset);
+				type* nb=reinterpret_cast<type*>(new_buffer+offset);
+				for(size_t i=0;i<_size;++i)
+				{
+					new (nb+i) type(std::move(old[i]));
+				}
+			}
+			template<size_t I,size_t... Is>
+			void move_range(char* new_buffer,std::index_sequence<I,Is...>)
+			{
+				move_range<I>(new_buffer);
+				move_range(new_buffer,std::index_sequence<Is...>());
+			}
+			void move_range(char* new_buffer,std::index_sequence<>)
+			{}
+
+			template<size_t I>
+			void copy_range(char const* src)
+			{
+				using type=get_t<I>;
+				size_t const offset=type_offset<I>();
+				type* odst=reinterpret_cast<type*>(_data+offset);
+				type* osrc=reinterpret_cast<type*>(src+offset);
+				for(size_t i=0;i<_size;++i)
+				{
+					new (odst+i) type(osrc[i]);
+				}
+			}
+			template<size_t I,size_t... Is>
+			void copy_range(char const* src,std::index_sequence<I,Is...>)
+			{
+				copy_range<I>(new_buffer);
+				copy_range(new_buffer,std::index_sequence<Is...>());
+			}
+			void copy_range(char const* src,std::index_sequence<>)
+			{}
+
+			void realloc(size_t new_cap)
+			{
+				assert(new_cap%alignment==0);
+				char* temp=do_alloc(new_cap);
+				move_range(temp,std::make_index_sequence<type_count>());
+				do_dealloc(_data);
+				_data=temp;
+				_cap=new_cap;
+			}
+		public:
+			template<size_t I=0>
+			get_t<I> const* data() const noexcept
+			{
+				return reinterpret_cast<get_t<I> const*>(_data+type_offset<I>());
+			}
+			template<size_t I=0>
+			get_t<I>* data() noexcept
+			{
+				return reinterpret_cast<get_t<I>*>(_data+type_offset<I>());
+			}
+			bool empty() const noexcept
+			{
+				return size==0;
+			}
+			size_t size() const noexcept
+			{
+				return _size;
+			}
+			size_t capacity() const noexcept
+			{
+				return _cap;
+			}
+			static constexpr size_t max_size() noexcept
+			{
+				return std::numeric_limits<size_t>::max()/sizeof(_AllocType);
+			}
+			mvector(mvector const& other):_cap(other._cap),_data(do_alloc(_cap)),_size(other._size)
+			{
+				copy_range(other._data,std::make_index_sequence<type_count>());
+			}
+			mvector(mvector&& other):_cap(other._cap),_data(other._data),_size(other._size)
+			{
+				other._data=nullptr;
+				other._size=0;
+				other._cap=0;
+			}
+			mvector():_cap(0),_data(nullptr),_size(0)
+			{}
+		private:
+			static constexpr size_t fix_alignment(size_t s)
+			{
+				return s+s%alignment;
+			}
+
+			template<size_t I,size_t E>
+			struct constructor {
+				template<typename... Rest>
+				static void construct(size_t begin,size_t end,char* data,size_t cap,get_t<I>&& val,Rest&&... rest)
+				{
+					get_t<I>* o=reinterpret_cast<get_t<I>*>(data+size_up_to<I>::value*cap);
+					for(size_t i=begin;i<end;++i)
+					{
+						new (o+i) get_t<I>(std::forward<get_t<I>>(val));
+					}
+					constructor<I+1,E>::construct(begin,end,data,cap,std::forward<Rest>(rest)...);
+				}
+				static void construct(size_t begin,size_t end,char* data,size_t cap)
+				{
+					get_t<I>* o=reinterpret_cast<get_t<I>*>(data+size_up_to<I>::value*cap);
+					for(size_t i=begin;i<end;++i)
+					{
+						new (o+i) get_t<I>;
+					}
+					constructor<I+1,E>::construct(begin,end,data,cap);
+				}
+			};
+			template<size_t I>
+			struct constructor<I,I> {
+				static void construct(size_t,size_t s,char* data,size_t cap)
+				{}
+			};
+
+		public:
+			template<typename... Args>
+			mvector(size_t s,Args const&... args):_cap(fix_alignment(s)),_data(do_alloc(_cap)),_size(s)
+			{
+				static_assert(sizeof...(Args)<=type_count);
+				constructor<0,type_count>::construct(s,_data,_cap,args);
+			}
+			void reserve(size_t s)
+			{
+				if(s>_cap)
+				{
+					realloc(fix_alignment(s));
+				}
+			}
+			void shrink_to_fit()
+			{
+				realloc(fix_alignment(_size));
+			}
+			template<typename... Args>
+			void push_pack(Args&&... args)
+			{
+				static_assert(sizeof...(args)<=type_count,"Too many arguments");
+				size_t new_size=_size+1;
+				if(new_size>_cap)
+				{
+					realloc(2*_cap+alignment);
+				}
+				constructor<0,type_count>::construct(_size,new_size,_data,_cap,std::forward<Args>(args)...);
+				_size=new_size;
+			}
+
+		protected:
+			template<size_t B,size_t E>
+			struct inserter {
+				template<typename First,typename... Args>
+				static void insert(size_t off,size_t count,char* base,size_t cap,First&& f,Args&&... args)
+				{
+					size_t offset=size_up_to<B>::value*cap;
+					using Type=get_t<B>;
+					Type* data=reinterpret_cast<Type*>(base+offset);
+					for(size_t i=count;;)
+					{
+						if(i>0)
+						{
+							--i;
+						}
+						else
+						{
+							break;
+						}
+						new (data+off+count+i) Type(std::move(data[off+i]));
+					}
+					for(size_t i=0;i<count;++i)
+					{
+						new (data+off+i) Type(std::forward<First>(f));
+					}
+					inserter<B+1,E>::insert(off,count,base,cap,std::forward<Args>(args)...);
+				}
+				static void insert(size_t off,size_t count,char* base,size_t cap)
+				{
+					size_t offset=size_up_to<B>::value*cap;
+					using Type=get_t<B>;
+					Type* data=reinterpret_cast<Type*>(base+offset);
+					for(size_t i=count;;)
+					{
+						if(i>0)
+						{
+							--i;
+						}
+						else
+						{
+							break;
+						}
+						new (data+off+count+i) Type(std::move(data[off+i]));
+					}
+					for(size_t i=0;i<count;++i)
+					{
+						new (data+off+i) Type;
+					}
+					inserter<B+1,E>::insert(off,count,base,cap);
+				}
+			};
+			template<size_t B>
+			struct inserter<B,B> {
+				static void insert(size_t off,size_t count,char* base,size_t cap)
+				{}
+			};
+
+			template<size_t I,typename Iter,typename... Args>
+			void insert_impl(Iter pos,size_t count,Args&&... args)
+			{
+				size_t off=pos-begin<I>();
+				size_t new_size=_size+count;
+				if(new_size>_cap)
+				{
+					realloc(fix_alignment(new_size));
+				}
+				_size=new_size;
+				inserter<0,type_count>::insert(off,count,_data,_cap,std::forward<Args>(args)...);
+			}
+		public:
+			template<size_t I,typename... Args>
+			void insert_n(iterator<I> pos,size_t count,Args const&... args)
+			{
+				insert_impl<I>(pos,count,args...);
+			}
+			template<size_t I,typename... Args>
+			void insert_n(const_iterator<I> pos,size_t count,Args const&... args)
+			{
+				insert_impl<I>(pos,count,args...);
+			}
+			template<size_t I,typename... Args>
+			void insert(iterator<I> pos,Args&&... args)
+			{
+				insert_impl<I>(pos,1,std::forward<Args>(args)...);
+			}
+			template<size_t I,typename... Args>
+			void insert(const_iterator<I> pos,Args&&... args)
+			{
+				insert_impl<I>(pos,1,std::forward<Args>(args)...);
+			}
+
+		private:
+			template<size_t B,size_t E>
+			struct eraser {
+				static void erase(size_t pos,size_t remaining,size_t count,char* data,size_t cap)
+				{
+					using T=get_t<B>;
+					T* o=reinterpret_cast<T*>(data+size_up_to<B>::value*cap);
+					size_t i;
+					for(i=pos;i<remaining;++i)
+					{
+						o[i]=std::move(o[i+count]);
+					}
+					if IFCONSTEXPR(!std::is_trivially_destructible<T>::value)
+					{
+						size_t const limit=pos+count;
+						for(;i<limit;++i)
+						{
+							o[i].~T();
+						}
+					}
+				}
+			};
+			template<size_t E>
+			struct eraser<E,E> {
+				static void erase(size_t,size_t,size_t,char*,size_t)
+				{}
+			};
+		public:
+			template<size_t I>
+			void erase(iterator<I> first,iterator<I> last=first+1)
+			{
+				size_t remaining=end<I>()-last;
+				size_t count=last-first;
+				size_t pos=first-begin<I>();
+				eraser<0,type_count>::erase(pos,remaining,count,_data,_cap);
+				_size-=count;
+			}
+			void pop_back()
+			{
+				erase(end()-1);
+			}
+			void clear()
+			{
+				erase(begin(),end());
+			}
+		private:
+			template<size_t... Is>
+			void resize_grow(size_t s,std::index_sequence<Is...>)
+			{
+				insert_n(end(),s-_size,get_t<Is>()...);
+			}
+		public:
+			void resize(size_t s)
+			{
+				if(s<_size)
+				{
+					erase(begin()+s,end());
+				}
+				if(s>_size)
+				{
+					resize_grow(s,std::make_index_sequence<type_count>());
+				}
+			}
+		};
+	}
+
+	//Creates a vector that organizes the given types 
+	//as an array of type1 next to array of type2 next to array of type3...
+	//all of the same size
+	template<typename Type1,typename... Types>
+	using multi_vector=detail::mvector<detail::type_pack<Type1,Types...>>;
 
 	template<typename T,size_t size>
 	class stack_buffer {
@@ -315,4 +904,5 @@ namespace exlib {
 
 	};
 }
+#undef IFCONSTEXPR
 #endif

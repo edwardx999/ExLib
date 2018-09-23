@@ -12,10 +12,10 @@ namespace exlib {
 	constexpr auto time_action(Op op,Args&&... args) -> std::pair<Measure,decltype(op(std::forward<Args>(args)...))>
 	{
 		using RetType=decltype(op(std::forward<Args>(args)...));
-		auto b=std::chrono::high_resolution_clock::now();
+		auto b=std::chrono::steady_clock::now();
 		RetType res=op(std::forward<Args>(args)...);
-		auto e=std::chrono::high_resolution_clock::now();
-		Measure p=b-e;
+		auto e=std::chrono::steady_clock::now();
+		Measure p=std::chrono::duration_cast<Measure>(e-b);
 		return std::pair<Measure,RetType>(p,res);
 	}
 }

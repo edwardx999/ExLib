@@ -20,7 +20,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <variant>
 #endif
 #include <exception>
-namespace exlib {
+namespace exlib { 
 
 	//wraps a function pointer (or really anything callable) in a lambda
 	template<typename FuncPointer>
