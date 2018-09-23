@@ -102,7 +102,7 @@ namespace exlib {
 			}
 		protected:
 			static constexpr size_t alignment=get_alignment(std::make_index_sequence<type_count>());
-			template<typename T>
+			template<typename T,typename Derived>
 			struct iterator_base {
 				using value_type=T;
 				using difference_type=std::ptrdiff_t;
@@ -110,13 +110,22 @@ namespace exlib {
 				using reference=T&;
 			private:
 				T* base;
+				Derived& chain()
+				{
+					return *static_cast<Derived*>(this);
+				}
 			public:
 				iterator_base()
 				{}
 				iterator_base(T* base):base(base)
 				{}
-				iterator_base(iterator_base const&)=default;
-				iterator_base& operator=(iterator_base const&)=default;
+				iterator_base(Derived const& other):base(other.base)
+				{}
+				Derived& operator=(Derived const& other)
+				{
+					base=other.base;
+					return chain();
+				}
 				T& operator*() const
 				{
 					return *base;
@@ -125,42 +134,42 @@ namespace exlib {
 				{
 					return base;
 				}
-				iterator_base operator++(int)
+				Derived operator++(int)
 				{
-					return iterator(base++);
+					return Derived(base++);
 				}
-				iterator_base& operator++()
+				Derived& operator++()
 				{
 					++base;
-					return *this;
+					return chain();
 				}
-				iterator_base operator--(int)
+				Derived operator--(int)
 				{
-					return iterator(base--);
+					return Derived(base--);
 				}
-				iterator_base& operator--()
+				Derived& operator--()
 				{
 					--base;
-					return *this;
+					return chain();
 				}
-				std::ptrdiff_t operator-(iterator_base other) const
+				std::ptrdiff_t operator-(Derived other) const
 				{
 					return base-other.base;
 				}
-				iterator_base operator+(std::ptrdiff_t s) const
+				Derived operator+(std::ptrdiff_t s) const
 				{
-					return iterator_base(base+s);
+					return Derived(base+s);
 				}
-				iterator_base operator-(std::ptrdiff_t s) const
+				Derived operator-(std::ptrdiff_t s) const
 				{
-					return iterator_base(base-s);
+					return Derived(base-s);
 				}
-				iterator_base& operator+=(std::ptrdiff_t s)
+				Derived& operator+=(std::ptrdiff_t s)
 				{
 					base+=s;
-					return *this;
+					return chain();
 				}
-				iterator_base& operator-=(std::ptrdiff_t s)
+				Derived& operator-=(std::ptrdiff_t s)
 				{
 					base-=s;
 					return *this;
@@ -169,7 +178,7 @@ namespace exlib {
 				{
 					return base[s];
 				}
-#define comp(op) bool operator##op##(iterator_base other) const { return base ## op ## other.base ;}
+#define comp(op) bool operator##op##(Derived other) const { return base ## op ## other.base ;}
 				comp(<)
 					comp(>)
 					comp(==)
@@ -179,7 +188,7 @@ namespace exlib {
 #undef comp
 			};
 
-			template<typename T>
+			template<typename T,typename Derived>
 			struct riterator_base {
 				using value_type=T;
 				using difference_type=std::ptrdiff_t;
@@ -187,13 +196,22 @@ namespace exlib {
 				using reference=T&;
 			private:
 				T* base;
+				Derived& chain()
+				{
+					return *static_cast<Derived*>(this);
+				}
 			public:
 				riterator_base()
 				{}
 				riterator_base(T* base):base(base)
 				{}
-				riterator_base(riterator_base const&)=default;
-				riterator_base& operator=(riterator_base const&)=default;
+				riterator_base(Derived const& base):base(other.base)
+				{}
+				Derived& operator=(Derived const&)
+				{
+					base=other.base;
+					return chain();
+				}
 				T& operator*() const
 				{
 					return *(base-1);
@@ -202,51 +220,51 @@ namespace exlib {
 				{
 					return base-1;
 				}
-				riterator_base operator--(int)
+				Derived operator--(int)
 				{
-					return iterator(base++);
+					return Derived(base++);
 				}
-				riterator_base& operator--()
+				Derived& operator--()
 				{
 					++base;
-					return *this;
+					return chain();
 				}
-				riterator_base operator++(int)
+				Derived operator++(int)
 				{
-					return iterator(base--);
+					return Derived(base--);
 				}
-				riterator_base& operator++()
+				Derived& operator++()
 				{
 					--base;
-					return *this;
+					return chain();
 				}
-				std::ptrdiff_t operator-(riterator_base other) const
+				std::ptrdiff_t operator-(Derived other) const
 				{
 					return other.base-base;
 				}
-				riterator_base operator+(std::ptrdiff_t s) const
+				Derived operator+(std::ptrdiff_t s) const
 				{
-					return riterator_base(base-s);
+					return Derived(base-s);
 				}
-				riterator_base operator-(std::ptrdiff_t s) const
+				Derived operator-(std::ptrdiff_t s) const
 				{
-					return riterator_base(base+s);
+					return Derived(base+s);
 				}
-				riterator_base& operator+=(std::ptrdiff_t s)
+				Derived& operator+=(std::ptrdiff_t s)
 				{
 					base-=s;
-					return *this;
+					return chain();
 				}
-				riterator_base& operator-=(std::ptrdiff_t s)
+				Derived& operator-=(std::ptrdiff_t s)
 				{
 					base+=s;
-					return *this;
+					return chain();
 				}
 				T& operator[](size_t s) const
 				{
 					return *(base-s-1);
 				}
-#define comp(op) bool operator##op##(riterator_base other){ return other.base ## op ## base ;}
+#define comp(op) bool operator##op##(Derived other){ return other.base ## op ## base ;}
 				comp(<)
 					comp(>)
 					comp(==)
@@ -268,20 +286,20 @@ namespace exlib {
 			using const_pointer=get_t<I> const*;
 
 			template<size_t I>
-			struct iterator:iterator_base<get_t<I>> {
+			struct iterator:iterator_base<get_t<I>,iterator<I>> {
 				using iterator_base::iterator_base;
 			};
 			template<size_t I>
-			struct const_iterator:iterator_base<get_t<I> const> {
+			struct const_iterator:iterator_base<get_t<I> const,const_iterator<I>> {
 				using iterator_base::iterator_base;
 			};
 
 			template<size_t I>
-			struct reverse_iterator:riterator_base<get_t<I>> {
+			struct reverse_iterator:riterator_base<get_t<I>,reverse_iterator<I>> {
 				using riterator_base::riterator_base;
 			};
 			template<size_t I>
-			struct const_reverse_iterator:riterator_base<get_t<I> const> {
+			struct const_reverse_iterator:riterator_base<get_t<I> const,const_reverse_iterator<I>> {
 				using riterator_base::riterator_base;
 			};
 
@@ -392,25 +410,30 @@ namespace exlib {
 			}
 		protected:
 			template<size_t I>
-			void move_range(char* new_buffer)
+			void move_range(char* new_buffer,size_t new_cap)
 			{
 				using type=get_t<I>;
-				size_t const offset=type_offset<I>();
-				type* old=reinterpret_cast<type*>(_data+offset);
-				type* nb=reinterpret_cast<type*>(new_buffer+offset);
-				for(size_t i=0;i<_size;++i)
+				constexpr auto offset_unit=size_up_to<I>::value;
+				type* old=reinterpret_cast<type*>(_data+_cap*offset_unit);
+				type* nb=reinterpret_cast<type*>(new_buffer+new_cap*offset_unit);
+				std::memcpy(nb,old,_size*sizeof(type));
+				if IFCONSTEXPR(!std::is_trivially_destructible<type>::value)
 				{
-					new (nb+i) type(std::move(old[i]));
+					for(size_t i=0;i<_size;++i)
+					{
+						old[i].~type();
+					}
 				}
 			}
-			template<size_t I,size_t... Is>
-			void move_range(char* new_buffer,std::index_sequence<I,Is...>)
-			{
-				move_range<I>(new_buffer);
-				move_range(new_buffer,std::index_sequence<Is...>());
-			}
-			void move_range(char* new_buffer,std::index_sequence<>)
+
+			void move_ranges(char* new_buffer,std::index_sequence<>,size_t new_cap)
 			{}
+			template<size_t I,size_t... Is>
+			void move_ranges(char* new_buffer,std::index_sequence<I,Is...>,size_t new_cap)
+			{
+				move_range<I>(new_buffer,new_cap);
+				move_ranges(new_buffer,std::index_sequence<Is...>(),new_cap);
+			}
 
 			template<size_t I>
 			void copy_range(char const* src)
@@ -437,10 +460,10 @@ namespace exlib {
 			{
 				assert(new_cap%alignment==0);
 				char* temp=do_alloc(new_cap);
-				move_range(temp,std::make_index_sequence<type_count>());
+				move_ranges(temp,std::make_index_sequence<type_count>(),new_cap);
 				do_dealloc(_data);
-				_data=temp;
 				_cap=new_cap;
+				_data=temp;
 			}
 		public:
 			template<size_t I=0>
@@ -534,7 +557,7 @@ namespace exlib {
 				realloc(fix_alignment(_size));
 			}
 			template<typename... Args>
-			void push_pack(Args&&... args)
+			void push_back(Args&&... args)
 			{
 				static_assert(sizeof...(args)<=type_count,"Too many arguments");
 				size_t new_size=_size+1;
@@ -550,62 +573,41 @@ namespace exlib {
 			template<size_t B,size_t E>
 			struct inserter {
 				template<typename First,typename... Args>
-				static void insert(size_t off,size_t count,char* base,size_t cap,First&& f,Args&&... args)
+				static void insert(size_t pos,size_t remaining,size_t count,char* base,size_t cap,First&& f,Args&&... args)
 				{
 					size_t offset=size_up_to<B>::value*cap;
 					using Type=get_t<B>;
-					Type* data=reinterpret_cast<Type*>(base+offset);
-					for(size_t i=count;;)
-					{
-						if(i>0)
-						{
-							--i;
-						}
-						else
-						{
-							break;
-						}
-						new (data+off+count+i) Type(std::move(data[off+i]));
-					}
+					Type* data=reinterpret_cast<Type*>(base+offset)+pos;
+					std::memmove(data+count,data,remaining*sizeof(Type));
 					for(size_t i=0;i<count;++i)
 					{
-						new (data+off+i) Type(std::forward<First>(f));
+						new (data+i) Type(std::forward<First>(f));
 					}
-					inserter<B+1,E>::insert(off,count,base,cap,std::forward<Args>(args)...);
+					inserter<B+1,E>::insert(pos,remaining,count,base,cap,std::forward<Args>(args)...);
 				}
-				static void insert(size_t off,size_t count,char* base,size_t cap)
+				static void insert(size_t pos,size_t remaining,size_t count,char* base,size_t cap)
 				{
 					size_t offset=size_up_to<B>::value*cap;
 					using Type=get_t<B>;
-					Type* data=reinterpret_cast<Type*>(base+offset);
-					for(size_t i=count;;)
-					{
-						if(i>0)
-						{
-							--i;
-						}
-						else
-						{
-							break;
-						}
-						new (data+off+count+i) Type(std::move(data[off+i]));
-					}
+					Type* data=reinterpret_cast<Type*>(base+offset)+pos;
+					std::memmove(data+count,data,remaining*sizeof(Type));
 					for(size_t i=0;i<count;++i)
 					{
-						new (data+off+i) Type;
+						new (data+i) Type;
 					}
-					inserter<B+1,E>::insert(off,count,base,cap);
+					inserter<B+1,E>::insert(pos,remaining,count,base,cap);
 				}
 			};
 			template<size_t B>
 			struct inserter<B,B> {
-				static void insert(size_t off,size_t count,char* base,size_t cap)
+				static void insert(size_t,size_t,size_t,char*,size_t)
 				{}
 			};
 
 			template<size_t I,typename Iter,typename... Args>
 			void insert_impl(Iter pos,size_t count,Args&&... args)
 			{
+				size_t remaining=end<I>()-pos;
 				size_t off=pos-begin<I>();
 				size_t new_size=_size+count;
 				if(new_size>_cap)
@@ -613,7 +615,7 @@ namespace exlib {
 					realloc(fix_alignment(new_size));
 				}
 				_size=new_size;
-				inserter<0,type_count>::insert(off,count,_data,_cap,std::forward<Args>(args)...);
+				inserter<0,type_count>::insert(off,remaining,count,_data,_cap,std::forward<Args>(args)...);
 			}
 		public:
 			template<size_t I,typename... Args>
@@ -643,20 +645,16 @@ namespace exlib {
 				static void erase(size_t pos,size_t remaining,size_t count,char* data,size_t cap)
 				{
 					using T=get_t<B>;
-					T* o=reinterpret_cast<T*>(data+size_up_to<B>::value*cap);
-					size_t i;
-					for(i=pos;i<remaining;++i)
-					{
-						o[i]=std::move(o[i+count]);
-					}
+					T* o=reinterpret_cast<T*>(data+size_up_to<B>::value*cap)+pos;
 					if IFCONSTEXPR(!std::is_trivially_destructible<T>::value)
 					{
-						size_t const limit=pos+count;
-						for(;i<limit;++i)
+						for(size_t i=0;pos<count;++i)
 						{
 							o[i].~T();
 						}
 					}
+					std::memmove(o,o+count,remaining*sizeof(T));
+					eraser<B+1,E>::erase(pos,remaining,count,data,cap);
 				}
 			};
 			template<size_t E>
@@ -664,15 +662,35 @@ namespace exlib {
 				static void erase(size_t,size_t,size_t,char*,size_t)
 				{}
 			};
-		public:
-			template<size_t I>
-			void erase(iterator<I> first,iterator<I> last=first+1)
+			template<size_t I,typename Iter>
+			void erase_impl(Iter first,Iter last)
 			{
 				size_t remaining=end<I>()-last;
 				size_t count=last-first;
 				size_t pos=first-begin<I>();
 				eraser<0,type_count>::erase(pos,remaining,count,_data,_cap);
 				_size-=count;
+			}
+		public:
+			template<size_t I>
+			void erase(iterator<I> first,iterator<I> last)
+			{
+				erase_impl<I>(first,last);
+			}
+			template<size_t I>
+			void erase(const_iterator<I> first,const_iterator<I> last)
+			{
+				erase_impl<I>(first,last);
+			}
+			template<size_t I>
+			void erase(iterator<I> first)
+			{
+				erase_impl<I>(first,first+1);
+			}
+			template<size_t I>
+			void erase(const_iterator<I> first)
+			{
+				erase_impl<I>(first,first+1);
 			}
 			void pop_back()
 			{
