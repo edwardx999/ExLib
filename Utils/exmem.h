@@ -426,41 +426,41 @@ namespace exlib {
 				}
 			}
 
-			void move_ranges(char* new_buffer,std::index_sequence<>,size_t new_cap)
+			void move_ranges(char* new_buffer,size_t new_cap,std::index_sequence<>)
 			{}
 			template<size_t I,size_t... Is>
-			void move_ranges(char* new_buffer,std::index_sequence<I,Is...>,size_t new_cap)
+			void move_ranges(char* new_buffer,size_t new_cap,std::index_sequence<I,Is...>)
 			{
 				move_range<I>(new_buffer,new_cap);
-				move_ranges(new_buffer,std::index_sequence<Is...>(),new_cap);
+				move_ranges(new_buffer,new_cap,std::index_sequence<Is...>());
 			}
 
 			template<size_t I>
-			void copy_range(char const* src)
+			void copy_range(char const* src,size_t src_offset)
 			{
 				using type=get_t<I>;
-				size_t const offset=type_offset<I>();
-				type* odst=reinterpret_cast<type*>(_data+offset);
-				type* osrc=reinterpret_cast<type*>(src+offset);
+				constexpr size_t offset=size_up_to<I>::value;
+				type* odst=reinterpret_cast<type*>(_data+offset*_cap);
+				type const* osrc=reinterpret_cast<type const*>(src+offset*src_offset);
 				for(size_t i=0;i<_size;++i)
 				{
 					new (odst+i) type(osrc[i]);
 				}
 			}
 			template<size_t I,size_t... Is>
-			void copy_range(char const* src,std::index_sequence<I,Is...>)
+			void copy_range(char const* src,size_t src_offset,std::index_sequence<I,Is...>)
 			{
-				copy_range<I>(new_buffer);
-				copy_range(new_buffer,std::index_sequence<Is...>());
+				copy_range<I>(src,src_offset);
+				copy_range(src,src_offset,std::index_sequence<Is...>());
 			}
-			void copy_range(char const* src,std::index_sequence<>)
+			void copy_range(char const* src,size_t src_offset,std::index_sequence<>)
 			{}
 
 			void realloc(size_t new_cap)
 			{
 				assert(new_cap%alignment==0);
 				char* temp=do_alloc(new_cap);
-				move_ranges(temp,std::make_index_sequence<type_count>(),new_cap);
+				move_ranges(temp,new_cap,std::make_index_sequence<type_count>());
 				do_dealloc(_data);
 				_cap=new_cap;
 				_data=temp;
@@ -494,7 +494,7 @@ namespace exlib {
 			}
 			mvector(mvector const& other):_cap(other._cap),_data(do_alloc(_cap)),_size(other._size)
 			{
-				copy_range(other._data,std::make_index_sequence<type_count>());
+				copy_range(other._data,other._cap,std::make_index_sequence<type_count>());
 			}
 			mvector(mvector&& other):_cap(other._cap),_data(other._data),_size(other._size)
 			{
@@ -717,6 +717,30 @@ namespace exlib {
 				{
 					resize_grow(s,std::make_index_sequence<type_count>());
 				}
+			}
+			mvector& operator=(mvector const& other)
+			{
+				clear();
+				reserve(other._size);
+				copy_range(other._data,other._cap,std::make_index_sequence<type_count>());
+				return *this;
+			}
+			~mvector()
+			{
+				eraser<0,type_count>::erase(0,0,_size,_data,_cap);
+				do_dealloc(_data);
+			}
+			mvector& operator=(mvector&& other)
+			{
+				eraser<0,type_count>::erase(0,0,_size,_data,_cap);
+				do_dealloc(_data);
+				_data=other._data;
+				_cap=other._cap;
+				_size=other._size;
+				other._data=nullptr;
+				other._size=0;
+				other._cap=0;
+				return *this;
 			}
 		};
 	}
