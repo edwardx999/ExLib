@@ -191,13 +191,27 @@ namespace exlib {
 #endif
 
 	namespace detail {
-
 		template<typename Arr1,typename Arr2,size_t... I,size_t... J>
 		constexpr auto concat(Arr1 const& a,Arr2 const& b,std::index_sequence<I...>,std::index_sequence<J...>)
 		{
 			using T=std::remove_cv_t<std::remove_reference_t<decltype(a[0])>>;
-			std::array<T,sizeof...(I)+sizeof...(J)> ret{{a[I]...,b[J]...}};
+			using U=std::remove_cv_t<std::remove_reference_t<decltype(b[0])>>;
+			std::array<typename std::common_type<T,U>::type,sizeof...(I)+sizeof...(J)> ret{{a[I]...,b[J]...}};
 			return ret;
+		}
+		template<typename A,typename B>
+		constexpr auto str_concat(A const& a,B const& b)
+		{
+			constexpr size_t N=array_size<A>::value;
+			constexpr size_t M=array_size<B>::value;
+			constexpr size_t Nf=N==0?0:N-1;
+			constexpr size_t Mf=M==0?0:M-1;
+			return concat(a,b,std::make_index_sequence<Nf>(),std::make_index_sequence<Mf>());
+		}
+		template<typename A,typename B,typename... C>
+		constexpr auto str_concat(A const& a,B const& b,C const&... c)
+		{
+			return str_concat(str_concat(a,b),c...);
 		}
 	}
 
@@ -215,6 +229,13 @@ namespace exlib {
 	constexpr auto concat(A const& a,B const& b,C const&... c)
 	{
 		return concat(concat(a,b),c...);
+	}
+
+	//concatenate str arrays (std::array<T,N> or T[N]) and returns an std::array<T,CombinedLen> of the arrays
+	template<typename A,typename B,typename... C>
+	constexpr auto str_concat(A const& a,B const& b,C const&... c)
+	{
+		return concat(detail::str_concat(a,b,c...),"");
 	}
 
 	template<typename T=void>

@@ -26,6 +26,204 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #endif
 namespace exlib {
 
+	/*
+		A curiously recurring template pattern base for iterators.
+		T is value_type of iterator.
+	*/
+	template<typename T,typename Derived>
+	struct iterator_base {
+		using value_type=T;
+		using difference_type=std::ptrdiff_t;
+		using pointer=T*;
+		using reference=T&;
+		using iterator_category=std::random_access_iterator_tag;
+	private:
+		T* base;
+		constexpr Derived& chain()
+		{
+			return *static_cast<Derived*>(this);
+		}
+	public:
+		constexpr iterator_base()
+		{}
+		constexpr iterator_base(T* base):base(base)
+		{}
+		constexpr iterator_base(Derived const& other):base(other.base)
+		{}
+		constexpr Derived& operator=(Derived const& other)
+		{
+			base=other.base;
+			return chain();
+		}
+		constexpr T& operator*() const
+		{
+			return *base;
+		}
+		constexpr T* operator->() const
+		{
+			return base;
+		}
+		constexpr Derived operator++(int)
+		{
+			return Derived(base++);
+		}
+		constexpr Derived& operator++()
+		{
+			++base;
+			return chain();
+		}
+		constexpr Derived operator--(int)
+		{
+			return Derived(base--);
+		}
+		constexpr Derived& operator--()
+		{
+			--base;
+			return chain();
+		}
+		constexpr std::ptrdiff_t operator-(Derived other) const
+		{
+			return base-other.base;
+		}
+		constexpr Derived operator+(std::ptrdiff_t s) const
+		{
+			return Derived(base+s);
+		}
+		constexpr Derived operator-(std::ptrdiff_t s) const
+		{
+			return Derived(base-s);
+		}
+		constexpr Derived& operator+=(std::ptrdiff_t s)
+		{
+			base+=s;
+			return chain();
+		}
+		constexpr Derived& operator-=(std::ptrdiff_t s)
+		{
+			base-=s;
+			return chain();
+		}
+		constexpr T& operator[](size_t s) const
+		{
+			return base[s];
+		}
+#define comp(op) constexpr bool operator##op##(Derived other) const { return base ## op ## other.base ;}
+		comp(<)
+			comp(>)
+			comp(==)
+			comp(>=)
+			comp(<=)
+			comp(!=)
+#undef comp
+	};
+
+	/*
+		A curiously recurring template pattern base for reverse_iterators.
+		T is value_type of iterator.
+	*/
+	template<typename T,typename Derived>
+	struct riterator_base {
+		using value_type=T;
+		using difference_type=std::ptrdiff_t;
+		using pointer=T*;
+		using reference=T&;
+		using iterator_category=std::random_access_iterator_tag;
+	private:
+		T* base;
+		constexpr Derived& chain()
+		{
+			return *static_cast<Derived*>(this);
+		}
+	public:
+		constexpr riterator_base()
+		{}
+		constexpr riterator_base(T* base):base(base)
+		{}
+		constexpr riterator_base(Derived const& base):base(other.base)
+		{}
+		constexpr Derived& operator=(Derived const&)
+		{
+			base=other.base;
+			return chain();
+		}
+		constexpr T& operator*() const
+		{
+			return *(base-1);
+		}
+		constexpr T* operator->() const
+		{
+			return base-1;
+		}
+		constexpr Derived operator--(int)
+		{
+			return Derived(base++);
+		}
+		constexpr Derived& operator--()
+		{
+			++base;
+			return chain();
+		}
+		constexpr Derived operator++(int)
+		{
+			return Derived(base--);
+		}
+		constexpr Derived& operator++()
+		{
+			--base;
+			return chain();
+		}
+		constexpr std::ptrdiff_t operator-(Derived other) const
+		{
+			return other.base-base;
+		}
+		constexpr Derived operator+(std::ptrdiff_t s) const
+		{
+			return Derived(base-s);
+		}
+		constexpr Derived operator-(std::ptrdiff_t s) const
+		{
+			return Derived(base+s);
+		}
+		constexpr Derived& operator+=(std::ptrdiff_t s)
+		{
+			base-=s;
+			return chain();
+		}
+		constexpr Derived& operator-=(std::ptrdiff_t s)
+		{
+			base+=s;
+			return chain();
+		}
+		constexpr T& operator[](size_t s) const
+		{
+			return *(base-s-1);
+		}
+#define comp(op) constexpr bool operator##op##(Derived other){ return other.base ## op ## base ;}
+		comp(<)
+			comp(>)
+			comp(==)
+			comp(>=)
+			comp(<=)
+			comp(!=)
+#undef comp
+	};
+
+	template<typename T>
+	struct iterator:iterator_base<T,iterator<T>>{
+		using iterator_base::iterator_base;
+	};
+	template<typename T>
+	struct const_iterator:iterator_base<T const,const_iterator<T>> {
+		using iterator_base::iterator_base;
+	};
+	template<typename T>
+	struct reverse_iterator:riterator_base<T,reverse_iterator<T>> {
+		using riterator_base::riterator_base;
+	};
+	template<typename T>
+	struct const_reverse_iterator:iterator_base<T const,const_reverse_iterator<T>> {
+		using riterator_base::riterator_base;
+	};
 
 	namespace detail {
 
@@ -102,177 +300,6 @@ namespace exlib {
 			}
 		protected:
 			static constexpr size_t alignment=get_alignment(std::make_index_sequence<type_count>());
-			template<typename T,typename Derived>
-			struct iterator_base {
-				using value_type=T;
-				using difference_type=std::ptrdiff_t;
-				using pointer=T*;
-				using reference=T&;
-			private:
-				T* base;
-				Derived& chain()
-				{
-					return *static_cast<Derived*>(this);
-				}
-			public:
-				iterator_base()
-				{}
-				iterator_base(T* base):base(base)
-				{}
-				iterator_base(Derived const& other):base(other.base)
-				{}
-				Derived& operator=(Derived const& other)
-				{
-					base=other.base;
-					return chain();
-				}
-				T& operator*() const
-				{
-					return *base;
-				}
-				T* operator->() const
-				{
-					return base;
-				}
-				Derived operator++(int)
-				{
-					return Derived(base++);
-				}
-				Derived& operator++()
-				{
-					++base;
-					return chain();
-				}
-				Derived operator--(int)
-				{
-					return Derived(base--);
-				}
-				Derived& operator--()
-				{
-					--base;
-					return chain();
-				}
-				std::ptrdiff_t operator-(Derived other) const
-				{
-					return base-other.base;
-				}
-				Derived operator+(std::ptrdiff_t s) const
-				{
-					return Derived(base+s);
-				}
-				Derived operator-(std::ptrdiff_t s) const
-				{
-					return Derived(base-s);
-				}
-				Derived& operator+=(std::ptrdiff_t s)
-				{
-					base+=s;
-					return chain();
-				}
-				Derived& operator-=(std::ptrdiff_t s)
-				{
-					base-=s;
-					return *this;
-				}
-				T& operator[](size_t s) const
-				{
-					return base[s];
-				}
-#define comp(op) bool operator##op##(Derived other) const { return base ## op ## other.base ;}
-				comp(<)
-					comp(>)
-					comp(==)
-					comp(>=)
-					comp(<=)
-					comp(!=)
-#undef comp
-			};
-
-			template<typename T,typename Derived>
-			struct riterator_base {
-				using value_type=T;
-				using difference_type=std::ptrdiff_t;
-				using pointer=T*;
-				using reference=T&;
-			private:
-				T* base;
-				Derived& chain()
-				{
-					return *static_cast<Derived*>(this);
-				}
-			public:
-				riterator_base()
-				{}
-				riterator_base(T* base):base(base)
-				{}
-				riterator_base(Derived const& base):base(other.base)
-				{}
-				Derived& operator=(Derived const&)
-				{
-					base=other.base;
-					return chain();
-				}
-				T& operator*() const
-				{
-					return *(base-1);
-				}
-				T* operator->() const
-				{
-					return base-1;
-				}
-				Derived operator--(int)
-				{
-					return Derived(base++);
-				}
-				Derived& operator--()
-				{
-					++base;
-					return chain();
-				}
-				Derived operator++(int)
-				{
-					return Derived(base--);
-				}
-				Derived& operator++()
-				{
-					--base;
-					return chain();
-				}
-				std::ptrdiff_t operator-(Derived other) const
-				{
-					return other.base-base;
-				}
-				Derived operator+(std::ptrdiff_t s) const
-				{
-					return Derived(base-s);
-				}
-				Derived operator-(std::ptrdiff_t s) const
-				{
-					return Derived(base+s);
-				}
-				Derived& operator+=(std::ptrdiff_t s)
-				{
-					base-=s;
-					return chain();
-				}
-				Derived& operator-=(std::ptrdiff_t s)
-				{
-					base+=s;
-					return chain();
-				}
-				T& operator[](size_t s) const
-				{
-					return *(base-s-1);
-				}
-#define comp(op) bool operator##op##(Derived other){ return other.base ## op ## base ;}
-				comp(<)
-					comp(>)
-					comp(==)
-					comp(>=)
-					comp(<=)
-					comp(!=)
-#undef comp
-			};
 		public:
 			template<size_t I>
 			using value_type=get_t<I>;
@@ -342,14 +369,12 @@ namespace exlib {
 			template<size_t I=0>
 			iterator<I> begin() noexcept
 			{
-				auto const o=type_offset<I>();
-				return iterator<I>(reinterpret_cast<get_t<I>*>(_data+o));
+				return reinterpret_cast<get_t<I>*>(_data+type_offset<I>());
 			}
 			template<size_t I=0>
 			const_iterator<I> begin() const noexcept
 			{
-				auto const o=type_offset<I>();
-				return const_iterator<I>(reinterpret_cast<get_t<I> const*>(_data+o));
+				return reinterpret_cast<get_t<I> const*>(_data+type_offset<I>());
 			}
 			template<size_t I=0>
 			const_iterator<I> cbegin() const noexcept
@@ -359,14 +384,12 @@ namespace exlib {
 			template<size_t I=0>
 			iterator<I> end() noexcept
 			{
-				auto const o=type_offset<I>();
-				return iterator<I>(reinterpret_cast<get_t<I>*>(_data+o)+_size);
+				return reinterpret_cast<get_t<I>*>(_data+type_offset<I>())+_size;
 			}
 			template<size_t I=0>
 			const_iterator<I> end() const noexcept
 			{
-				auto const o=type_offset<I>();
-				return const_iterator<I>(reinterpret_cast<get_t<I> const*>(_data+o)+_size);
+				return reinterpret_cast<get_t<I> const*>(_data+type_offset<I>())+_size;
 			}
 			template<size_t I=0>
 			const_iterator<I> cend() const noexcept
@@ -377,14 +400,12 @@ namespace exlib {
 			template<size_t I=0>
 			reverse_iterator<I> rbegin() noexcept
 			{
-				auto const o=type_offset<I>();
-				return reverse_iterator<I>(reinterpret_cast<get_t<I>*>(_data+o)+_size);
+				return reinterpret_cast<get_t<I>*>(_data+type_offset<I>())+_size;
 			}
 			template<size_t I=0>
 			const_reverse_iterator<I> rbegin() const noexcept
 			{
-				auto const o=type_offset<I>();
-				return const_reverse_iterator<I>(reinterpret_cast<get_t<I> const*>(_data+o)+_size);
+				return reinterpret_cast<get_t<I> const*>(_data+type_offset<I>())+_size;
 			}
 			template<size_t I=0>
 			const_reverse_iterator<I> crbegin() const noexcept
@@ -394,14 +415,12 @@ namespace exlib {
 			template<size_t I=0>
 			reverse_iterator<I> rend() noexcept
 			{
-				auto const o=type_offset<I>();
-				return reverse_iterator<I>(reinterpret_cast<get_t<I>*>(_data+o));
+				return reinterpret_cast<get_t<I>*>(_data+type_offset<I>());
 			}
 			template<size_t I=0>
 			const_reverse_iterator<I> rend() const noexcept
 			{
-				auto const o=type_offset<I>();
-				return const_reverse_iterator<I>(reinterpret_cast<get_t<I> const*>(_data+o));
+				return reinterpret_cast<get_t<I> const*>(_data+type_offset<I>());
 			}
 			template<size_t I=0>
 			const_reverse_iterator<I> crend() const noexcept
@@ -525,9 +544,12 @@ namespace exlib {
 				static void construct(size_t begin,size_t end,char* data,size_t cap)
 				{
 					get_t<I>* o=reinterpret_cast<get_t<I>*>(data+size_up_to<I>::value*cap);
-					for(size_t i=begin;i<end;++i)
+					if IFCONSTEXPR(!std::is_trivially_constructible<get_t<I>>::value)
 					{
-						new (o+i) get_t<I>;
+						for(size_t i=begin;i<end;++i)
+						{
+							new (o+i) get_t<I>;
+						}
 					}
 					constructor<I+1,E>::construct(begin,end,data,cap);
 				}
@@ -591,9 +613,12 @@ namespace exlib {
 					using Type=get_t<B>;
 					Type* data=reinterpret_cast<Type*>(base+offset)+pos;
 					std::memmove(data+count,data,remaining*sizeof(Type));
-					for(size_t i=0;i<count;++i)
+					if IFCONSTEXPR(!std::is_trivially_constructible<Type>::value)
 					{
-						new (data+i) Type;
+						for(size_t i=0;i<count;++i)
+						{
+							new (data+i) Type;
+						}
 					}
 					inserter<B+1,E>::insert(pos,remaining,count,base,cap);
 				}
@@ -704,7 +729,7 @@ namespace exlib {
 			template<size_t... Is>
 			void resize_grow(size_t s,std::index_sequence<Is...>)
 			{
-				insert_n(end(),s-_size,get_t<Is>()...);
+				insert_n(end(),s-_size);
 			}
 		public:
 			void resize(size_t s)
