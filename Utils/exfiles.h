@@ -18,6 +18,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <Windows.h>
 #endif
 #include <stdio.h>
+#include <regex>
 namespace exlib {
 	/*
 		Returns a vector containing the filenames of all files in the first level of the given directory.
@@ -197,6 +198,5 @@ namespace exlib {
 		}
 		return end;
 	}
-	
 }
 #endif

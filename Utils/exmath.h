@@ -1,14 +1,14 @@
 /*
 Copyright 2018 Edward Xie
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), 
-to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
 and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 #ifndef EXMATH_H
@@ -36,6 +36,55 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #define EX_CONSTIF
 #endif
 namespace exlib {
+
+	template<typename T>
+	constexpr T abs(T const& a)
+	{
+		if(a<0)
+		{
+			return -a;
+		}
+		return a;
+	}
+	/*
+		Finds the lowest magnitude c such that a+c=b in the modular group spanning [min,max),
+		assuming a and b are in the modular group.
+	*/
+	template<typename T>
+	constexpr typename std::make_signed<T>::type min_modular_distance(T const& a,T const& b,T const& min,T const& max)
+	{
+		typedef typename std::make_signed<T>::type Ret;
+		if(a<b)
+		{
+			Ret forward_dist=b-a;
+			Ret backward_dist=a-min+max-b;
+			if(forward_dist<=backward_dist)
+			{
+				return forward_dist;
+			}
+			return backward_dist*=-1; //if they are allocating BigIntegers, prevents reallocation, hopefully
+		}
+		else
+		{
+			Ret forward_dist=max-a+b-min;
+			Ret backward_dist=a-b;
+			if(forward_dist<=backward_dist)
+			{
+				return forward_dist;
+			}
+			return backward_dist*=-1;
+		}
+	}
+
+	/*
+		Finds the lowest magnitude c such that a+c=b in the modular group spanning [0,max),
+		assuming a and b are in the modular group.
+	*/
+	template<typename T>
+	constexpr std::make_signed<T>::type min_modular_distance(T const& a,T const& b,T const& max)
+	{
+		return min_modular_distance(a,b,T(0),max);
+	}
 
 	template<typename T,typename U>
 	constexpr U clamp(T val,U min,U max)

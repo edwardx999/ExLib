@@ -20,7 +20,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <variant>
 #endif
 #include <exception>
-namespace exlib { 
+namespace exlib {
 
 	//wraps a function pointer (or really anything callable) in a lambda
 	template<typename FuncPointer>
@@ -114,6 +114,93 @@ namespace exlib {
 	{
 		using T=typename std::decay<decltype(*begin)>::type;
 		qsort(begin,end,less<T>());
+	}
+
+		/*
+		heapsort
+		sorts between [begin,end) heapsort using c as a less-than comparison function
+		@param begin random access iter pointing to beginning of range to sort
+		@param end random access iter pointing 1 beyond valid range to sort
+		@param c comparison function accepting type pointed to by Iter
+	*/
+	template<typename Iter,typename Comp>
+	constexpr void heapsort(Iter begin,Iter end,Comp c)
+	{
+		size_t const n=end-begin;
+		if(n<2)
+		{
+			return;
+		}
+		Iter const bbegin=begin-1;
+		//build max heap
+		for(size_t i=2;i<=n;++i)
+		{
+			size_t child=i;
+			while(true)
+			{
+				size_t const parent=child/2;
+				if(parent&&c(bbegin[parent],bbegin[child]))
+				{
+					std::swap(bbegin[parent],bbegin[child]);
+					child=parent;
+				}
+				else
+				{
+					break;
+				}
+			}
+		}
+		for(size_t i=n;i>1;--i)
+		{
+			//put max at end
+			swap(bbegin[i],bbegin[1]);
+			size_t parent=1;
+			//sift new top down
+			while(true)
+			{
+				size_t const child1=2*parent;
+				if(child1<i)
+				{
+					size_t const child2=child1+1;
+					if(child2<i)
+					{
+						auto const max=c(bbegin[child1],bbegin[child2])?child2:child1;
+						if(c(bbegin[parent],bbegin[max]))
+						{
+							std::swap(bbegin[parent],bbegin[max]);
+							parent=max;
+						}
+						else
+						{
+							break;
+						}
+					}
+					else
+					{
+						if(c(bbegin[parent],bbegin[child1]))
+						{
+							swap(bbegin[parent],bbegin[child1]);
+							parent=child1;
+						}
+						else
+						{
+							break;
+						}
+					}
+				}
+				else
+				{
+					break;
+				}
+			}
+		}
+	}
+
+	template<typename Iter>
+	void heapsort(Iter begin,Iter end)
+	{
+		using T=typename std::decay<decltype(*begin)>::type;
+		heapsort(begin,end,less<T>());
 	}
 
 	//inserts the element AT elem into the range [begin,elem] according to comp assuming the range is sorted
