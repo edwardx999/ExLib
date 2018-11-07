@@ -19,6 +19,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <algorithm>
 #include <array>
 #include <cstdlib>
+#include <assert.h>
 #if defined(_CONSTEXPR17)
 #define EX_CONSTEXPR _CONSTEXPR17
 #elif defined(_HAS_CXX17) || __cplusplus>201100L
@@ -46,14 +47,44 @@ namespace exlib {
 		}
 		return a;
 	}
+
+	template<typename T>
+	struct get_signed {
+		typedef T type;
+	};
+
+#define _def_get_signed(ntype)\
+	template<>\
+	struct get_signed<unsigned ntype> {\
+		typedef signed ntype type;\
+	}
+	_def_get_signed(char);
+	_def_get_signed(short);
+	_def_get_signed(int);
+	_def_get_signed(long);
+	_def_get_signed(long long);
+#undef _def_get_signed
+	namespace detail {
+		template<typename R,typename T,typename U,typename V,typename W>
+		struct min_modular_distance_type {
+			typedef R type;
+		};
+		template<typename T,typename U,typename V,typename W>
+		struct min_modular_distance_type<void,T,U,V,W> {
+			typedef typename get_signed<typename std::common_type<T,U,V,W>::type>::type type;
+		};
+	}
 	/*
 		Finds the lowest magnitude c such that a+c=b in the modular group spanning [min,max),
 		assuming a and b are in the modular group.
 	*/
-	template<typename T>
-	constexpr typename std::make_signed<T>::type min_modular_distance(T const& a,T const& b,T const& min,T const& max)
+	template<typename R=void,typename T,typename U,typename V,typename W>
+	constexpr auto min_modular_distance(T const& a,U const& b,V const& min,W const& max)
 	{
-		typedef typename std::make_signed<T>::type Ret;
+		assert(min<=max);
+		assert(a>=min&&a<=max);
+		assert(b>=min&&b<=max);
+		typedef typename detail::min_modular_distance_type<R,T,U,V,W>::type Ret;
 		if(a<b)
 		{
 			Ret forward_dist=b-a;
@@ -80,10 +111,10 @@ namespace exlib {
 		Finds the lowest magnitude c such that a+c=b in the modular group spanning [0,max),
 		assuming a and b are in the modular group.
 	*/
-	template<typename T>
-	constexpr std::make_signed<T>::type min_modular_distance(T const& a,T const& b,T const& max)
+	template<typename T,typename U,typename V>
+	constexpr auto min_modular_distance(T const& a,U const& b,V const& max)
 	{
-		return min_modular_distance(a,b,T(0),max);
+		return min_modular_distance(a,b,V(0),max);
 	}
 
 	template<typename T,typename U>
