@@ -75,9 +75,11 @@ namespace exlib {
 	private:
 		std::vector<detail::tracked_thread> _workers;
 		std::queue<std::unique_ptr<Task>> _tasks;
-		std::mutex _locker;
 		std::atomic<bool> _running;
+		std::mutex _locker;
 		std::tuple<Args...> _args;
+		std::condition_variable _queue_done;
+		std::atomic<size_t> _working_threads;
 		inline void task_loop(size_t id)
 		{
 			while(_running)
@@ -103,6 +105,8 @@ namespace exlib {
 					else
 					{
 						_workers[id].working=false;
+						--_working_threads;
+						_queue_done.notify_one();
 					}
 				}
 			}
@@ -259,6 +263,7 @@ namespace exlib {
 		*/
 		void start()
 		{
+			_working_threads=_workers.size();
 			for(auto& w:_workers)
 			{
 				w.working=true;
@@ -293,18 +298,11 @@ namespace exlib {
 	   */
 		inline void wait()
 		{
-			while(true)
+			std::unique_lock<std::mutex> lk(_locker);
+			_queue_done.wait(lk,[&wt=_working_threads]()
 			{
-				for(auto& w:_workers)
-				{
-					if(w.working)
-					{
-						goto cont;
-					}
-				}
-				break;
-				cont:;
-			}
+				return wt==0;
+			});
 		}
 		
 		/*

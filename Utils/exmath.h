@@ -38,6 +38,140 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #endif
 namespace exlib {
 
+	/*
+		Represents the ring of integers mod mod
+		Using Base as a base representation
+	*/
+	template<typename Base,unsigned long long mod>
+	class mod_ring {
+		Base _val;
+	public:
+		template<typename T>
+		constexpr mod_ring(T&& val):_val(std::forward<T>(val))
+		{
+			_val%=mod;
+		}
+		constexpr mod_ring():_val()
+		{}
+	private:
+		//used to construct when it is known that the input is already in modulo range
+		struct no_mod_tag {};
+		template<typename T>
+		constexpr mod_ring(T&& val,no_mod_tag):_val(std::forward<T>(val))
+		{}
+	public:
+#define comp(op) constexpr bool operator op (mod_ring const& o) const { return _val op o;}
+		comp(<)
+		comp(>)
+		comp(<=)
+		comp(>=)
+		comp(==)
+		comp(!=)
+#undef comp
+		constexpr operator Base()
+		{
+			return _val;
+		}
+		constexpr operator Base const&() const
+		{
+			return _val;
+		}
+		constexpr mod_ring operator+(mod_ring const& o) const
+		{
+			Base t=_val+o._val;
+			if(t>=mod) t-=mod;
+			return mod_ring{std::move(t),no_mod_tag{}};
+		}
+		constexpr mod_ring operator*(mod_ring const& o) const
+		{
+			return mod_ring{o._val*_val};
+		}
+		constexpr mod_ring operator /(mod_ring const& o) const
+		{
+			return mod_ring{_val/o._val,no_mod_tag{}};
+		}
+		constexpr mod_ring operator-(mod_ring const& o) const
+		{
+			if(_val>=o._val)
+			{
+				return mod_ring{_val-o._val,no_mod_tag{}};
+			}
+			return mod_ring{mod-(o._val-_val),no_mod_tag{}};
+		}
+		constexpr mod_ring& operator*=(mod_ring const& o)
+		{
+			(_val*=o._val)%=mod;
+			return *this;
+		}
+		constexpr mod_ring& operator+=(mod_ring const& o)
+		{
+			_val+=o._val;
+			if(_val>=mod)
+			{
+				_val-=mod;
+			}
+			return *this;
+		}
+		constexpr mod_ring operator /=(mod_ring const& o) const
+		{
+			_val/=o._val;
+			return *this;
+		}
+		constexpr mod_ring operator -=(mod_ring const& o) const
+		{
+			if(_val>=o._val)
+			{
+				_val-=o._val;
+				return *this;
+			}
+			_val=mod-(o._val-_val);
+			return *this;
+		}
+	};
+
+	template<typename T>
+	constexpr T additive_identity()
+	{
+		return T{0};
+	}
+
+	template<typename T>
+	constexpr T multiplicative_identity()
+	{
+		return T{1};
+	}
+
+	//integral exponentiation a^n
+	template<typename T>
+	constexpr T ipow(T const& a,unsigned long long n)
+	{
+		if(n==0)
+		{
+			return multiplicative_identity<T>();
+		}
+		if(n==1)
+		{
+			return a;
+		}
+		auto x=a;
+		auto y=multiplicative_identity<T>();
+		do
+		{
+			if(n&1)
+			{
+				y*=x;
+				x*=x;
+				(n-=1)/=2;
+			}
+			else
+			{
+				x*=x;
+				n/=2;
+			}
+		} while(n>1);
+		return x*y;
+	}
+
 	template<typename T>
 	constexpr T abs(T const& a)
 	{
@@ -85,6 +219,10 @@ namespace exlib {
 		assert(a>=min&&a<=max);
 		assert(b>=min&&b<=max);
 		typedef typename detail::min_modular_distance_type<R,T,U,V,W>::type Ret;
+		if(a==b)
+		{
+			return Ret{0};
+		}
 		if(a<b)
 		{
 			Ret forward_dist=b-a;
@@ -449,7 +587,6 @@ namespace exlib {
 		if constexpr(std::is_unsigned_v<T>||val>=0)
 		{
 			std::array<CharType,num_digits(val,base)+1> number{{}};
-			constexpr auto digits=detail::make_digit_array<CharType>();
 			auto v=val;
 			number.back()='\0';
 			auto it=number.end()-2;

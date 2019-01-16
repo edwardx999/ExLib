@@ -6,7 +6,7 @@ namespace exlib {
 
 	/*
 		Returns a pair of the time it takes to perform op on the args, and the result of that op.
-		By default the measure is std::chrono::nanoseconds.
+		By default the measure is std::chrono::milliseconds.
 	*/
 	template<typename Measure=std::chrono::milliseconds,typename Op,typename... Args>
 	constexpr auto time_action(Op op,Args&&... args) -> std::pair<Measure,decltype(op(std::forward<Args>(args)...))>
