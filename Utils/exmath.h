@@ -123,7 +123,7 @@ namespace exlib {
 			}
 			return mod_ring{mod-(o._val-_val),no_mod_tag{}};
 		}
-#define cassmd(op) friend constexpr mod_ring operator op(mod_ring&& a,mod_ring const& o) { return a op##= o;}
+#define cassmd(op) static constexpr mod_ring operator op(mod_ring&& a,mod_ring const& o) { return a op##= o;}
 		cassmd(+)
 		cassmd(-)
 		cassmd(*)
