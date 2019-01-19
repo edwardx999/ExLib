@@ -23,7 +23,7 @@ namespace exlib {
 
 	namespace {
 		template<typename... Args>
-		using no_references=std::conjunction<std::negation<std::is_reference<Args>>...>;
+		using no_rvalue_references=std::conjunction<std::negation<std::is_rvalue_reference<Args>>...>;
 	}
 	/*
 	Overload void execute(...) to use this as a task in ThreadPool
@@ -112,7 +112,7 @@ namespace exlib {
 			}
 		}
 	public:
-		//static_assert(no_references<Args...>::value,"References not allowed as start arguments");
+		static_assert(no_rvalue_references<Args...>::value,"RValue References not allowed as start arguments");
 		ThreadPoolA(ThreadPoolA const&)=delete;
 		ThreadPoolA(ThreadPoolA&&)=delete;
 

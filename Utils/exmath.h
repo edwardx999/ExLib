@@ -68,35 +68,9 @@ namespace exlib {
 		comp(==)
 		comp(!=)
 #undef comp
-		constexpr operator Base()
-		{
-			return _val;
-		}
 		constexpr operator Base const&() const
 		{
 			return _val;
-		}
-		constexpr mod_ring operator+(mod_ring const& o) const
-		{
-			Base t=_val+o._val;
-			if(t>=mod) t-=mod;
-			return mod_ring{std::move(t),no_mod_tag{}};
-		}
-		constexpr mod_ring operator*(mod_ring const& o) const
-		{
-			return mod_ring{o._val*_val};
-		}
-		constexpr mod_ring operator /(mod_ring const& o) const
-		{
-			return mod_ring{_val/o._val,no_mod_tag{}};
-		}
-		constexpr mod_ring operator-(mod_ring const& o) const
-		{
-			if(_val>=o._val)
-			{
-				return mod_ring{_val-o._val,no_mod_tag{}};
-			}
-			return mod_ring{mod-(o._val-_val),no_mod_tag{}};
 		}
 		constexpr mod_ring& operator*=(mod_ring const& o)
 		{
@@ -127,6 +101,34 @@ namespace exlib {
 			_val=mod-(o._val-_val);
 			return *this;
 		}
+		constexpr mod_ring operator+(mod_ring const& o) const
+		{
+			Base t=_val+o._val;
+			if(t>=mod) t-=mod;
+			return mod_ring{std::move(t),no_mod_tag{}};
+		}
+		constexpr mod_ring operator*(mod_ring const& o) const
+		{
+			return mod_ring{o._val*_val};
+		}
+		constexpr mod_ring operator /(mod_ring const& o) const
+		{
+			return mod_ring{_val/o._val,no_mod_tag{}};
+		}
+		constexpr mod_ring operator-(mod_ring const& o) const
+		{
+			if(_val>=o._val)
+			{
+				return mod_ring{_val-o._val,no_mod_tag{}};
+			}
+			return mod_ring{mod-(o._val-_val),no_mod_tag{}};
+		}
+#define cassmd(op) friend constexpr mod_ring operator op(mod_ring&& a,mod_ring const& o) { return a op##= o;}
+		cassmd(+)
+		cassmd(-)
+		cassmd(*)
+		cassmd(/)
+#undef cass
 	};
 
 	template<typename T>
