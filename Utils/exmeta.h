@@ -1,14 +1,14 @@
 /*
 Copyright 2018 Edward Xie
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), 
-to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
 and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 #ifndef EXMETA_H
@@ -52,15 +52,6 @@ namespace exlib {\
 */
 #define make_has_method_concrete(METHOD_NAME,OUTPUT,...) include_has_method_h(METHOD_NAME,OUTPUT,__VA_ARGS__)
 #define make_has_method_proc(METHOD_NAME,OUTPUT_PROC) include_has_method_proc_h(METHOD_NAME,OUTPUT_PROC)
-
-//turns a function of one argument into repeated application of the function over multiple paramters
-#define multiapp(function_name)
-template<typename T,typename... U> \
-void function_name(T const& in,U const&... args) \
-{ \
-	function_name(in); \
-	function_name(args...); \
-}
 
 namespace exlib {
 
@@ -136,5 +127,6 @@ namespace exlib {
 	template<typename T>
 	constexpr bool is_bidir_iter_v=is_bidir_iter<T>::value;
 #endif
+
 }
 #endif

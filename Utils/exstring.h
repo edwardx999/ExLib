@@ -1,14 +1,14 @@
 /*
 Copyright 2018 Edward Xie
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), 
-to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
 and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 #ifndef EXSTRING_H
@@ -24,7 +24,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <utility>
 //#include "exmeta.h"
 namespace exlib {
-	
+
 	template<typename T,typename U>
 	constexpr int strcmp(T const* a,U const* b)
 	{
@@ -58,7 +58,7 @@ namespace exlib {
 	}
 
 	template<typename T=char,typename CharT=std::char_traits<T>>
-	class [[deprecated]] string_alg {
+	class[[deprecated]] string_alg{
 	public:
 		typedef typename T value_type;
 		typedef typename T* pointer;
@@ -201,7 +201,7 @@ namespace exlib {
 	};
 
 	template<typename T,typename CharT=std::char_traits<T>,typename Alloc=std::allocator<T>>
-	class [[deprecated]] string_base:public string_alg<T,CharT>,protected Alloc {
+	class[[deprecated]] string_base:public string_alg<T,CharT>,protected Alloc{
 	public:
 		typedef typename string_alg<T,CharT>::value_type value_type;
 		typedef typename string_alg<T,CharT>::pointer pointer;
@@ -284,7 +284,7 @@ namespace exlib {
 		Unsafe if underlying string is moved.
 	*/
 	template<typename T,typename CharT=std::char_traits<T>>
-	class [[deprecated]] weak_string_base:public string_alg<T,CharT> {
+	class[[deprecated]] weak_string_base:public string_alg<T,CharT>{
 	public:
 		typedef typename string_alg<T,CharT>::value_type value_type;
 		typedef typename string_alg<T,CharT>::pointer pointer;
@@ -307,7 +307,7 @@ namespace exlib {
 	typedef weak_string_base<wchar_t> weak_wstring;
 
 	template<typename T,typename CharT=std::char_traits<T>>
-	class [[deprecated]] string_manager_base:public string_alg<T,CharT> {
+	class[[deprecated]] string_manager_base:public string_alg<T,CharT>{
 	public:
 		typedef typename string_alg<T,CharT>::value_type value_type;
 		typedef typename string_alg<T,CharT>::pointer pointer;
@@ -577,7 +577,7 @@ namespace exlib {
 	{
 		typedef typename string_base<T,CharT,Alloc>::size_type st;
 		erase(static_cast<st>(begin-string_alg<T,CharT>::_data),
-			static_cast<st>(end-string_alg<T,CharT>::_data));
+			  static_cast<st>(end-string_alg<T,CharT>::_data));
 	}
 
 	template<typename T,typename CharT,typename Alloc>

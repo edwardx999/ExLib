@@ -65,8 +65,7 @@ namespace exlib {
 		};
 	}
 
-	struct delay_activation_t {
-	};
+	struct delay_activation_t {};
 
 	template<typename... Args>
 	class ThreadPoolA {
@@ -304,7 +303,7 @@ namespace exlib {
 				return wt==0;
 			});
 		}
-		
+
 		/*
 			Waits for all tasks to be finished. Threads stop.
 		*/

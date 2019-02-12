@@ -1,14 +1,14 @@
 /*
 Copyright 2018 Edward Xie
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), 
-to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
 and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 #ifndef EXALG_H
@@ -16,28 +16,43 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <utility>
 #include <array>
 #include <functional>
+#include <stddef.h>
 #if __cplusplus>201700L
 #include <variant>
 #endif
 #include <exception>
+#include <stddef.h>
 namespace exlib {
 
-	//wraps a function pointer (or really anything callable) in a lambda
-	template<typename FuncPointer>
-	constexpr auto wrap(FuncPointer fp)
-	{
-		return [=](auto&&... args)
+	namespace detail {
+		template<typename A> //try ADL swap
+		constexpr auto try_swap2(A& a,A& b) -> decltype(swap(a,b),void())
 		{
-			return fp(std::forward<decltype(args)>(args)...);
-		};
+			swap(a,b);
+		}
+		template<typename A,typename... Extra> //default to temp move
+		constexpr void try_swap2(A& a,A& b,Extra...)
+		{
+			auto temp(std::move(a));
+			a=std::move(b);
+			b=std::move(temp);
+		}
+		template<typename A> //try member swap
+		constexpr auto try_swap1(A& a,A& b) -> decltype(a.swap(b),void())
+		{
+			a.swap(b);
+		}
+		template<typename A,typename... Extra> //failed member swap, try second round
+		constexpr void try_swap1(A& a,A& b,Extra...)
+		{
+			try_swap2(a,b);
+		}
 	}
 
 	template<typename A>
 	constexpr void swap(A& a,A& b)
 	{
-		auto temp=std::move(a);
-		a=std::move(b);
-		b=std::move(temp);
+		detail::try_swap1(a,b);
 	}
 
 	template<typename T=void>
@@ -50,6 +65,8 @@ namespace exlib {
 			return a<b;
 		}
 	};
+
+
 
 	template<>
 	struct less<char const*> {
@@ -116,58 +133,22 @@ namespace exlib {
 		qsort(begin,end,less<T>());
 	}
 
-		/*
-		heapsort
-		sorts between [begin,end) heapsort using c as a less-than comparison function
-		@param begin random access iter pointing to beginning of range to sort
-		@param end random access iter pointing 1 beyond valid range to sort
-		@param c comparison function accepting type pointed to by Iter
-	*/
-	template<typename Iter,typename Comp>
-	constexpr void heapsort(Iter begin,Iter end,Comp c)
-	{
-		size_t const n=end-begin;
-		if(n<2)
+	namespace detail {
+		template<typename Iter,typename Comp>
+		constexpr void sift_down(Iter begin,size_t parent,size_t dist,Comp c)
 		{
-			return;
-		}
-		Iter const bbegin=begin-1;
-		//build max heap
-		for(size_t i=2;i<=n;++i)
-		{
-			size_t child=i;
 			while(true)
 			{
-				size_t const parent=child/2;
-				if(parent&&c(bbegin[parent],bbegin[child]))
-				{
-					std::swap(bbegin[parent],bbegin[child]);
-					child=parent;
-				}
-				else
-				{
-					break;
-				}
-			}
-		}
-		for(size_t i=n;i>1;--i)
-		{
-			//put max at end
-			swap(bbegin[i],bbegin[1]);
-			size_t parent=1;
-			//sift new top down
-			while(true)
-			{
-				size_t const child1=2*parent;
-				if(child1<i)
+				size_t const child1=2*parent+1;
+				if(child1<dist)
 				{
 					size_t const child2=child1+1;
-					if(child2<i)
+					if(child2<dist)
 					{
-						auto const max=c(bbegin[child1],bbegin[child2])?child2:child1;
-						if(c(bbegin[parent],bbegin[max]))
+						size_t const max=c(begin[child1],begin[child2])?child2:child1;
+						if(c(begin[parent],begin[max]))
 						{
-							std::swap(bbegin[parent],bbegin[max]);
+							swap(begin[parent],begin[max]);
 							parent=max;
 						}
 						else
@@ -177,9 +158,9 @@ namespace exlib {
 					}
 					else
 					{
-						if(c(bbegin[parent],bbegin[child1]))
+						if(c(begin[parent],begin[child1]))
 						{
-							swap(bbegin[parent],bbegin[child1]);
+							swap(begin[parent],begin[child1]);
 							parent=child1;
 						}
 						else
@@ -194,13 +175,61 @@ namespace exlib {
 				}
 			}
 		}
+
+		template<typename Iter,typename Comp>
+		constexpr void make_heap(Iter begin,size_t dist,Comp c)
+		{
+			for(size_t i=dist/2;i>0;)
+			{
+				--i;
+				detail::sift_down(begin,i,dist,c);
+			}
+		}
 	}
 
-	template<typename Iter>
-	void heapsort(Iter begin,Iter end)
+	template<typename Iter,typename Comp=std::less<typename std::iterator_traits<Iter>::value_type>>
+	constexpr void make_heap(Iter begin,Iter end,Comp c={})
 	{
-		using T=typename std::decay<decltype(*begin)>::type;
-		heapsort(begin,end,less<T>());
+		size_t const dist=end-begin;
+		detail::make_heap(begin,dist,c);
+	}
+
+	template<typename Iter,typename Comp=std::less<typename std::iterator_traits<Iter>::value_type>>
+	constexpr void pop_heap(Iter begin,Iter end,Comp c={})
+	{
+		size_t const dist=end-begin;
+		if(dist==0)
+		{
+			return;
+		}
+		swap(*begin,*(end-1));
+		detail::sift_down(begin,0,dist-1,c);
+	}
+
+	/*
+		heapsort
+		sorts between [begin,end) heapsort using c as a less-than comparison function
+		@param begin random access iter pointing to beginning of range to sort
+		@param end random access iter pointing 1 beyond valid range to sort
+		@param c comparison function accepting type pointed to by Iter
+	*/
+	template<typename Iter,typename Comp=std::less<typename std::iterator_traits<Iter>::value_type>>
+	constexpr void heapsort(Iter begin,Iter end,Comp c={})
+	{
+		size_t const n=end-begin;
+		if(n<2)
+		{
+			return;
+		}
+		detail::make_heap(begin,n,c);
+		for(size_t i=n;i>0;)
+		{
+			--i;
+			//put max at end
+			swap(begin[i],begin[0]);
+			//sift new top down
+			detail::sift_down(begin,0,i,c);
+		}
 	}
 
 	//inserts the element AT elem into the range [begin,elem] according to comp assuming the range is sorted
@@ -622,7 +651,7 @@ namespace exlib {
 
 	namespace detail {
 		template<typename B,typename... R>
-		struct ma_ret{
+		struct ma_ret {
 			using type=B;
 		};
 
@@ -635,10 +664,10 @@ namespace exlib {
 	template<typename Type=void,typename... Args>
 	constexpr std::array<typename detail::ma_ret<Type,Args...>::type,sizeof...(Args)> make_array(Args&&... args)
 	{
-		return 
-			{{
-				std::forward<Args>(args)...
-			}};
+		return
+		{{
+			std::forward<Args>(args)...
+		}};
 	}
 
 	//the number of elements accessible by std::get

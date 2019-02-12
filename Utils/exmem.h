@@ -32,7 +32,7 @@ namespace exlib {
 	*/
 	template<typename T,typename Derived>
 	struct iterator_base {
-		using value_type=T;
+		using value_type=typename std::remove_cv<T>::type;
 		using difference_type=std::ptrdiff_t;
 		using pointer=T*;
 		using reference=T&;
@@ -44,6 +44,11 @@ namespace exlib {
 			return *static_cast<Derived*>(this);
 		}
 	public:
+		//for use by the MSVC stl
+		constexpr T* _Unwrapped() const
+		{
+			return _base;
+		}
 		constexpr T* base()
 		{
 			return _base;
@@ -223,7 +228,7 @@ namespace exlib {
 	template<typename T>
 	struct iterator:iterator_base<T,iterator<T>> {
 		using iterator_base::iterator_base;
-		iterator(const_iterator<T> ci):iterator_base(ci.base()){}
+		iterator(const_iterator<T> ci):iterator_base(ci.base()) {}
 	};
 
 	template<typename T>
@@ -233,7 +238,92 @@ namespace exlib {
 	template<typename T>
 	struct reverse_iterator:riterator_base<T,reverse_iterator<T>> {
 		using riterator_base::riterator_base;
-		reverse_iterator(const_reverse_iterator<T> cri):riterator_base(cri.base()){}
+		reverse_iterator(const_reverse_iterator<T> cri):riterator_base(cri.base()) {}
+	};
+
+	/*
+		A reference to an uninitialized object.
+		Is converted to a standard reference when assigned to.
+	*/
+	template<typename T>
+	class uninitialized_reference {
+		T* _base;
+	public:
+		using type=T;
+		uninitialized_reference(T& base):_base(std::addressof(base)) {}
+		T& operator=(T const& t) noexcept(noexcept(T(t)))
+		{
+			new (_base)(t);
+			return *_base;
+		}
+		T& operator=(T&& t) noexcept(noexcept(T(std::move(t))))
+		{
+			new (_base)(std::move(t));
+			return *_base;
+		}
+		template<typename... Args>
+		T& emplace(Args&&... args)
+		{
+			new (_base)(std::forward<Args>(args)...);
+			return *_base;
+		}
+		explicit operator T&() const noexcept
+		{
+			return *_base;
+		}
+		uninitialized_reference& operator=(uninitialized_reference const&) noexcept=default;
+		uninitialized_reference& operator=(uninitialized_reference&&) noexcept=default;
+		void swap(uninitialized_reference& other)
+		{
+			std::swap(_base,other._base);
+		}
+		friend void swap(uninitialized_reference& a,uninitialized_reference& b)
+		{
+			a.swap(b);
+		}
+	};
+
+	template<typename T>
+	class uninitialized_iterator:public iterator_base<T,uninitialized_iterator<T>> {
+	public:
+		using value_type=T;
+		using pointer=T*;
+		using reference=uninitialized_reference<T>;
+		using iterator_base<T,uninitialized_iterator<T>>::iterator_base;
+		constexpr uninitialized_reference<T> operator*() const
+		{
+			return *base();
+		}
+	private:
+		constexpr T* operator->() const
+		{
+			return base();
+		}
+	public:
+		constexpr uninitialized_reference<T> operator[](size_t s) const
+		{
+			return base()[s];
+		}
+	};
+
+	template<typename T,typename Base=std::allocator<T>>
+	class default_init_allocator:public Base {
+	public:
+		using Base::Base;
+		void construct(T* place)
+		{
+			new (place) T;
+		}
+		using Base::construct;
+	};
+
+	template<typename T,typename Base=std::allocator<T>>
+	class no_init_allocator:public Base {
+	public:
+		using Base::Base;
+		template<typename... Args>
+		void construct(T* place,Args&&... args)
+		{}
 	};
 
 	namespace detail {
