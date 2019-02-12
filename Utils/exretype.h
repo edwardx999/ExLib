@@ -54,7 +54,7 @@ namespace exlib {
 		return overloaded<std::remove_cv_t<std::remove_reference_t<decltype(wrap(f))>>...>(std::forward<Funcs>(f)...);
 	}
 
-	#if __cplusplus > 201700L || defined(_CRT_HAS_CXX17)
+#if __cplusplus > 201700L || defined(_CRT_HAS_CXX17)
 	template<typename... Funcs>
 	overloaded(Funcs&&... f)->overloaded<std::remove_cv_t<std::remove_reference_t<decltype(wrap(f))>>...>;
 #endif
@@ -64,10 +64,15 @@ namespace exlib {
 		class Box {
 			Base _base;
 		public:
-			constexpr Box(Base b):_base(b){}
-			constexpr Box(){}
+			constexpr Box(Base b):_base(b) {}
+			constexpr Box() {}
 			constexpr Box(Box const&)=default;
 			constexpr Box& operator=(Box const&)=default;
+			template<typename O> constexpr Box& operator=(O const& o)
+			{
+				_base=o;
+				return *this;
+			}
 			constexpr operator Base&()
 			{
 				return _base;
@@ -77,8 +82,10 @@ namespace exlib {
 				return _base;
 			}
 #define make_bin_op_for_box(op)\
-constexpr Box operator op(Box const& o) const { return {_base ##op## o._base};}\
-constexpr Box& operator ##op##=(Box const& o) { _base ##op##= o._base; return *this;}
+constexpr Box operator op(Box o) const { return {_base ##op## o._base}; }\
+constexpr Box& operator ##op##=(Box o) { _base ##op##= o._base; return *this;}\
+template<typename O> constexpr Box operator op(O const& o) const { return {_base ##op## o}; }\
+template<typename O> constexpr Box& operator ##op##=(O const& o) { _base ##op##= o; return *this;}
 			make_bin_op_for_box(+)
 				make_bin_op_for_box(-)
 				make_bin_op_for_box(/)
@@ -88,17 +95,6 @@ constexpr Box& operator ##op##=(Box const& o) { _base ##op##= o._base; return *t
 				make_bin_op_for_box(&)
 				make_bin_op_for_box(^)
 #undef make_bin_op_for_box
-#define make_comp_op_for_box(op)\
-constexpr friend bool operator##op##(Box a,Box b) {return a._base ##op## b._base;}\
-constexpr friend bool operator##op##(Box a,Base b) {return a._base ##op## b;}\
-constexpr friend bool operator##op##(Base a,Box b) {return a ##op## b._base;}
-				make_comp_op_for_box(<)
-				make_comp_op_for_box(>)
-				make_comp_op_for_box(==)
-				make_comp_op_for_box(<=)
-				make_comp_op_for_box(>=)
-				make_comp_op_for_box(!=)
-#undef make_comp_op_for_box
 				constexpr Box operator~() const
 			{
 				return {~_base};
@@ -125,7 +121,7 @@ constexpr Box operator##op##(size_t c) const {return {_base ##op## c};}\
 			make_shift_op_for_box(<<)
 				make_shift_op_for_box(>>)
 #undef make_shift_op_for_box
-			constexpr Box operator++(int)
+				constexpr Box operator++(int)
 			{
 				auto c(*this);
 				++_base;
@@ -148,8 +144,26 @@ constexpr Box operator##op##(size_t c) const {return {_base ##op## c};}\
 				return *this;
 			}
 		};
+
+		template<typename OStream,typename Base>
+		OStream& operator<<(OStream& os,Box<Base> b)
+		{
+			return os<<static_cast<Base&>(b);
+		}
+
+#define make_comp_op_for_box(op)\
+template<typename Base> constexpr bool operator##op##(Box<Base> a,Box<Base> b) {return static_cast<Base&>(a) ##op## static_cast<Base&>(b);}\
+template<typename Base,typename O> constexpr bool operator##op##(Box<Base> a,O b) {return static_cast<Base&>(a) ##op## b;}\
+template<typename O,typename Base> constexpr bool operator##op##(O a,Box<Base> b) {return a ##op## static_cast<Base&>(b);}
+		make_comp_op_for_box(<)
+			make_comp_op_for_box(>)
+			make_comp_op_for_box(==)
+			make_comp_op_for_box(<=)
+			make_comp_op_for_box(>=)
+			make_comp_op_for_box(!=)
+#undef make_comp_op_for_box
 	}
-	
+
 	using Char=detail::Box<char>;
 	using UnsignedChar=detail::Box<unsigned char>;
 	using SignedChar=detail::Box<signed char>;
