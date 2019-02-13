@@ -24,6 +24,12 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <stddef.h>
 namespace exlib {
 
+	template<typename T,typename Ret,typename... Args>
+	Ret apply_mem_fn(T* obj,Ret(T::*mem_fn)(Args...),Args&&... args)
+	{
+		return obj.(*mem_fn)(std::forward<Args>(args)...);
+	}
+
 	namespace detail {
 		template<typename A> //try ADL swap
 		constexpr auto try_swap2(A& a,A& b) -> decltype(swap(a,b),void())
