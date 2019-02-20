@@ -5,7 +5,57 @@ Contains utilities for combining and recreating types.
 #ifndef EXRETYPE_H
 #define EXRETYPE_H
 #include <type_traits>
+#include <cstdint>
 namespace exlib {
+
+	/*
+		Gets the unsigned integer with the given size.
+	*/
+	template<size_t N>
+	struct match_size;
+
+	template<>
+	struct match_size<1> {
+		using type=std::uint8_t;
+	};
+
+	template<>
+	struct match_size<2> {
+		using type=std::uint16_t;
+	};
+
+	template<>
+	struct match_size<4> {
+		using type=std::uint32_t;
+	};
+
+	template<>
+	struct match_size<8> {
+		using type=std::uint64_t;
+	};
+
+	template<size_t N>
+	using match_size_t=typename match_size<N>::type;
+
+	template<typename Forwardee>
+	class forward_string {
+		using value_type=typename Forwardee::value_type;
+		using pointer=value_type const*;
+		value_type const* data;
+	public:
+		forward_string(Forwardee const& f):data(f.c_str())
+		{
+		}
+		constexpr forward_string(value_type const* data):data(data){}
+		constexpr operator pointer const&() const
+		{
+			return data;
+		}
+		constexpr operator pointer&()
+		{
+			return data;
+		}
+	};
 
 	namespace detail {
 		template<typename Func>

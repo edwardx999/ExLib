@@ -17,18 +17,45 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <array>
 #include <functional>
 #include <stddef.h>
-#if __cplusplus>201700L
+#ifdef _HAS_CXX17
+#define EXMEM_HAS_CPP_17 _HAS_CXX17
+#else
+#define EXMEM_HAS_CPP_17 __cplusplus>201700L
+#endif
+#if EXMEM_HAS_CPP_17
 #include <variant>
 #endif
 #include <exception>
 #include <stddef.h>
+#include <tuple>
+
+
 namespace exlib {
 
-	template<typename T,typename Ret,typename... Args>
-	Ret apply_mem_fn(T* obj,Ret(T::*mem_fn)(Args...),Args&&... args)
+	template<size_t I,typename T,size_t N>
+	constexpr T&& get(T(&&arr)[N])
 	{
-		return obj.(*mem_fn)(std::forward<Args>(args)...);
+		return arr[I];
 	}
+	/*
+		Call the member function as if it is a global function.
+	*/
+	template<typename T,typename Ret,typename... Args>
+	constexpr Ret apply_mem_fn(T* obj,Ret(T::*mem_fn)(Args...),Args&&... args)
+	{
+		return (obj->*mem_fn)(std::forward<Args>(args)...);
+	}
+#if	EXMEM_HAS_CPP_17
+	/*
+		Version that has the member function constexpr bound to it,
+		MemFn is a member function pointer of T
+	*/
+	template<auto MemFn,typename T,typename... Args>
+	constexpr auto apply_mem_fn(T* obj,Args&&... args) -> decltype((obj->*MemFn)(std::forward<Args>(args)...))
+	{
+		return (obj->*MemFn)(std::forward<Args>(args)...);
+	}
+#endif
 
 	namespace detail {
 		template<typename A> //try ADL swap
@@ -674,6 +701,34 @@ namespace exlib {
 		{{
 			std::forward<Args>(args)...
 		}};
+	}
+
+	namespace detail {
+		template<typename Type,typename Tuple,typename Ix>
+		struct ca_type_h;
+		template<typename Type,typename Tuple,size_t... Ix>
+		struct ca_type_h<Type,Tuple,std::index_sequence<Ix...>> {
+			using type=std::array<typename ma_ret<Type,typename std::tuple_element<Ix,Tuple>::type...>::type,sizeof...(Ix)>;
+		};
+		template<typename Type,typename Tuple>
+		struct ca_type:ca_type_h<Type,
+			typename std::remove_reference<Tuple>::type,
+			std::make_index_sequence<std::tuple_size<typename std::remove_reference<Tuple>::type>::value>>{
+
+		};
+
+		template<typename Type,typename Tuple,size_t... I>
+		constexpr typename ca_type<Type,Tuple>::type conv_array(Tuple&& tup,std::index_sequence<I...>)
+		{
+			return {{  std::get<I>(std::forward<Tuple>(tup))... }};
+		}
+	}
+
+	template<typename Type=void,typename Tuple>
+	constexpr typename detail::ca_type<Type,Tuple>::type conv_array(Tuple&& args)
+	{
+		constexpr auto TS=std::tuple_size_v<typename std::remove_reference<Tuple>::type>;
+		return detail::conv_array<Type>(std::forward<Tuple>(args),std::make_index_sequence<TS>());
 	}
 
 	//the number of elements accessible by std::get
