@@ -12,15 +12,59 @@
 #ifdef _MSVC_LANG
 #define _EXLIB_THREAD_POOL_HAS_CPP_20 _MSVC_LANG>202000l
 #define _EXLIB_THREAD_POOL_HAS_CPP_17 _MSVC_LANG>201700l
+#define _EXLIB_THREAD_POOL_HAS_CPP_14 _MSVC_LANG>201700l
 #else
 #define _EXLIB_THREAD_POOL_HAS_CPP_20 __cplusplus>202000l
 #define _EXLIB_THREAD_POOL_HAS_CPP_17 __cplusplus>201700l
+#define _EXLIB_THREAD_POOL_HAS_CPP_14 __cplusplus>201700l
 #endif
 namespace exlib {
 
 	namespace detail {
+
+#if _EXLIB_THREAD_POOL_HAS_CPP_14
+		template <size_t... Is>
+		using index_sequence=std::index_sequence<Is...>;
+
+		template<size_t I>
+		using make_index_sequence=std::make_index_sequence<I>;
+#else
+		template<size_t... Is>
+		struct index_sequence {};
+
+		template<typename T,typename U>
+		struct concat_index_sequence;
+
+		template<size_t... I,size_t... J>
+		struct concat_index_sequence<index_sequence<I...>,index_sequence<J...>> {
+			using type=index_sequence<I...,J...>;
+		};
+
+		template<typename T,typename U>
+		using concat_index_sequence_t=typename concat_index_sequence<T,U>::type;
+
+		template<size_t I,size_t J,bool adjacent=false>
+		struct make_index_sequence_h {
+			static constexpr size_t H=I+(J-I)/2;
+			using type=concat_index_sequence_t<typename make_index_sequence_h<I,H,I+1==H>::type,index_sequence<H,J,H+1==J>>;
+		};
+
+		template<size_t I>
+		struct make_index_sequence_h<I,I,false> {
+			using type=index_sequence<>;
+		};
+
+		template<size_t I,size_t J>
+		struct make_index_sequence_h<I,J,true> {
+			using type=index_sequence<I>;
+		};
+
+		template<size_t N>
+		using make_index_sequence=typename make_index_sequence_h<0,N,N==1>::type;
+
+#endif
 		template<typename Func,typename Tuple,size_t... Indices>
-		decltype(auto) invoke(Func&& f,Tuple&& tpl,std::index_sequence<Indices...>)
+		decltype(auto) invoke(Func&& f,Tuple&& tpl,index_sequence<Indices...>)
 		{
 			using std::get;
 			return std::forward<Func>(f)(get<Indices>(std::forward<Tuple>(tpl))...);
@@ -72,7 +116,7 @@ namespace exlib {
 	class thread_pool_a {
 		static_assert(detail::no_rvalue_references<Args...>::value,"RValue References not allowed as start arguments");
 		using TaskInput=std::tuple<Args...>;
-		using IdxSeq=std::make_index_sequence<sizeof...(Args)>;
+		using IdxSeq=detail::make_index_sequence<sizeof...(Args)>;
 		struct job {
 			virtual void operator()(TaskInput const& input) const=0;
 			virtual ~job()=default;
