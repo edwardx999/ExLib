@@ -211,7 +211,7 @@ namespace exlib {
 		/*
 			Waits for all jobs to be finished. If thread pool is not active, does nothing and returns false. Returns false if timeout expired.
 		*/
-		template< class Rep,class Period >
+		template<class Rep,class Period>
 		bool wait_until(const std::chrono::duration<Rep,Period>& rel_time)
 		{
 			if(_active)
@@ -249,15 +249,18 @@ namespace exlib {
 		*/
 		void join()
 		{
-			wait();
-			_active=false;
-			_running=false;
-			_signal_start.notify_all();
-			for(auto& thread:_workers)
+			if(_running)
 			{
-				if(thread.joinable())
+				wait();
+				_active=false;
+				_running=false;
+				_signal_start.notify_all();
+				for(auto& thread:_workers)
 				{
-					thread.join();
+					if(thread.joinable())
+					{
+						thread.join();
+					}
 				}
 			}
 		}
