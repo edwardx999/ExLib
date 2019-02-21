@@ -17,12 +17,14 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <array>
 #include <functional>
 #include <stddef.h>
-#ifdef _HAS_CXX17
-#define EXMEM_HAS_CPP_17 _HAS_CXX17
+#ifdef _MSVC_LANG
+#define EXALG_HAS_CPP_17 _MSVC_LANG>201700L
+#define EXALG_HAS_CPP_14 _MSVC_LANG>201400L
 #else
-#define EXMEM_HAS_CPP_17 __cplusplus>201700L
+#define EXALG_HAS_CPP_17 __cplusplus>201700L
+#define EXALG_HAS_CPP_14 __cplusplus>201400L
 #endif
-#if EXMEM_HAS_CPP_17
+#if EXALG_HAS_CPP_17
 #include <variant>
 #endif
 #include <exception>
@@ -45,7 +47,7 @@ namespace exlib {
 	{
 		return (obj->*mem_fn)(std::forward<Args>(args)...);
 	}
-#if	EXMEM_HAS_CPP_17
+#if	EXALG_HAS_CPP_17
 	/*
 		Version that has the member function constexpr bound to it,
 		MemFn is a member function pointer of T
@@ -99,6 +101,39 @@ namespace exlib {
 		}
 	};
 
+#if EXALG_HAS_CPP_14
+
+	namespace detail
+	{
+		struct for_each_in_tuple_h
+		{
+			template<typename Tpl,typename Func>
+			constexpr static void apply(Tpl&& tpl,Func f,std::index_sequence<>)
+			{
+
+			}
+			template<typename Tpl,typename Func,size_t I>
+			constexpr static void apply(Tpl&& tpl,Func f,std::index_sequence<I>)
+			{
+				using std::get;
+				f(get<I>(std::forward<Tpl>(tpl)));
+			}
+			template<typename Tpl,typename Func,size_t I,size_t... Rest>
+			constexpr static void apply(Tpl&& tpl,Func f,std::index_sequence<I,Rest...>)
+			{
+				using std::get;
+				f(get<I>(std::forward<Tpl>(tpl)));
+				apply(std::forward<Tpl>(tpl),f,std::index_sequence<Rest...>{});
+			}
+		};
+	}
+
+	template<typename Tpl,typename Func>
+	constexpr void for_each_in_tuple(Tpl&& tpl,Func f)
+	{
+		detail::for_each_in_tuple_h::apply(std::forward<Tpl>(tpl),f,std::make_index_sequence<std::tuple_size<typename std::remove_reference<Tpl>::type>::value>{});
+	}
+#endif
 
 
 	template<>
