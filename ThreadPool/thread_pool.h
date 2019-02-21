@@ -50,6 +50,20 @@ namespace exlib {
 #endif
 	}
 	struct delay_start_t {};
+
+	/*
+		Returns the hardware_concurrency, unless that returns 0, in which returns def_val.
+	*/
+	unsigned int hardware_concurrency_or(unsigned int def_val)
+	{
+		auto const nt=std::thread::hardware_concurrency();
+		if(nt)
+		{
+			return nt;
+		}
+		return def_val;
+	}
+
 	/*
 		Thread pool where each task is given the same arguments as the types given.
 		Recommended using thread_pool if using a thread pool multiple times to avoid code bloat/
@@ -114,27 +128,39 @@ namespace exlib {
 			}
 		}
 	public:
+		/*
+			Starts the threadpool with a certain number of threads and arguments initialized to the given arguments.
+		*/
 		template<typename... T>
 		explicit thread_pool_a(size_t num_threads,T&&... args):_workers(num_threads),_input(std::forward<T>(args)...)
 		{
 			start();
 		}
 
+		/*
+			Initializes the threadpool with a certain number of threads and arguments initialized to the given arguments.
+			Threads are not started.
+		*/
 		template<typename... T>
 		explicit thread_pool_a(size_t num_threads,delay_start_t,T&&... args):_workers(num_threads),_input(std::forward<T>(args)...)
 		{}
 
-		thread_pool_a():thread_pool_a([]()->size_t
-		{
-			auto const nt=std::thread::hardware_concurrency();
-			if(nt)
-			{
-				return nt;
-			}
-			return 1;
-		}())
+		/*
+			Starts the threadpool with number of threads equal to the hardware concurrency.
+		*/
+		thread_pool_a():thread_pool_a(hardware_concurrency_or(1))
 		{}
 
+		/*
+			Initializes the threadpool with number of threads equal to the hardware concurrency.
+			Threads not started.
+		*/
+		explicit thread_pool_a(delay_start_t t):thread_pool_a(hardware_concurrency_or(1),t)
+		{}
+
+		/*
+			Set the args passed to the threads. Unsynchronized as you should not be modifying args that are actively being read from.
+		*/
 		template<typename... TplArgs>
 		void set_args(TplArgs&&... args)
 		{
@@ -167,13 +193,13 @@ namespace exlib {
 
 		/*
 			Makes threads look for tasks. Useful after stop() has been called to reactivate job search.
+			Resets the args passed to the threads.
 		*/
 		template<typename... Args>
 		void reactivate(Args&&... args)
 		{
 			set_args(std::forward<Args>(args));
-			_active=true;
-			_signal_start.notify_all();
+			reactivate();
 		}
 
 		/*
