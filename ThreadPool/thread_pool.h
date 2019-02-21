@@ -63,18 +63,29 @@ namespace exlib {
 		using make_index_sequence=typename make_index_sequence_h<0,N,N==1>::type;
 
 #endif
-		template<typename Func,typename Tuple,size_t... Indices>
-		decltype(auto) invoke(Func&& f,Tuple&& tpl,index_sequence<Indices...>)
-		{
-			using std::get;
-			return std::forward<Func>(f)(get<Indices>(std::forward<Tuple>(tpl))...);
-		}
+
 
 #if _EXLIB_THREAD_POOL_HAS_CPP_17
+
+		using std::apply;
 
 		template<typename... Args>
 		using no_rvalue_references=std::conjunction<std::negation<std::is_rvalue_reference<Args>>...>;
 #else
+
+		template<typename Func,typename Tuple,size_t... Indices>
+		void apply_h(Func&& f,Tuple&& tpl,index_sequence<Indices...>)
+		{
+			using std::get;
+			std::forward<Func>(f)(get<Indices>(std::forward<Tuple>(tpl))...);
+		}
+
+		template<typename Func,typename Tuple>
+		void apply(Func&& f,Tuple&& tpl)
+		{
+			apply_h(std::forward<Func>(f),std::forward<Tuple>(tpl),make_index_sequence<std::tuple_size<typename std::remove_reference<Tuple>::type>::value>{});
+		}
+
 		template<typename... Args>
 		struct no_rvalue_references;
 
@@ -116,7 +127,6 @@ namespace exlib {
 	class thread_pool_a {
 		static_assert(detail::no_rvalue_references<Args...>::value,"RValue References not allowed as start arguments");
 		using TaskInput=std::tuple<Args...>;
-		using IdxSeq=detail::make_index_sequence<sizeof...(Args)>;
 		struct job {
 			virtual void operator()(TaskInput const& input) const=0;
 			virtual ~job()=default;
@@ -128,7 +138,7 @@ namespace exlib {
 			job_impl(F&& f):task(std::forward<F>(f)) {}
 			void operator()(TaskInput const& input) const
 			{
-				detail::invoke(task,input,IdxSeq{});
+				detail::apply(task,input);
 			}
 		};
 		template<typename Task>
@@ -164,7 +174,7 @@ namespace exlib {
 						_signal_start.wait(lock);
 					}
 				}
-				(*task)(_input);
+				detail::apply(*task,_input);
 				if(jobs_left==1)
 				{
 					_jobs_done.notify_one();

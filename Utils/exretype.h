@@ -4,6 +4,15 @@ Contains utilities for combining and recreating types.
 */
 #ifndef EXRETYPE_H
 #define EXRETYPE_H
+#ifdef _MSVC_LANG
+#define _EXRETYPE_HAS_CPP_20 _MSVC_LANG>202000l
+#define _EXRETYPE_HAS_CPP_17 _MSVC_LANG>201700l
+#define _EXRETYPE_HAS_CPP_14 _MSVC_LANG>201700l
+#else
+#define _EXRETYPE_HAS_CPP_20 __cplusplus>202000l
+#define _EXRETYPE_HAS_CPP_17 __cplusplus>201700l
+#define _EXRETYPE_HAS_CPP_14 __cplusplus>201700l
+#endif
 #include <type_traits>
 #include <cstdint>
 namespace exlib {
@@ -89,6 +98,8 @@ namespace exlib {
 		return detail::wrap<std::remove_cv_t<std::remove_reference_t<Func>>>::get(std::forward<Func>(fp));
 	}
 
+
+#if _EXRETYPE_HAS_CPP_17
 	template<typename... Funcs>
 	struct overloaded:private Funcs...
 	{
@@ -98,13 +109,23 @@ namespace exlib {
 		using Funcs::operator()...;
 	};
 
+#else
+	template<typename... Funcs>
+	struct overloaded:public Funcs...
+	{
+		template<typename... F>
+		overloaded(F&&... f):Funcs(wrap(std::forward<F>(f)))...{
+		}
+	};
+#endif
+
 	template<typename... Funcs>
 	constexpr auto make_overloaded(Funcs&&... f)
 	{
 		return overloaded<std::remove_cv_t<std::remove_reference_t<decltype(wrap(f))>>...>(std::forward<Funcs>(f)...);
 	}
 
-#if __cplusplus > 201700L || defined(_CRT_HAS_CXX17)
+#if _EXRETYPE_HAS_CPP_17
 	template<typename... Funcs>
 	overloaded(Funcs&&... f)->overloaded<std::remove_cv_t<std::remove_reference_t<decltype(wrap(f))>>...>;
 #endif
