@@ -257,7 +257,7 @@ namespace exlib {
 						if(this->_active&&(jobs_left=this->_jobs.size()))
 						{
 							task=std::move(this->_jobs.front());
-							this->_jobs.pop();
+							this->_jobs.pop_front();
 							break;
 						}
 						this->_signal_start.wait(lock);
@@ -429,7 +429,7 @@ namespace exlib {
 		template<typename Task>
 		void push_back_no_sync(Task&& task)
 		{
-			this->_jobs.push(make_job(std::forward<Task>(task)));
+			this->_jobs.push_back(make_job(std::forward<Task>(task)));
 		}
 
 		/*
@@ -486,6 +486,17 @@ namespace exlib {
 			return count;
 		}
 
+		void clear_no_sync()
+		{
+			this->_jobs.clear();
+		}
+
+		void clear()
+		{
+			std::lock_guard<std::mutex> guard(this->_mtx);
+			this->clear_no_sync();
+		}
+
 	private:
 		template<typename Iter>
 		size_t append_no_sync(Iter begin,Iter end,std::random_access_iterator_tag)
@@ -519,7 +530,7 @@ namespace exlib {
 				worker=std::thread(&thread_pool_a::task_loop,this);
 			}
 		}
-		std::queue<std::unique_ptr<job>> _jobs;
+		std::deque<std::unique_ptr<job>> _jobs;
 		TaskInput _input;
 	};
 
