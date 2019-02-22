@@ -254,8 +254,7 @@ namespace exlib {
 						{
 							return;
 						}
-						jobs_left=this->_jobs.size();
-						if(this->_active&&jobs_left)
+						if(this->_active&&(jobs_left=this->_jobs.size()))
 						{
 							task=std::move(this->_jobs.front());
 							this->_jobs.pop();
