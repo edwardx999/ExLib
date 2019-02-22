@@ -43,7 +43,7 @@ namespace exlib {
 		template<size_t I,size_t J,bool adjacent=I+1==J>
 		struct make_index_sequence_h {
 			static constexpr size_t H=I+(J-I)/2;
-			using type=concat_index_sequence_t<typename make_index_sequence_h<I,H>::type,index_sequence<H,J>>;
+			using type=concat_index_sequence_t<typename make_index_sequence_h<I,H>::type,typename make_index_sequence_h<H,J>::type>;
 		};
 
 		template<size_t I>
