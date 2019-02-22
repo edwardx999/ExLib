@@ -243,7 +243,7 @@ namespace exlib {
 				std::unique_ptr<job> task;
 				size_t jobs_left;
 				{
-					if(!_running)
+					if(!this->running)
 					{
 						return; //don't bother locking if not running
 					}
@@ -346,8 +346,8 @@ namespace exlib {
 		{
 			if(this->_active)
 			{
-				std::unique_lock<std::mutex> lock(_mtx);
-				_jobs_done.wait(lock,[this]
+				std::unique_lock<std::mutex> lock(this->_mtx);
+				this->_jobs_done.wait(lock,[this]
 				{
 					return this->wait_func();
 				});
@@ -358,11 +358,11 @@ namespace exlib {
 			Waits for all jobs to be finished. If thread pool is not active, does nothing and returns false. Returns false if timeout expired.
 		*/
 		template< class Rep,class Period >
-		bool wait_for(const std::chrono::duration<Rep,Period>& rel_time)
+		bool wait_for(std::chrono::duration<Rep,Period> const& rel_time)
 		{
 			if(this->_active)
 			{
-				std::unique_lock<std::mutex> lock(_mtx);
+				std::unique_lock<std::mutex> lock(this->_mtx);
 				return _jobs_done.wait_for(lock,rel_time,[this] { return this->wait_func(); });
 			}
 			return false;
@@ -372,11 +372,11 @@ namespace exlib {
 			Waits for all jobs to be finished. If thread pool is not active, does nothing and returns false. Returns false if timeout expired.
 		*/
 		template<class Rep,class Period>
-		bool wait_until(const std::chrono::duration<Rep,Period>& rel_time)
+		bool wait_until(std::chrono::duration<Rep,Period> const& rel_time)
 		{
 			if(this->_active)
 			{
-				std::unique_lock<std::mutex> lock(_mtx);
+				std::unique_lock<std::mutex> lock(this->_mtx);
 				return _jobs_done.wait_until(lock,rel_time,[this] { return this->wait_func(); });
 			}
 			return false;
@@ -446,7 +446,7 @@ namespace exlib {
 		template<typename... Tasks>
 		void push_back(Tasks&&... tasks)
 		{
-			std::lock_guard<std::mutex> guard(_mtx);
+			std::lock_guard<std::mutex> guard(this->_mtx);
 			push_back_no_sync(std::forward<Tasks>(tasks)...);
 			this->notify_count(sizeof...(Tasks));
 		}
@@ -475,7 +475,7 @@ namespace exlib {
 		template<typename Iter>
 		size_t append(Iter begin,Iter end)
 		{
-			std::lock_guard<std::mutex> guard(_mtx);
+			std::lock_guard<std::mutex> guard(this->_mtx);
 			auto const count=append_no_sync(begin,end,std::iterator_traits<Iter>::iterator_category);
 			this->notify_count(count);
 			return count;
