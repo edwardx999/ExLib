@@ -110,10 +110,10 @@ namespace exlib {
 
 #if _EXLIB_THREAD_POOL_HAS_CPP_20
 		template<typename T>
-		using std::remove_cv_ref_t;
+		using std::remove_cvref_t;
 #else
 		template<typename T>
-		using remove_cv_ref_t=typename std::remove_cv<typename std::remove_reference<T>::type>::type;
+		using remove_cvref_t=typename std::remove_cv<typename std::remove_reference<T>::type>::type;
 #endif
 		/*
 			The base of the threadpool that does not depend on special arguments.
@@ -227,12 +227,12 @@ namespace exlib {
 		template<typename Task,typename... Extra>
 		static std::unique_ptr<job> make_job(Task&& the_task,Extra...)
 		{
-			return std::unique_ptr<job>(new job_impl<detail::remove_cv_ref_t<Task>>(std::forward<Task>(the_task)));
+			return std::unique_ptr<job>(new job_impl<detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
 		}
 		template<typename Task>
 		static auto make_job(Task&& the_task) -> decltype(the_task(std::declval<thread_pool_a&>(),std::declval<Args>()...),std::unique_ptr<job>())
 		{
-			return std::unique_ptr<job>(new job_impl_accept_parent<detail::remove_cv_ref_t<Task>>(std::forward<Task>(the_task)));
+			return std::unique_ptr<job>(new job_impl_accept_parent<detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
 		}
 		void task_loop()
 		{
