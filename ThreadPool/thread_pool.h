@@ -118,8 +118,8 @@ namespace exlib {
 		using remove_cv_ref_t=typename std::remove_cv<typename std::remove_reference<T>::type>::type;
 #endif
 		/*
-		The base of the threadpool that does not depend on special arguments.
-	*/
+			The base of the threadpool that does not depend on special arguments.
+		*/
 		class thread_pool_base {
 		public:
 			/*
@@ -140,7 +140,7 @@ namespace exlib {
 			}
 
 			/*
-				Whether the threads should be running.
+				Whether the threads should be running. Not a guarantee that threads are or are not running.
 			*/
 			bool running() const
 			{
@@ -227,12 +227,12 @@ namespace exlib {
 			}
 		};
 		template<typename Task,typename... Extra>
-		static std::unique_ptr<job> make_task(Task&& the_task,Extra...)
+		static std::unique_ptr<job> make_job(Task&& the_task,Extra...)
 		{
 			return std::unique_ptr<job>(new job_impl<detail::remove_cv_ref_t<Task>>(std::forward<Task>(the_task)));
 		}
 		template<typename Task>
-		static auto make_task(Task&& the_task) -> decltype(the_task(std::declval<thread_pool_a&>(),std::declval<Args>()...),std::unique_ptr<job>())
+		static auto make_job(Task&& the_task) -> decltype(the_task(std::declval<thread_pool_a&>(),std::declval<Args>()...),std::unique_ptr<job>())
 		{
 			return std::unique_ptr<job>(new job_impl_accept_parent<detail::remove_cv_ref_t<Task>>(std::forward<Task>(the_task)));
 		}
@@ -243,7 +243,7 @@ namespace exlib {
 				std::unique_ptr<job> task;
 				size_t jobs_left;
 				{
-					if(!this->running)
+					if(!this->_running)
 					{
 						return; //don't bother locking if not running
 					}
@@ -430,11 +430,13 @@ namespace exlib {
 		template<typename Task>
 		void push_back_no_sync(Task&& task)
 		{
-			this->_jobs.push(make_task(std::forward<Task>(task)));
+			this->_jobs.push(make_job(std::forward<Task>(task)));
 		}
 
 		/*
-			Task musts define operator() that can take in Args...
+			Adds tasks to the thread pool without synchronization.
+			Tasks must define operator() that can take in Args...
+			or optionally thread_pool as a first argument and then Args...
 		*/
 		template<typename FirstTask,typename... Rest>
 		void push_back_no_sync(FirstTask&& first,Rest&&... rest)
@@ -443,6 +445,11 @@ namespace exlib {
 			push_back_no_sync(std::forward<Rest>(rest)...);
 		}
 
+		/*
+			Adds task(s) to the thread pool with synchronization and wakes an appropriate number of threads.
+			Tasks must define operator() that can take in Args...
+			or optionally thread_pool as a first argument and then Args...
+		*/
 		template<typename... Tasks>
 		void push_back(Tasks&&... tasks)
 		{
@@ -451,6 +458,35 @@ namespace exlib {
 			this->notify_count(sizeof...(Tasks));
 		}
 
+		/*
+			Adds task(s) to the thread pool without synchronization reading	from the given iterators.
+			Tasks must define operator() that can take in Args...
+			or optionally thread_pool as a first argument and then Args...
+			Returns the number of tasks added.
+		*/
+		template<typename Iter>
+		size_t append_no_sync(Iter begin,Iter end)
+		{
+			return append_no_sync(begin,end,std::iterator_traits<Iter>::iterator_category);
+		}
+
+		/*
+			Adds task(s) to the thread pool with synchronization and wakes an appropriate number of threads reading
+			from the given iterators.
+			Tasks must define operator() that can take in Args...
+			or optionally thread_pool as a first argument and then Args...
+			Returns the number of tasks added.
+		*/
+		template<typename Iter>
+		size_t append(Iter begin,Iter end)
+		{
+			std::lock_guard<std::mutex> guard(this->_mtx);
+			auto const count=append_no_sync(begin,end);
+			this->notify_count(count);
+			return count;
+		}
+
+	private:
 		template<typename Iter>
 		size_t append_no_sync(Iter begin,Iter end,std::random_access_iterator_tag)
 		{
@@ -471,17 +507,6 @@ namespace exlib {
 			}
 			return count;
 		}
-
-		template<typename Iter>
-		size_t append(Iter begin,Iter end)
-		{
-			std::lock_guard<std::mutex> guard(this->_mtx);
-			auto const count=append_no_sync(begin,end,std::iterator_traits<Iter>::iterator_category);
-			this->notify_count(count);
-			return count;
-		}
-
-	private:
 		bool wait_func()
 		{
 			return !this->_active||this->_jobs.empty();
