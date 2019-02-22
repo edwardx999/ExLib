@@ -203,7 +203,7 @@ namespace exlib {
 		static_assert(detail::no_rvalue_references<Args...>::value,"RValue References not allowed as start arguments");
 		using TaskInput=std::tuple<Args...>;
 		struct job {
-			virtual void operator()(thread_pool_a&,TaskInput const& input) const=0;
+			virtual void operator()(thread_pool_a&,TaskInput const& input)=0;
 			virtual ~job()=default;
 		};
 		template<typename BaseFunc>
@@ -211,7 +211,7 @@ namespace exlib {
 			BaseFunc task;
 			template<typename F>
 			job_impl(F&& f):task(std::forward<F>(f)) {}
-			void operator()(thread_pool_a&,TaskInput const& input) const override
+			void operator()(thread_pool_a&,TaskInput const& input) override
 			{
 				detail::apply(task,input);
 			}
@@ -221,7 +221,7 @@ namespace exlib {
 			BaseFunc task;
 			template<typename F>
 			job_impl_accept_parent(F&& f):task(std::forward<F>(f)) {}
-			void operator()(thread_pool_a& tp,TaskInput const& input) const override
+			void operator()(thread_pool_a& tp,TaskInput const& input) override
 			{
 				detail::apply_fa(task,tp,input);
 			}
@@ -335,7 +335,7 @@ namespace exlib {
 		void reactivate(Args&&... args)
 		{
 			set_args(std::forward<Args>(args));
-			reactivate();
+			this->reactivate();
 		}
 
 		/*
@@ -466,7 +466,8 @@ namespace exlib {
 		template<typename Iter>
 		size_t append_no_sync(Iter begin,Iter end)
 		{
-			return append_no_sync(begin,end,std::iterator_traits<Iter>::iterator_category);
+			using category=typename std::iterator_traits<Iter>::iterator_category;
+			return append_no_sync(begin,end,category{});
 		}
 
 		/*
@@ -490,20 +491,21 @@ namespace exlib {
 		size_t append_no_sync(Iter begin,Iter end,std::random_access_iterator_tag)
 		{
 			size_t count=end-begin;
-			for(;begin!=end;++begin)
+			std::for_each(begin,end,[this](auto&& task)
 			{
-				push_back_no_sync(std::forward<decltype(*begin)>(*begin));
-			}
+				this->push_back_no_sync(std::forward<decltype(task)>(task));
+			});
 			return count;
 		}
 		template<typename Iter>
 		size_t append_no_sync(Iter begin,Iter end,std::input_iterator_tag)
 		{
 			size_t count=0;
-			for(;begin!=end;++begin,++count)
+			std::for_each(begin,end,[this,&count](auto&& task)
 			{
-				push_back_no_sync(std::forward<decltype(*begin)>(*begin));
-			}
+				this->push_back_no_sync(std::forward<decltype(task)>(task));
+				++count;
+			});
 			return count;
 		}
 		bool wait_func()
