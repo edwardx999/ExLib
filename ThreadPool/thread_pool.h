@@ -22,11 +22,9 @@ namespace exlib {
 
 	namespace detail {
 #if _EXLIB_THREAD_POOL_HAS_CPP_14
-		template <size_t... Is>
-		using index_sequence=std::index_sequence<Is...>;
+		using std::index_sequence;
 
-		template<size_t I>
-		using make_index_sequence=std::make_index_sequence<I>;
+		using std::make_index_sequence;
 #else
 		template<size_t... Is>
 		struct index_sequence {};
@@ -42,10 +40,10 @@ namespace exlib {
 		template<typename T,typename U>
 		using concat_index_sequence_t=typename concat_index_sequence<T,U>::type;
 
-		template<size_t I,size_t J,bool adjacent=false>
+		template<size_t I,size_t J,bool adjacent=I+1==J>
 		struct make_index_sequence_h {
 			static constexpr size_t H=I+(J-I)/2;
-			using type=concat_index_sequence_t<typename make_index_sequence_h<I,H,I+1==H>::type,index_sequence<H,J,H+1==J>>;
+			using type=concat_index_sequence_t<typename make_index_sequence_h<I,H>::type,index_sequence<H,J>>;
 		};
 
 		template<size_t I>
@@ -59,7 +57,7 @@ namespace exlib {
 		};
 
 		template<size_t N>
-		using make_index_sequence=typename make_index_sequence_h<0,N,N==1>::type;
+		using make_index_sequence=typename make_index_sequence_h<0,N>::type;
 #endif
 
 
@@ -339,7 +337,8 @@ namespace exlib {
 		}
 
 		/*
-			Waits for all jobs to be finished. If thread pool is not active, does nothing
+			Waits for all jobs to be finished or for it to be stop()ed (be inactived).
+			Threads keep running (if they already were), but tasks can be added without synchronization.
 		*/
 		void wait()
 		{
@@ -486,11 +485,17 @@ namespace exlib {
 			return count;
 		}
 
+		/*
+			Clears the jobs handled by this threadpool without synchronization.
+		*/
 		void clear_no_sync()
 		{
 			this->_jobs.clear();
 		}
 
+		/*
+			Clears the jobs handled by this threadpool.
+		*/
 		void clear()
 		{
 			std::lock_guard<std::mutex> guard(this->_mtx);
@@ -502,7 +507,7 @@ namespace exlib {
 		size_t append_no_sync(Iter begin,Iter end,std::random_access_iterator_tag)
 		{
 			size_t count=end-begin;
-			std::for_each(begin,end,[this](auto&& task)
+			std::for_each(begin,end,[this](auto&& task) // std has special hacks to convert some iterators to pointers and prevent code bloat
 			{
 				this->push_back_no_sync(std::forward<decltype(task)>(task));
 			});
