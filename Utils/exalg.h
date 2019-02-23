@@ -1,14 +1,14 @@
 /*
 Copyright 2018 Edward Xie
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), 
-to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
 and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 #ifndef EXALG_H
@@ -32,12 +32,26 @@ namespace exlib {
 		};
 	}
 
+	namespace detail {
+		template<typename A>
+		constexpr auto swap(A& a,A& b) -> decltype(a.swap(b),void())
+		{
+			a.swap(b);
+		}
+
+		template<typename A,typename... R>
+		constexpr void swap(A& a,A& b,R...)
+		{	
+			auto temp=std::move(a);
+			a=std::move(b);
+			b=std::move(temp);
+		}
+	}
+
 	template<typename A>
 	constexpr void swap(A& a,A& b)
 	{
-		auto temp=std::move(a);
-		a=std::move(b);
-		b=std::move(temp);
+		detail::swap(a,b);
 	}
 
 	template<typename T=void>
@@ -622,7 +636,7 @@ namespace exlib {
 
 	namespace detail {
 		template<typename B,typename... R>
-		struct ma_ret{
+		struct ma_ret {
 			using type=B;
 		};
 
@@ -635,10 +649,10 @@ namespace exlib {
 	template<typename Type=void,typename... Args>
 	constexpr std::array<typename detail::ma_ret<Type,Args...>::type,sizeof...(Args)> make_array(Args&&... args)
 	{
-		return 
-			{{
-				std::forward<Args>(args)...
-			}};
+		return
+		{{
+			std::forward<Args>(args)...
+		}};
 	}
 
 	//the number of elements accessible by std::get

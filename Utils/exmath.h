@@ -123,7 +123,7 @@ namespace exlib {
 			}
 			return mod_ring{mod-(o._val-_val),no_mod_tag{}};
 		}
-#define cassmd(op) static constexpr mod_ring operator op(mod_ring&& a,mod_ring const& o) { return a op##= o;}
+#define cassmd(op) static constexpr mod_ring operator op(mod_ring&& a,mod_ring const& o) { return std::move(a) op##= o;}
 		cassmd(+)
 		cassmd(-)
 		cassmd(*)
@@ -163,7 +163,7 @@ namespace exlib {
 			{
 				y*=x;
 				x*=x;
-				(n-=1)/=2;
+				(n-	=1)/=2;
 			}
 			else
 			{
@@ -258,17 +258,18 @@ namespace exlib {
 	}
 
 	template<typename T,typename U>
-	constexpr U clamp(T val,U min,U max)
+	constexpr std::decay<U>::type clamp(T val,U&& min,U&& max)
 	{
+		assert(min<=max);
 		if(val>max)
 		{
-			return max;
+			return std::forward<U>(max);
 		}
-		if(val<min)
+		else if(val<min)
 		{
-			return min;
+			return std::forward<U>(min);
 		}
-		return static_cast<U>(val);
+		return std::move(val);
 	}
 
 	template<typename U,typename T>
@@ -282,7 +283,7 @@ namespace exlib {
 		{
 			return std::numeric_limits<U>::min();
 		}
-		return static_cast<U>(val);
+		return std::move(val);
 	}
 
 	template<typename T1,typename T2> constexpr auto abs_dif(T1 x,T2 y) ->
@@ -544,6 +545,7 @@ namespace exlib {
 	template<typename T>
 	EX_CONSTEXPR unsigned int num_digits(T num,unsigned int base=10)
 	{
+		assert(base>1);
 		//static_assert(std::is_integral<T>::value,"Requires integral type");
 		unsigned int num_digits=1;
 		while((num/=base)!=0)
@@ -578,6 +580,15 @@ namespace exlib {
 			static constexpr auto arr=make_digit_array<CharType>();
 			return arr;
 		}*/
+
+		template<typename CharType>
+		struct digits_holder {
+			static constexpr CharType digits[]=
+			{'0','1','2','3','4','5','6','7','8','9',
+			 'a','b','c','d','e','f','g','h','i','j',
+			 'k','l','m','n','o','p','q','r','s','t',
+			 'u','v','w','x','y','z'};
+		};
 	}
 
 	template<auto val,int base,typename CharType=char>
@@ -585,7 +596,6 @@ namespace exlib {
 	{
 		using T=decltype(val);
 		static_assert(std::is_integral_v<T>,"Integer type required");
-		constexpr auto digits=detail::make_digit_array<CharType>();
 		if constexpr(std::is_unsigned_v<T>||val>=0)
 		{
 			std::array<CharType,num_digits(val,base)+1> number{{}};
@@ -594,7 +604,7 @@ namespace exlib {
 			auto it=number.end()-2;
 			while(true)
 			{
-				*it=digits[v%base];
+				*it=detail::digits_holder<CharType>::digits[v%base];
 				v/=base;
 				if(v==0)
 				{
@@ -649,6 +659,35 @@ namespace exlib {
 	{
 		return to_string<val,CharType>();
 	}
+
+
+	namespace detail {
+		/*
+			Used because MSVC doesn't allow weak orderings in debug mode and get_fatten is more efficient
+			if you choose the last least element.
+		*/
+		template<typename Iter,typename Comp>
+		constexpr Iter min_element(Iter begin,Iter end,Comp c)
+		{
+#ifdef DEBUG
+			if(begin==end)
+			{
+				return end;
+			}
+			auto smallest=begin;
+			for(++begin!=end)
+			{
+				if(c(*begin,*smallest))
+				{
+					smallest=begin;
+				}
+			}
+			return smallest;
+#endif // DEBUG
+			return std::min_element(begin,end,c);
+		}
+	}
+
 #endif
 	/*
 		Makes a container in which each element becomes the minimum element within hp of its index
@@ -715,16 +754,23 @@ namespace exlib {
 		}
 	}
 
-	template<typename T>
-	class LimitedSet {
+	template<typename T,typename Alloc=std::allocator<T>>
+	class LimitedSet:std::vector<T,Alloc> {
+	private:
+		using Base=std::vector<T>;
 	public:
-		typedef typename ::std::vector<typename T>::iterator iterator;
-		typedef typename ::std::vector<typename T>::const_iterator const_iterator;
+		using Base::iterator;
+		using Base::allocator_type;
+		using Base::size_type;
+		using Base::difference_type;
+		using Base::const_reference;
+		using Base::const_pointer;
+		using Base::const_iterator;
+		using Base::const_reverse_iterator;
 	private:
 		size_t _max_size;
-		::std::vector<T> _data;
 	public:
-		LimitedSet(size_t s):_data(),_max_size(s)
+		LimitedSet(size_t s):_max_size(s)
 		{
 			_data.reserve(s);
 		}
@@ -733,97 +779,68 @@ namespace exlib {
 		void max_size(size_t s)
 		{
 			_max_size=s;
+			Base::reserve(s+1);
 		}
 		size_t max_size() const
 		{
 			return _max_size;
 		}
-		iterator begin()
-		{
-			return _data.begin();
-		}
-		iterator end()
-		{
-			return _data.end();
-		}
+		using Base::cbegin;
+		using Base::cend;
+		using Base::crbegin;
+		using Base::crend;
+		using Base::size;
 		const_iterator begin() const
 		{
-			return _data.begin();
+			return Base::begin();
 		}
 		const_iterator end() const
 		{
-			return _data.end();
+			return Base::begin();
 		}
-		size_t size() const
+		const_iterator rbegin() const
 		{
-			return _data.size();
+			return Base::rbegin();
 		}
+		const_iterator rend() const
+		{
+			return Base::rbegin();
+		}
+		using Base::empty;
+		using Base::clear;
+		using Base::pop_back;
+		using Base::erase;
 	private:
 		template<typename U,typename Comp>
 		void _insert(U&& in,Comp comp)
 		{
-			if(_data.empty()&&_max_size)
+			if(max_size)
 			{
-				_data.insert(_data.begin(),std::forward<U>(in));
-				return;
-			}
-			if(comp(in,_data.front()))
-			{
-				_data.insert(_data.begin(),std::forward<U>(in));
-				goto end;
-			}
-			if(!(comp(in,_data.back())))
-			{
-				_data.insert(_data.end(),std::forward<U>(in));
-				goto end;
-			}
-			auto b=_data.begin();
-			auto e=_data.end();
-			decltype(b) m;
-			while(b<e)
-			{
-				m=b+std::distance(b,e)/2;
-				if(comp(in,*m))
+				auto const loc=std::lower_bound(Base::begin(),Base::end(),in,comp);
+				if(size()>=max_size())
 				{
-					if(!(comp(in,*(m-1))))
+					if(loc!=Base::end())
 					{
-						_data.insert(m,std::forward<U>(in));
-						goto end;
-					}
-					else
-					{
-						e=m;
+						Base::erase(Base::end()-1);
+						Base::insert(loc,std::move(in));
 					}
 				}
 				else
 				{
-					b=m+1;
+					Base::insert(loc,std::move(in));
 				}
-			}
-		end:
-			if(_data.size()>_max_size)
-			{
-				_data.erase(_data.end()-1);
 			}
 		}
 	public:
-		template<typename Compare>
-		void insert(T&& in,Compare comp)
+		template<typename Compare=std::less<T>>
+		void insert(T&& in,Compare comp={})
 		{
 			_insert(std::move(in),comp);
 		}
-		template<typename Compare>
-		void insert(T const& in,Compare comp)
+		template<typename Compare=std::less<T>>
+		void insert(T const& in,Compare comp={})
 		{
 			_insert(in,comp);
-		}
-		void insert(T&& in)
-		{
-			_insert(std::move(in),std::less<T>());
-		}
-		void insert(T const& in)
-		{
-			_insert(in,std::less<T>());
 		}
 	};
 	/*

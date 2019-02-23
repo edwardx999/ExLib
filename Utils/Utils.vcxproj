@@ -138,6 +138,7 @@
   <ItemGroup>
     <ClInclude Include="exalg.h" />
     <ClInclude Include="exfiles.h" />
+    <ClInclude Include="exiterator.h" />
     <ClInclude Include="exmath.h" />
     <ClInclude Include="exmem.h" />
     <ClInclude Include="exsexp.h">
