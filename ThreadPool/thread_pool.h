@@ -165,6 +165,16 @@ namespace exlib {
 					_signal_start.notify_all();
 				}
 			}
+			void join_all()
+			{
+				for(auto& thread:this->_workers)
+				{
+					if(thread.joinable())
+					{
+						thread.join();
+					}
+				}
+			}
 
 			thread_pool_base(size_t num_threads,bool start):_workers(num_threads),_running(start),_active(start) {}
 			std::mutex _mtx;
@@ -201,7 +211,7 @@ namespace exlib {
 	public:
 		friend class parent_ref;
 		/*
-			A reference to the parent that child tasks can accept.
+			A reference to the parent that child tasks can accept. Should be passed by value.
 			Contains the methods safe to call by child threads.
 		*/
 		class parent_ref {
@@ -225,7 +235,11 @@ namespace exlib {
 			}
 			void clear()
 			{
-				return parent.clear();
+				parent.clear();
+			}
+			void terminate()
+			{
+				parent.internal_terminate();
 			}
 		};
 		using thread_pool_base::reactivate;
@@ -312,7 +326,7 @@ namespace exlib {
 		}
 
 		/*
-			Waits for all jobs to be finished. If thread pool is not active, does nothing and returns false. Returns false if timeout expired.
+			Waits for all jobs to be finished. If thread pool is not active, does nothing and returns true. Returns false if timeout expired.
 		*/
 		template< class Rep,class Period >
 		bool wait_for(std::chrono::duration<Rep,Period> const& rel_time)
@@ -322,11 +336,11 @@ namespace exlib {
 				std::unique_lock<std::mutex> lock(this->_mtx);
 				return _jobs_done.wait_for(lock,rel_time,[this] { return this->wait_func(); });
 			}
-			return false;
+			return true;
 		}
 
 		/*
-			Waits for all jobs to be finished. If thread pool is not active, does nothing and returns false. Returns false if timeout expired.
+			Waits for all jobs to be finished. If thread pool is not active, does nothing and returns true. Returns false if timeout expired.
 		*/
 		template<class Rep,class Period>
 		bool wait_until(std::chrono::duration<Rep,Period> const& rel_time)
@@ -336,7 +350,7 @@ namespace exlib {
 				std::unique_lock<std::mutex> lock(this->_mtx);
 				return _jobs_done.wait_until(lock,rel_time,[this] { return this->wait_func(); });
 			}
-			return false;
+			return true;
 		}
 
 		/*
@@ -344,10 +358,10 @@ namespace exlib {
 		*/
 		void terminate()
 		{
-			this->stop();
 			this->_running=false;
 			this->_signal_start.notify_all();
-			this->join();
+			this->stop();
+			this->join_all();
 		}
 
 		/*
@@ -361,13 +375,7 @@ namespace exlib {
 				this->_active=false;
 				this->_running=false;
 				this->_signal_start.notify_all();
-				for(auto& thread:this->_workers)
-				{
-					if(thread.joinable())
-					{
-						thread.join();
-					}
-				}
+				this->join_all();
 			}
 		}
 
@@ -464,6 +472,12 @@ namespace exlib {
 		}
 
 	private:
+		void internal_terminate()
+		{
+			this->_running=false;
+			this->_signal_start.notify_all();
+			this->stop();
+		}
 		template<typename Iter>
 		size_t append_no_sync(Iter begin,Iter end,std::random_access_iterator_tag)
 		{
