@@ -494,7 +494,7 @@ namespace exlib {
 		}
 
 		/*
-			Clears the jobs handled by this threadpool. Can be called safely by child threads.
+			Clears the jobs handled by this threadpool.
 		*/
 		void clear()
 		{
@@ -517,12 +517,11 @@ namespace exlib {
 		template<typename Iter>
 		size_t append_no_sync(Iter begin,Iter end,std::random_access_iterator_tag)
 		{
-			size_t count=end-begin;
 			std::for_each(begin,end,[this](auto&& task) // std has special hacks to convert some iterators to pointers and prevent code bloat
 			{
 				this->push_back_no_sync(std::forward<decltype(task)>(task));
 			});
-			return count;
+			return end-begin;
 		}
 		template<typename Iter>
 		size_t append_no_sync(Iter begin,Iter end,std::input_iterator_tag)
