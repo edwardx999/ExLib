@@ -182,6 +182,7 @@ namespace exlib {
 				{
 					_signal_start.notify_all();
 				}
+				std::this_thread::yield();
 			}
 			void join_all()
 			{
@@ -460,7 +461,8 @@ namespace exlib {
 		}
 
 		/*
-			Adds task(s) to the thread pool with synchronization and wakes an appropriate number of threads.
+			Adds task(s) to the thread pool with synchronization and wakes an appropriate number of threads
+			after all tasks have been added.
 			Tasks must define operator() that can take in Args...
 			or optionally parent_ref as a first argument and then Args...
 			Can be called safely by child threads.
@@ -468,8 +470,10 @@ namespace exlib {
 		template<typename... Tasks>
 		void push_back(Tasks&&... tasks)
 		{
-			std::lock_guard<std::mutex> guard(this->_mtx);
-			push_back_no_sync(std::forward<Tasks>(tasks)...);
+			{
+				std::lock_guard<std::mutex> guard(this->_mtx);
+				push_back_no_sync(std::forward<Tasks>(tasks)...);
+			}
 			this->notify_count(sizeof...(Tasks));
 		}
 
@@ -487,8 +491,9 @@ namespace exlib {
 		}
 
 		/*
-			Adds task(s) to the thread pool with synchronization and wakes an appropriate number of threads reading
-			from the given iterators.
+			Adds task(s) to the thread pool from the given iterators
+			with synchronization and wakes an appropriate number of threads
+			after all tasks have been added.
 			Tasks must define operator() that can take in Args...
 			or optionally parent_ref as a first argument and then Args...
 			Returns the number of tasks added.
@@ -497,8 +502,11 @@ namespace exlib {
 		template<typename Iter>
 		size_t append(Iter begin,Iter end)
 		{
-			std::lock_guard<std::mutex> guard(this->_mtx);
-			auto const count=append_no_sync(begin,end);
+			size_t count;
+			{
+				std::lock_guard<std::mutex> guard(this->_mtx);
+				count=append_no_sync(begin,end);
+			}
 			this->notify_count(count);
 			return count;
 		}
