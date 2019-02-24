@@ -334,7 +334,7 @@ namespace exlib {
 			if(this->_active)
 			{
 				std::unique_lock<std::mutex> lock(this->_mtx);
-				return _jobs_done.wait_for(lock,rel_time,[this] { return this->wait_func(); });
+				return this->_jobs_done.wait_for(lock,rel_time,[this] { return this->wait_func(); });
 			}
 			return true;
 		}
@@ -348,7 +348,7 @@ namespace exlib {
 			if(this->_active)
 			{
 				std::unique_lock<std::mutex> lock(this->_mtx);
-				return _jobs_done.wait_until(lock,rel_time,[this] { return this->wait_func(); });
+				return this->_jobs_done.wait_until(lock,rel_time,[this] { return this->wait_func(); });
 			}
 			return true;
 		}
