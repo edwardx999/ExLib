@@ -193,8 +193,25 @@ namespace exlib {
 					}
 				}
 			}
+			void internal_stop()
+			{
+				this->stop();
+				this->_jobs_done.notify_one();
+			}
+			void stop_running()
+			{
+				this->_running=false;
+				this->_signal_start.notify_all();
+				this->stop();
+			}
+			void internal_terminate()
+			{
+				stop_running();
+				_jobs_done.notify_one();
+			}
 
-			thread_pool_base(size_t num_threads,bool start):_workers(num_threads),_running(start),_active(start) {}
+			thread_pool_base(size_t num_threads,bool start):_workers(num_threads),_running(start),_active(start)
+			{}
 			std::mutex _mtx;
 			std::condition_variable _signal_start;
 			std::condition_variable _jobs_done;
@@ -237,7 +254,8 @@ namespace exlib {
 		class parent_ref {
 			friend class thread_pool_a;
 			thread_pool_a& parent;
-			parent_ref(thread_pool_a& p):parent(p){}
+			parent_ref(thread_pool_a& p):parent(p)
+			{}
 		public:
 			/*
 				Signals threads to stop looking for tasks and will signal a waiting master thread.
@@ -381,7 +399,10 @@ namespace exlib {
 			if(this->_active)
 			{
 				std::unique_lock<std::mutex> lock(this->_mtx);
-				return this->_jobs_done.wait_until(lock,rel_time,[this] { return this->wait_func(); });
+				return this->_jobs_done.wait_until(lock,rel_time,[this]
+				{
+					return this->wait_func();
+				});
 			}
 			return true;
 		}
@@ -391,7 +412,7 @@ namespace exlib {
 		*/
 		void terminate()
 		{
-			this->internal_terminate();
+			this->stop_running();
 			this->join_all();
 		}
 
@@ -400,14 +421,11 @@ namespace exlib {
 		*/
 		void join()
 		{
-			if(this->_running)
-			{
-				wait();
-				this->_active=false;
-				this->_running=false;
-				this->_signal_start.notify_all();
-				this->join_all();
-			}
+			wait();
+			this->_active=false;
+			this->_running=false;
+			this->_signal_start.notify_all();
+			this->join_all();
 		}
 
 		/*
@@ -503,17 +521,6 @@ namespace exlib {
 		}
 
 	private:
-		void internal_stop()
-		{
-			this->stop();
-			this->_jobs_done.notify_one();
-		}
-		void internal_terminate()
-		{
-			this->_running=false;
-			this->_signal_start.notify_all();
-			this->stop();
-		}
 		template<typename Iter>
 		size_t append_no_sync(Iter begin,Iter end,std::random_access_iterator_tag)
 		{
