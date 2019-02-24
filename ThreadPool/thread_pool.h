@@ -21,6 +21,25 @@
 namespace exlib {
 
 	namespace detail {
+
+		template<typename T>
+		struct wrap_reference {
+			using type=T;
+		};
+
+		template<typename T>
+		struct wrap_reference<T&> {
+			using type=std::reference_wrapper<T>;
+		};
+
+		template<typename T>
+		struct wrap_reference<T const&> {
+			using type=std::reference_wrapper<T const>;
+		};
+
+		template<typename T>
+		using wrap_reference_t=typename wrap_reference<T>::type;
+
 #if _EXLIB_THREAD_POOL_HAS_CPP_14
 		using std::index_sequence;
 
@@ -218,24 +237,39 @@ namespace exlib {
 			thread_pool_a& parent;
 			parent_ref(thread_pool_a& p):parent(p){}
 		public:
+			/*
+				Signals threads to stop looking for tasks and will signal a waiting master thread.
+			*/
 			void stop()
 			{
 				parent.internal_stop();
 			}
+			/*
+				See thread_pool_a::push_back
+			*/
 			template<typename... Tasks>
 			void push_back(Tasks&&... tasks)
 			{
 				parent.push_back(std::forward<Tasks>(tasks)...);
 			}
+			/*
+				See thread_pool_a::append
+			*/
 			template<typename Iter>
 			size_t append(Iter begin,Iter end)
 			{
 				return parent.append(begin,end);
 			}
+			/*
+				Clears tasks.
+			*/
 			void clear()
 			{
 				parent.clear();
 			}
+			/*
+				Signals the threads to end. Does not join them.
+			*/
 			void terminate()
 			{
 				parent.internal_terminate();
@@ -281,7 +315,7 @@ namespace exlib {
 		template<typename... TplArgs>
 		void set_args(TplArgs&&... args)
 		{
-			_input=TaskInput(*this,std::forward<TplArgs>(args)...);
+			_input=TaskInput(std::forward<TplArgs>(args)...);
 		}
 
 		/*
@@ -511,7 +545,7 @@ namespace exlib {
 			}
 		}
 		static_assert(detail::no_rvalue_references<Args...>::value,"RValue References not allowed as start arguments");
-		using TaskInput=std::tuple<Args...>;
+		using TaskInput=std::tuple<detail::wrap_reference_t<Args>...>;
 		struct job {
 			virtual void operator()(parent_ref,TaskInput const& input)=0;
 			virtual ~job()=default;
@@ -538,16 +572,33 @@ namespace exlib {
 				detail::apply_fa(task,tp,input);
 			}
 		};
+
+		//overload to try to fit to pass arguments without parent
 		template<typename Task,typename... Extra>
 		static std::unique_ptr<job> make_job(Task&& the_task,Extra...)
 		{
-			return std::unique_ptr<job>(new job_impl<detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
+			return make_job2(std::forward<Task>(the_task));
 		}
+
+		//overload to try to fit to pass arguments with parent
 		template<typename Task>
-		static auto make_job(Task&& the_task) -> decltype(the_task(std::declval<parent_ref>(),std::declval<Args>()...),std::unique_ptr<job>())
+		static auto make_job(Task&& the_task) -> decltype(std::forward<Task>(the_task)(std::declval<parent_ref>(),std::declval<Args>()...),std::unique_ptr<job>())
 		{
 			return std::unique_ptr<job>(new job_impl_accept_parent<detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
 		}
+
+		template<typename Task,typename... Extra>
+		static std::unique_ptr<job> make_job2(Task&& the_task,Extra...)
+		{
+			static_assert(false,"Task fails to accepts proper arguments; must accept (parent_ref, Args...), or (Args...)");
+		}
+
+		template<typename Task>
+		static auto make_job2(Task&& the_task)  -> decltype(std::forward<Task>(the_task)(std::declval<Args>()...),std::unique_ptr<job>())
+		{
+			return std::unique_ptr<job>(new job_impl<detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
+		}
+
 		void task_loop()
 		{
 			while(true)
