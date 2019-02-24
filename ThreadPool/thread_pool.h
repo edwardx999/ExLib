@@ -358,9 +358,7 @@ namespace exlib {
 		*/
 		void terminate()
 		{
-			this->_running=false;
-			this->_signal_start.notify_all();
-			this->stop();
+			this->internal_terminate();
 			this->join_all();
 		}
 
