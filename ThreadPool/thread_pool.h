@@ -542,7 +542,7 @@ namespace exlib {
 			return std::unique_ptr<job>(new job_impl<detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
 		}
 		template<typename Task>
-		static auto make_job(Task&& the_task) -> decltype(the_task(std::declval<thread_pool_a&>(),std::declval<Args>()...),std::unique_ptr<job>())
+		static auto make_job(Task&& the_task) -> decltype(the_task(std::declval<parent_ref>(),std::declval<Args>()...),std::unique_ptr<job>())
 		{
 			return std::unique_ptr<job>(new job_impl_accept_parent<detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
 		}
