@@ -148,7 +148,7 @@ namespace exlib {
 				_signal_start.notify_all();
 			}
 			/*
-				Makes threads stop looking for jobs. Can be called by child threads to effectively stop the thread pool.
+				Makes threads stop looking for jobs.
 			*/
 			void stop()
 			{
@@ -210,7 +210,7 @@ namespace exlib {
 	/*
 		Returns the hardware_concurrency, unless that returns 0, in which case returns def_val.
 	*/
-	unsigned int hardware_concurrency_or(unsigned int def_val)
+	decltype(std::thread::hardware_concurrency()) hardware_concurrency_or(decltype(std::thread::hardware_concurrency()) def_val)
 	{
 		auto const nt=std::thread::hardware_concurrency();
 		if(nt)
@@ -227,6 +227,8 @@ namespace exlib {
 	template<typename... Args>
 	class thread_pool_a:detail::thread_pool_base {
 	public:
+		static_assert(detail::no_rvalue_references<Args...>::value,"rvalue references not allowed as arguments");
+
 		friend class parent_ref;
 		/*
 			A reference to the parent that child tasks can accept. Should be passed by value.
@@ -544,7 +546,6 @@ namespace exlib {
 				worker=std::thread(&thread_pool_a::task_loop,this);
 			}
 		}
-		static_assert(detail::no_rvalue_references<Args...>::value,"RValue References not allowed as start arguments");
 		using TaskInput=std::tuple<detail::wrap_reference_t<Args>...>;
 		struct job {
 			virtual void operator()(parent_ref,TaskInput const& input)=0;
