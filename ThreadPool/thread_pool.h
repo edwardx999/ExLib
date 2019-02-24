@@ -134,7 +134,6 @@ namespace exlib {
 			void stop()
 			{
 				_active=false;
-				_jobs_done.notify_one();
 			}
 
 			/*
@@ -221,7 +220,7 @@ namespace exlib {
 		public:
 			void stop()
 			{
-				parent.stop();
+				parent.internal_stop();
 			}
 			template<typename... Tasks>
 			void push_back(Tasks&&... tasks)
@@ -326,24 +325,22 @@ namespace exlib {
 		}
 
 		/*
-			Waits for all jobs to be finished. If thread pool is not active, does nothing and returns true. Returns false if timeout expired.
+			Waits for all jobs to be finished or to be stop()ed.
+			If thread pool is not active, does nothing and returns true. Returns false if timeout expired.
 		*/
-		template< class Rep,class Period >
+		template<typename Rep,typename Period>
 		bool wait_for(std::chrono::duration<Rep,Period> const& rel_time)
 		{
-			if(this->_active)
-			{
-				std::unique_lock<std::mutex> lock(this->_mtx);
-				return this->_jobs_done.wait_for(lock,rel_time,[this] { return this->wait_func(); });
-			}
-			return true;
+			auto absolute_time=std::chrono::steady_clock::now()+rel_time;
+			return wait_until(absolute_time);
 		}
 
 		/*
-			Waits for all jobs to be finished. If thread pool is not active, does nothing and returns true. Returns false if timeout expired.
+			Waits for all jobs to be finished or to be stop()ed.
+			If thread pool is not active, does nothing and returns true. Returns false if timeout expired.
 		*/
-		template<class Rep,class Period>
-		bool wait_until(std::chrono::duration<Rep,Period> const& rel_time)
+		template<typename Clock,typename Duration>
+		bool wait_until(std::chrono::time_point<Clock,Duration> const& rel_time)
 		{
 			if(this->_active)
 			{
@@ -470,6 +467,11 @@ namespace exlib {
 		}
 
 	private:
+		void internal_stop()
+		{
+			this->stop();
+			this->_jobs_done.notify_one();
+		}
 		void internal_terminate()
 		{
 			this->_running=false;
