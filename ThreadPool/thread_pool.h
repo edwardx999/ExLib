@@ -18,6 +18,11 @@
 #define _EXLIB_THREAD_POOL_HAS_CPP_17 __cplusplus>201700l
 #define _EXLIB_THREAD_POOL_HAS_CPP_14 __cplusplus>201700l
 #endif
+#if _EXLIB_THREAD_POOL_HAS_CPP_17
+#define _EXLIB_THREAD_POOL_NODISCARD [[nodiscard]]
+#else
+#define _EXLIB_THREAD_POOL_NODISCARD
+#endif
 namespace exlib {
 
 	namespace detail {
@@ -226,9 +231,11 @@ namespace exlib {
 	struct delay_start_t {};
 
 	/*
-		Returns the hardware_concurrency, unless that returns 0, in which case returns def_val.
+		Returns the hardware_concurrency, unless that returns 0, 
+		in which case returns def_val.
 	*/
-	decltype(std::thread::hardware_concurrency()) hardware_concurrency_or(decltype(std::thread::hardware_concurrency()) def_val)
+	_EXLIB_THREAD_POOL_NODISCARD
+	inline decltype(std::thread::hardware_concurrency()) hardware_concurrency_or(decltype(std::thread::hardware_concurrency()) def_val)
 	{
 		auto const nt=std::thread::hardware_concurrency();
 		if(nt)
@@ -236,6 +243,22 @@ namespace exlib {
 			return nt;
 		}
 		return def_val;
+	}
+
+	/*
+		Returns the hardware_concurrency, unless that returns 0, 
+		in which case returns the value lazily determined by the given function.
+	*/
+	template<typename Func>
+	_EXLIB_THREAD_POOL_NODISCARD
+	auto hardware_concurrency_or(Func&& f) -> decltype(std::forward<Func>(f)(),std::thread::hardware_concurrency())
+	{
+		auto const nt=std::thread::hardware_concurrency();
+		if(nt)
+		{
+			return nt;
+		}
+		return std::forward<Func>(f)();
 	}
 
 	/*
