@@ -284,7 +284,7 @@ namespace exlib {
 	template<typename Iter>
 	Iter find_filename(Iter begin)
 	{
-		return detail::find_beyond_last(begin,[](auto c) { return is_slash(c) });
+		return detail::find_beyond_last(begin,[](auto c) { return is_slash(c); });
 	}
 
 
