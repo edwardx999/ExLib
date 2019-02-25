@@ -21,6 +21,25 @@
 namespace exlib {
 
 	namespace detail {
+
+		template<typename T>
+		struct wrap_reference {
+			using type=T;
+		};
+
+		template<typename T>
+		struct wrap_reference<T&> {
+			using type=std::reference_wrapper<T>;
+		};
+
+		template<typename T>
+		struct wrap_reference<T const&> {
+			using type=std::reference_wrapper<T const>;
+		};
+
+		template<typename T>
+		using wrap_reference_t=typename wrap_reference<T>::type;
+
 #if _EXLIB_THREAD_POOL_HAS_CPP_14
 		using std::index_sequence;
 
@@ -129,12 +148,11 @@ namespace exlib {
 				_signal_start.notify_all();
 			}
 			/*
-				Makes threads stop looking for jobs. Can be called by child threads to effectively stop the thread pool.
+				Makes threads stop looking for jobs.
 			*/
 			void stop()
 			{
 				_active=false;
-				_jobs_done.notify_one();
 			}
 
 			/*
@@ -165,8 +183,35 @@ namespace exlib {
 					_signal_start.notify_all();
 				}
 			}
+			void join_all()
+			{
+				for(auto& thread:this->_workers)
+				{
+					if(thread.joinable())
+					{
+						thread.join();
+					}
+				}
+			}
+			void internal_stop()
+			{
+				this->stop();
+				this->_jobs_done.notify_one();
+			}
+			void stop_running()
+			{
+				this->_running=false;
+				this->_signal_start.notify_all();
+				this->stop();
+			}
+			void internal_terminate()
+			{
+				stop_running();
+				_jobs_done.notify_one();
+			}
 
-			thread_pool_base(size_t num_threads,bool start):_workers(num_threads),_running(start),_active(start) {}
+			thread_pool_base(size_t num_threads,bool start):_workers(num_threads),_running(start),_active(start)
+			{}
 			std::mutex _mtx;
 			std::condition_variable _signal_start;
 			std::condition_variable _jobs_done;
@@ -182,7 +227,7 @@ namespace exlib {
 	/*
 		Returns the hardware_concurrency, unless that returns 0, in which case returns def_val.
 	*/
-	unsigned int hardware_concurrency_or(unsigned int def_val)
+	decltype(std::thread::hardware_concurrency()) hardware_concurrency_or(decltype(std::thread::hardware_concurrency()) def_val)
 	{
 		auto const nt=std::thread::hardware_concurrency();
 		if(nt)
@@ -198,77 +243,58 @@ namespace exlib {
 	*/
 	template<typename... Args>
 	class thread_pool_a:detail::thread_pool_base {
-		static_assert(detail::no_rvalue_references<Args...>::value,"RValue References not allowed as start arguments");
-		using TaskInput=std::tuple<Args...>;
-		struct job {
-			virtual void operator()(thread_pool_a&,TaskInput const& input)=0;
-			virtual ~job()=default;
-		};
-		template<typename BaseFunc>
-		struct job_impl:job {
-			BaseFunc task;
-			template<typename F>
-			job_impl(F&& f):task(std::forward<F>(f)) {}
-			void operator()(thread_pool_a&,TaskInput const& input) override
-			{
-				detail::apply(task,input);
-			}
-		};
-		template<typename BaseFunc>
-		struct job_impl_accept_parent:job {
-			BaseFunc task;
-			template<typename F>
-			job_impl_accept_parent(F&& f):task(std::forward<F>(f)) {}
-			void operator()(thread_pool_a& tp,TaskInput const& input) override
-			{
-				detail::apply_fa(task,tp,input);
-			}
-		};
-		template<typename Task,typename... Extra>
-		static std::unique_ptr<job> make_job(Task&& the_task,Extra...)
-		{
-			return std::unique_ptr<job>(new job_impl<detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
-		}
-		template<typename Task>
-		static auto make_job(Task&& the_task) -> decltype(the_task(std::declval<thread_pool_a&>(),std::declval<Args>()...),std::unique_ptr<job>())
-		{
-			return std::unique_ptr<job>(new job_impl_accept_parent<detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
-		}
-		void task_loop()
-		{
-			while(true)
-			{
-				std::unique_ptr<job> task;
-				size_t jobs_left;
-				{
-					if(!this->_running)
-					{
-						return; //don't bother locking if not running
-					}
-					std::unique_lock<std::mutex> lock(this->_mtx);
-					while(true)
-					{
-						if(!this->_running)
-						{
-							return;
-						}
-						if(this->_active&&(jobs_left=this->_jobs.size()))
-						{
-							task=std::move(this->_jobs.front());
-							this->_jobs.pop_front();
-							break;
-						}
-						this->_signal_start.wait(lock);
-					}
-				}
-				(*task)(*this,this->_input);
-				if(jobs_left==1)
-				{
-					this->_jobs_done.notify_one();
-				}
-			}
-		}
 	public:
+		static_assert(detail::no_rvalue_references<Args...>::value,"rvalue references not allowed as arguments");
+
+		friend class parent_ref;
+		/*
+			A reference to the parent that child tasks can accept. Should be passed by value.
+			Contains the methods safe to call by child threads.
+		*/
+		class parent_ref {
+			friend class thread_pool_a;
+			thread_pool_a& parent;
+			parent_ref(thread_pool_a& p):parent(p)
+			{}
+		public:
+			/*
+				Signals threads to stop looking for tasks and will signal a waiting master thread.
+			*/
+			void stop()
+			{
+				parent.internal_stop();
+			}
+			/*
+				See thread_pool_a::push_back
+			*/
+			template<typename... Tasks>
+			void push_back(Tasks&&... tasks)
+			{
+				parent.push_back(std::forward<Tasks>(tasks)...);
+			}
+			/*
+				See thread_pool_a::append
+			*/
+			template<typename Iter>
+			size_t append(Iter begin,Iter end)
+			{
+				return parent.append(begin,end);
+			}
+			/*
+				Clears tasks.
+			*/
+			void clear()
+			{
+				parent.clear();
+			}
+			/*
+				Signals the threads to end. Does not join them.
+			*/
+			void terminate()
+			{
+				parent.internal_terminate();
+			}
+		};
 		using thread_pool_base::reactivate;
 		using thread_pool_base::active;
 		using thread_pool_base::stop;
@@ -309,7 +335,7 @@ namespace exlib {
 		template<typename... TplArgs>
 		void set_args(TplArgs&&... args)
 		{
-			_input=TaskInput(*this,std::forward<TplArgs>(args)...);
+			_input=TaskInput(std::forward<TplArgs>(args)...);
 		}
 
 		/*
@@ -353,31 +379,32 @@ namespace exlib {
 		}
 
 		/*
-			Waits for all jobs to be finished. If thread pool is not active, does nothing and returns false. Returns false if timeout expired.
+			Waits for all jobs to be finished or to be stop()ed.
+			If thread pool is not active, does nothing and returns true. Returns false if timeout expired.
 		*/
-		template< class Rep,class Period >
+		template<typename Rep,typename Period>
 		bool wait_for(std::chrono::duration<Rep,Period> const& rel_time)
 		{
-			if(this->_active)
-			{
-				std::unique_lock<std::mutex> lock(this->_mtx);
-				return _jobs_done.wait_for(lock,rel_time,[this] { return this->wait_func(); });
-			}
-			return false;
+			auto absolute_time=std::chrono::steady_clock::now()+rel_time;
+			return wait_until(absolute_time);
 		}
 
 		/*
-			Waits for all jobs to be finished. If thread pool is not active, does nothing and returns false. Returns false if timeout expired.
+			Waits for all jobs to be finished or to be stop()ed.
+			If thread pool is not active, does nothing and returns true. Returns false if timeout expired.
 		*/
-		template<class Rep,class Period>
-		bool wait_until(std::chrono::duration<Rep,Period> const& rel_time)
+		template<typename Clock,typename Duration>
+		bool wait_until(std::chrono::time_point<Clock,Duration> const& rel_time)
 		{
 			if(this->_active)
 			{
 				std::unique_lock<std::mutex> lock(this->_mtx);
-				return _jobs_done.wait_until(lock,rel_time,[this] { return this->wait_func(); });
+				return this->_jobs_done.wait_until(lock,rel_time,[this]
+				{
+					return this->wait_func();
+				});
 			}
-			return false;
+			return true;
 		}
 
 		/*
@@ -385,10 +412,8 @@ namespace exlib {
 		*/
 		void terminate()
 		{
-			this->stop();
-			this->_running=false;
-			this->_signal_start.notify_all();
-			this->join();
+			this->stop_running();
+			this->join_all();
 		}
 
 		/*
@@ -396,20 +421,11 @@ namespace exlib {
 		*/
 		void join()
 		{
-			if(this->_running)
-			{
-				wait();
-				this->_active=false;
-				this->_running=false;
-				this->_signal_start.notify_all();
-				for(auto& thread:this->_workers)
-				{
-					if(thread.joinable())
-					{
-						thread.join();
-					}
-				}
-			}
+			wait();
+			this->_active=false;
+			this->_running=false;
+			this->_signal_start.notify_all();
+			this->join_all();
 		}
 
 		/*
@@ -423,7 +439,7 @@ namespace exlib {
 		/*
 			Adds a task to the thread pool without synchronization.
 			Task must define operator() that can take in Args...
-			or optionally thread_pool as a first argument and then Args...
+			or optionally parent_ref as a first argument and then Args...
 		*/
 		template<typename Task>
 		void push_back_no_sync(Task&& task)
@@ -434,7 +450,7 @@ namespace exlib {
 		/*
 			Adds tasks to the thread pool without synchronization.
 			Tasks must define operator() that can take in Args...
-			or optionally thread_pool as a first argument and then Args...
+			or optionally parent_ref as a first argument and then Args...
 		*/
 		template<typename FirstTask,typename... Rest>
 		void push_back_no_sync(FirstTask&& first,Rest&&... rest)
@@ -446,7 +462,8 @@ namespace exlib {
 		/*
 			Adds task(s) to the thread pool with synchronization and wakes an appropriate number of threads.
 			Tasks must define operator() that can take in Args...
-			or optionally thread_pool as a first argument and then Args...
+			or optionally parent_ref as a first argument and then Args...
+			Can be called safely by child threads.
 		*/
 		template<typename... Tasks>
 		void push_back(Tasks&&... tasks)
@@ -459,7 +476,7 @@ namespace exlib {
 		/*
 			Adds task(s) to the thread pool without synchronization reading	from the given iterators.
 			Tasks must define operator() that can take in Args...
-			or optionally thread_pool as a first argument and then Args...
+			or optionally parent_ref as a first argument and then Args...
 			Returns the number of tasks added.
 		*/
 		template<typename Iter>
@@ -473,8 +490,9 @@ namespace exlib {
 			Adds task(s) to the thread pool with synchronization and wakes an appropriate number of threads reading
 			from the given iterators.
 			Tasks must define operator() that can take in Args...
-			or optionally thread_pool as a first argument and then Args...
+			or optionally parent_ref as a first argument and then Args...
 			Returns the number of tasks added.
+			Can be called safely by child threads.
 		*/
 		template<typename Iter>
 		size_t append(Iter begin,Iter end)
@@ -506,12 +524,11 @@ namespace exlib {
 		template<typename Iter>
 		size_t append_no_sync(Iter begin,Iter end,std::random_access_iterator_tag)
 		{
-			size_t count=end-begin;
 			std::for_each(begin,end,[this](auto&& task) // std has special hacks to convert some iterators to pointers and prevent code bloat
 			{
 				this->push_back_no_sync(std::forward<decltype(task)>(task));
 			});
-			return count;
+			return end-begin;
 		}
 		template<typename Iter>
 		size_t append_no_sync(Iter begin,Iter end,std::input_iterator_tag)
@@ -533,6 +550,94 @@ namespace exlib {
 			for(auto& worker:this->_workers)
 			{
 				worker=std::thread(&thread_pool_a::task_loop,this);
+			}
+		}
+		using TaskInput=std::tuple<detail::wrap_reference_t<Args>...>;
+		struct job {
+			virtual void operator()(parent_ref,TaskInput const& input)=0;
+			virtual ~job()=default;
+		};
+		template<typename BaseFunc>
+		struct job_impl:job {
+			BaseFunc task;
+			template<typename F>
+			job_impl(F&& f):task(std::forward<F>(f))
+			{}
+			void operator()(parent_ref,TaskInput const& input) override
+			{
+				detail::apply(task,input);
+			}
+		};
+		template<typename BaseFunc>
+		struct job_impl_accept_parent:job {
+			BaseFunc task;
+			template<typename F>
+			job_impl_accept_parent(F&& f):task(std::forward<F>(f))
+			{}
+			void operator()(parent_ref tp,TaskInput const& input) override
+			{
+				detail::apply_fa(task,tp,input);
+			}
+		};
+
+		//overload to try to fit to pass arguments without parent
+		template<typename Task,typename... Extra>
+		static std::unique_ptr<job> make_job(Task&& the_task,Extra...)
+		{
+			return make_job2(std::forward<Task>(the_task));
+		}
+
+		//overload to try to fit to pass arguments with parent
+		template<typename Task>
+		static auto make_job(Task&& the_task) -> decltype(std::forward<Task>(the_task)(std::declval<parent_ref>(),std::declval<Args>()...),std::unique_ptr<job>())
+		{
+			return std::unique_ptr<job>(new job_impl_accept_parent<detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
+		}
+
+		template<typename Task,typename... Extra>
+		static std::unique_ptr<job> make_job2(Task&& the_task,Extra...)
+		{
+			static_assert(false,"Task fails to accepts proper arguments; must accept (parent_ref, Args...), or (Args...)");
+		}
+
+		template<typename Task>
+		static auto make_job2(Task&& the_task)  -> decltype(std::forward<Task>(the_task)(std::declval<Args>()...),std::unique_ptr<job>())
+		{
+			return std::unique_ptr<job>(new job_impl<detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
+		}
+
+		void task_loop()
+		{
+			while(true)
+			{
+				std::unique_ptr<job> task;
+				size_t jobs_left;
+				{
+					if(!this->_running)
+					{
+						return; //don't bother locking if not running
+					}
+					std::unique_lock<std::mutex> lock(this->_mtx);
+					while(true)
+					{
+						if(!this->_running)
+						{
+							return;
+						}
+						if(this->_active&&(jobs_left=this->_jobs.size()))
+						{
+							task=std::move(this->_jobs.front());
+							this->_jobs.pop_front();
+							break;
+						}
+						this->_signal_start.wait(lock);
+					}
+				}
+				(*task)(parent_ref(*this),this->_input);
+				if(jobs_left==1)
+				{
+					this->_jobs_done.notify_one();
+				}
 			}
 		}
 		std::deque<std::unique_ptr<job>> _jobs;
