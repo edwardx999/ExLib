@@ -73,6 +73,37 @@ namespace exlib {
 	template<size_t N>
 	using match_size_t=typename match_size<N>::type;
 
+	namespace detail {
+
+		template<size_t N>
+		struct match_float_size_h {
+			using long_double=long double;
+			template<typename... Extra>
+			static auto try_long_double(int,Extra...) -> decltype(std::enable_if<sizeof(long double)==N,long double>::type());
+			template<typename... Extra>
+			static void try_long_double(char,Extra...);
+
+			template<typename... Extra>
+			static auto try_double(int,Extra...) -> decltype(std::enable_if<sizeof(double)==N,double>::type());
+			template<typename... Extra>
+			static auto try_double(char,Extra...) -> decltype(try_long_double(0));
+
+			template<typename... Extra> 
+			static auto try_float(int,Extra...) -> decltype(std::enable_if<sizeof(float)==N,float>::type());
+			template<typename... Extra> 
+			static auto try_float(char,Extra...) -> decltype(try_double(0));
+
+			using type=decltype(try_float(0));
+			static_assert(!std::is_same<type,void>::value,"No float type matching size");
+		};
+	}
+
+	template<size_t N>
+	struct match_float_size:detail::match_float_size_h<N> {};
+
+	template<size_t N>
+	using match_float_size_t=typename match_float_size<N>::type;
+
 	template<typename Forwardee>
 	class forward_string {
 		using value_type=typename Forwardee::value_type;
@@ -109,7 +140,7 @@ namespace exlib {
 		class func_pointer_wrapper<Ret(*)(Args...)> {
 			Ret(*f)(Args...);
 		public:
-			func_pointer_wrapper(Ret(* f)(Args...)):f(f){}
+			func_pointer_wrapper(Ret(*f)(Args...)):f(f) {}
 			Ret operator()(Args... args) const
 			{
 				return f(std::forward<Args>(args)...);
