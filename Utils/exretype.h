@@ -39,6 +39,10 @@ namespace exlib {
 		{
 			return _base;
 		}
+		constexpr explicit operator bool() const
+		{
+			return _base;
+		}
 	};
 	/*
 		Gets the unsigned integer with the given size.
