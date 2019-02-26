@@ -18,6 +18,29 @@ Contains utilities for combining and recreating types.
 namespace exlib {
 
 	/*
+		Allows both a pointer and reference to be passed, which will both decay to pointer semantics.
+		Useful to allow "references" while allowing call by reference.
+	*/
+	template<typename T>
+	struct ref_transfer {
+		T* _base;
+	public:
+		constexpr ref_transfer(T& obj):_base(&obj){}
+		constexpr ref_transfer(T* obj):_base(&obj){}
+		constexpr operator T*() const
+		{
+			return _base;
+		}
+		constexpr T& operator*() const
+		{
+			return *_base;
+		}
+		constexpr T* operator->() const
+		{
+			return _base;
+		}
+	};
+	/*
 		Gets the unsigned integer with the given size.
 	*/
 	template<size_t N>
