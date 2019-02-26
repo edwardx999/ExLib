@@ -25,8 +25,8 @@ namespace exlib {
 	struct ref_transfer {
 		T* _base;
 	public:
-		constexpr ref_transfer(T& obj):_base(&obj){}
-		constexpr ref_transfer(T* obj):_base(&obj){}
+		constexpr ref_transfer(T& obj):_base(&obj) {}
+		constexpr ref_transfer(T* obj):_base(obj) {}
 		constexpr operator T*() const
 		{
 			return _base;
@@ -80,9 +80,8 @@ namespace exlib {
 		value_type const* data;
 	public:
 		forward_string(Forwardee const& f):data(f.c_str())
-		{
-		}
-		constexpr forward_string(value_type const* data):data(data){}
+		{}
+		constexpr forward_string(value_type const* data):data(data) {}
 		constexpr operator pointer const&() const
 		{
 			return data;
@@ -105,8 +104,7 @@ namespace exlib {
 
 		template<typename Ret,typename... Args>
 		struct wrap<Ret(*)(Args...)> {
-			template<typename F>
-			static constexpr auto get(F f)
+			static constexpr auto get(Ret(*f)(Args...))
 			{
 				return [f](Args... args) -> Ret
 				{
@@ -115,7 +113,15 @@ namespace exlib {
 			}
 		};
 		template<typename Ret,typename... Args>
-		struct wrap<Ret(Args...)>:wrap<Ret(*)(Args...)> {};
+		struct wrap<Ret(Args...)> {
+			static constexpr auto get(Ret(&f)(Args...))
+			{
+				return [&f](Args... args) -> Ret
+				{
+					return (f(std::forward<Args>(args)...));
+				};
+			}
+		};
 	}
 
 	//wraps a function pointer (or really anything callable) in a lambda
