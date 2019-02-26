@@ -189,14 +189,14 @@ namespace exlib {
 #endif
 
 	template<typename... Funcs>
-	constexpr auto make_overloaded(Funcs&&... f) -> decltype(overloaded<std::remove_cv_t<std::remove_reference_t<decltype(wrap(f))>>...>(std::forward<Funcs>(f)...))
+	constexpr auto make_overloaded(Funcs&&... f) -> decltype(overloaded<detail::remove_cvref_t<decltype(wrap(f))>...>(std::forward<Funcs>(f)...))
 	{
-		return overloaded<std::remove_cv_t<std::remove_reference_t<decltype(wrap(f))>>...>(std::forward<Funcs>(f)...);
+		return overloaded<detail::remove_cvref_t<decltype(wrap(f))>...>(std::forward<Funcs>(f)...);
 	}
 
 #if _EXRETYPE_HAS_CPP_17
 	template<typename... Funcs>
-	overloaded(Funcs&&... f)->overloaded<std::remove_cv_t<std::remove_reference_t<decltype(wrap(f))>>...>;
+	overloaded(Funcs&&... f)->overloaded<detail::remove_cvref_t<decltype(wrap(f))>...>;
 #endif
 
 	namespace detail {
