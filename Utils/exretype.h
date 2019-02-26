@@ -96,12 +96,39 @@ namespace exlib {
 		template<typename Func>
 		struct wrap {
 			template<typename F>
-			static constexpr decltype(auto) get(F&& f)
+			static constexpr F get(F&& f)
 			{
 				return std::forward<F>(f);
 			}
 		};
+#if !_EXRETYPE_HAS_CPP_14
+		template<typename T>
+		struct func_pointer_wrapper;
 
+		template<typename Ret,typename... Args>
+		struct func_pointer_wrapper<Ret(*)(Args...)> {
+			Ret(*f)(Args...);
+			Ret operator()(Args... args) const
+			{
+				return f(std::forward<Args>(args)...);
+			}
+		};
+
+		template<typename Ret,typename... Args>
+		struct wrap<Ret(*)(Args...)> {
+			static constexpr func_pointer_wrapper<Ret(*)(Args...)> get(Ret(*f)(Args...))
+			{
+				return {f};
+			}
+		};
+		template<typename Ret,typename... Args>
+		struct wrap<Ret(Args...)> {
+			static constexpr func_pointer_wrapper<Ret(*)(Args...)> get(Ret(&f)(Args...))
+			{
+				return {&f};
+			}
+		};
+#else
 		template<typename Ret,typename... Args>
 		struct wrap<Ret(*)(Args...)> {
 			static constexpr auto get(Ret(*f)(Args...))
@@ -122,13 +149,20 @@ namespace exlib {
 				};
 			}
 		};
+#endif
+#if _EXRETYPE_HAS_CPP_20
+		using std::remove_cvref_t;
+#else
+		template<typename T>
+		using remove_cvref_t=typename std::remove_cv<typename std::remove_reference<T>::type>::type;
+#endif
 	}
 
 	//wraps a function pointer (or really anything callable) in a lambda
 	template<typename Func>
-	constexpr decltype(auto) wrap(Func&& fp)
+	constexpr auto wrap(Func&& fp) -> decltype(detail::wrap<detail::remove_cvref_t<Func>>::get(std::forward<Func>(fp)))
 	{
-		return detail::wrap<std::remove_cv_t<std::remove_reference_t<Func>>>::get(std::forward<Func>(fp));
+		return detail::wrap<detail::remove_cvref_t<Func>>::get(std::forward<Func>(fp));
 	}
 
 
@@ -153,7 +187,7 @@ namespace exlib {
 #endif
 
 	template<typename... Funcs>
-	constexpr auto make_overloaded(Funcs&&... f)
+	constexpr auto make_overloaded(Funcs&&... f) -> decltype(overloaded<std::remove_cv_t<std::remove_reference_t<decltype(wrap(f))>>...>(std::forward<Funcs>(f)...))
 	{
 		return overloaded<std::remove_cv_t<std::remove_reference_t<decltype(wrap(f))>>...>(std::forward<Funcs>(f)...);
 	}
