@@ -103,11 +103,13 @@ namespace exlib {
 		};
 #if !_EXRETYPE_HAS_CPP_14
 		template<typename T>
-		struct func_pointer_wrapper;
+		class func_pointer_wrapper;
 
 		template<typename Ret,typename... Args>
-		struct func_pointer_wrapper<Ret(*)(Args...)> {
+		class func_pointer_wrapper<Ret(*)(Args...)> {
 			Ret(*f)(Args...);
+		public:
+			func_pointer_wrapper(Ret(* f)(Args...)):f(f){}
 			Ret operator()(Args... args) const
 			{
 				return f(std::forward<Args>(args)...);
@@ -115,7 +117,7 @@ namespace exlib {
 		};
 
 		template<typename Ret,typename... Args>
-		struct wrap<Ret(*)(Args...)> {
+		class wrap<Ret(*)(Args...)> {
 			static constexpr func_pointer_wrapper<Ret(*)(Args...)> get(Ret(*f)(Args...))
 			{
 				return {f};
