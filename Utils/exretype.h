@@ -44,32 +44,53 @@ namespace exlib {
 			return _base;
 		}
 	};
+
+
+	namespace detail {
+
+		template<size_t N>
+		struct match_size {
+			using type=void;
+		};
+		template<>
+		struct match_size<1> {
+			using type=std::uint8_t;
+		};
+
+		template<>
+		struct match_size<2> {
+			using type=std::uint16_t;
+		};
+
+		template<>
+		struct match_size<4> {
+			using type=std::uint32_t;
+		};
+
+		template<>
+		struct match_size<8> {
+			using type=std::uint64_t;
+		};
+
+		template<typename T>
+		struct suppress_void {
+			using type=T;
+		};
+		template<>
+		struct suppress_void<void> {};
+	}
+
 	/*
 		Gets the unsigned integer with the given size.
 	*/
 	template<size_t N>
-	struct match_size;
-
-	template<>
-	struct match_size<1> {
-		using type=std::uint8_t;
+	struct match_size:detail::suppress_void<typename detail::match_size<N>::type> {
+		static_assert(!std::is_same<typename detail::match_size<N>::type,void>::value,"No matching uint type of given size");
 	};
 
-	template<>
-	struct match_size<2> {
-		using type=std::uint16_t;
-	};
-
-	template<>
-	struct match_size<4> {
-		using type=std::uint32_t;
-	};
-
-	template<>
-	struct match_size<8> {
-		using type=std::uint64_t;
-	};
-
+	/*
+		The unsigned integer type matching the given size.
+	*/
 	template<size_t N>
 	using match_size_t=typename match_size<N>::type;
 
@@ -77,7 +98,6 @@ namespace exlib {
 
 		template<size_t N>
 		struct match_float_size_h {
-			using long_double=long double;
 			template<typename... Extra>
 			static auto try_long_double(int,Extra...) -> decltype(std::enable_if<sizeof(long double)==N,long double>::type());
 			template<typename... Extra>
@@ -88,21 +108,98 @@ namespace exlib {
 			template<typename... Extra>
 			static auto try_double(char,Extra...) -> decltype(try_long_double(0));
 
-			template<typename... Extra> 
+			template<typename... Extra>
 			static auto try_float(int,Extra...) -> decltype(std::enable_if<sizeof(float)==N,float>::type());
-			template<typename... Extra> 
+			template<typename... Extra>
 			static auto try_float(char,Extra...) -> decltype(try_double(0));
 
 			using type=decltype(try_float(0));
-			static_assert(!std::is_same<type,void>::value,"No float type matching size");
+			static_assert(!std::is_same<type,void>::value,"No floating-point type matching size");
+		};
+
+		template<size_t N>
+		struct least_float_size_h {
+			template<typename... Extra>
+			static auto try_long_double(int,Extra...) -> decltype(std::enable_if<sizeof(long double)>=N,long double>::type());
+			template<typename... Extra>
+			static void try_long_double(char,Extra...);
+
+			template<typename... Extra>
+			static auto try_double(int,Extra...) -> decltype(std::enable_if<sizeof(double)>=N,double>::type());
+			template<typename... Extra>
+			static auto try_double(char,Extra...) -> decltype(try_long_double(0));
+
+			template<typename... Extra>
+			static auto try_float(int,Extra...) -> decltype(std::enable_if<sizeof(float)>=N,float>::type());
+			template<typename... Extra>
+			static auto try_float(char,Extra...) -> decltype(try_double(0));
+
+			using type=decltype(try_float(0));
+			static_assert(!std::is_same<type,void>::value,"No floating-point type at least size");
+		};
+
+		template<size_t N>
+		struct least_size_h {
+			template<typename... Extra>
+			static auto try64(int,Extra...) -> decltype(std::enable_if<sizeof(uint64_t)>=N,uint64_t>::type());
+			template<typename... Extra>
+			static void try64(char,Extra...);
+
+			template<typename... Extra>
+			static auto try32(int,Extra...) -> decltype(std::enable_if<sizeof(uint32_t)>=N,uint32_t>::type());
+			template<typename... Extra>
+			static auto try32(char,Extra...) -> decltype(try64(0));
+
+			template<typename... Extra>
+			static auto try16(int,Extra...) -> decltype(std::enable_if<sizeof(uint16_t)>=N,uint16_t>::type());
+			template<typename... Extra>
+			static auto try16(char,Extra...) -> decltype(try32(0));
+
+			template<typename... Extra>
+			static auto try8(int,Extra...) -> decltype(std::enable_if<sizeof(uint8_t)>=N,uint8_t>::type());
+			template<typename... Extra>
+			static auto try8(char,Extra...) -> decltype(try16(0));
+
+			using type=decltype(try8(0));
+			static_assert(!std::is_same<type,void>::value,"No uint type at least size");
 		};
 	}
 
+	/*
+		Gets the floating point data type with same size as given amount.
+	*/
 	template<size_t N>
-	struct match_float_size:detail::match_float_size_h<N> {};
+	struct match_float_size:detail::suppress_void<typename detail::match_float_size_h<N>::type> {};
 
+	/*
+		Floating point data type with same size as given amount.
+	*/
 	template<size_t N>
 	using match_float_size_t=typename match_float_size<N>::type;
+
+	/*
+		Gets the floating point data type with size at least given amount.
+	*/
+	template<size_t N>
+	struct least_float_size:detail::suppress_void<typename detail::least_float_size_h<N>::type> {};
+
+	/*
+		Floating point data type with size at least given amount.
+	*/
+	template<size_t N>
+	using least_float_size_t=typename least_float_size<N>::type;
+
+	/*
+		Gets the unsigned integer data type with size at least given amount.
+	*/
+	template<size_t N>
+	struct least_size:detail::least_size_h<N> {};
+
+	/*
+		Unsigned integer data type with size at least given amount.
+	*/
+	template<size_t N>
+	using least_size_t=typename least_size<N>::type;
 
 	template<typename Forwardee>
 	class forward_string {
