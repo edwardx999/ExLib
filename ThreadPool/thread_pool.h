@@ -153,6 +153,7 @@ namespace exlib {
 			void stop()
 			{
 				_active=false;
+				std::unique_lock<std::mutex> lock(_mtx);
 			}
 
 			/*
@@ -195,14 +196,14 @@ namespace exlib {
 			}
 			void internal_stop()
 			{
-				this->stop();
+				this->_active=false;
 				this->_jobs_done.notify_one();
 			}
 			void stop_running()
 			{
 				this->_running=false;
 				this->_signal_start.notify_all();
-				this->stop();
+				this->_active=false;
 			}
 			void internal_terminate()
 			{
