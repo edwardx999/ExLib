@@ -39,19 +39,19 @@ namespace exlib {
 	public:
 		constexpr ref_transfer(T& obj):_base(&obj) {}
 		constexpr ref_transfer(T* obj):_base(obj) {}
-		constexpr operator T*() const
+		constexpr operator T*() const noexcept
 		{
 			return _base;
 		}
-		constexpr T& operator*() const
+		constexpr T& operator*() const noexcept
 		{
 			return *_base;
 		}
-		constexpr T* operator->() const
+		constexpr T* operator->() const noexcept
 		{
 			return _base;
 		}
-		constexpr explicit operator bool() const
+		constexpr explicit operator bool() const noexcept
 		{
 			return _base;
 		}
@@ -236,7 +236,7 @@ namespace exlib {
 		template<typename Func>
 		struct wrap {
 			template<typename F>
-			static constexpr F get(F&& f)
+			static constexpr F get(F&& f) noexcept
 			{
 				return std::forward<F>(f);
 			}
@@ -273,7 +273,7 @@ namespace exlib {
 #else
 		template<typename Ret,typename... Args>
 		struct wrap<Ret(*)(Args...)> {
-			static constexpr auto get(Ret(*f)(Args...))
+			static constexpr auto get(Ret(*f)(Args...)) noexcept
 			{
 				return [f](Args... args) -> Ret
 				{
@@ -283,7 +283,7 @@ namespace exlib {
 		};
 		template<typename Ret,typename... Args>
 		struct wrap<Ret(Args...)> {
-			static constexpr auto get(Ret(&f)(Args...))
+			static constexpr auto get(Ret(&f)(Args...)) noexcept
 			{
 				return [&f](Args... args) -> Ret
 				{
@@ -302,7 +302,7 @@ namespace exlib {
 
 	//wraps a function pointer (or really anything callable) in a lambda
 	template<typename Func>
-	constexpr auto wrap(Func&& fp) -> decltype(detail::wrap<detail::remove_cvref_t<Func>>::get(std::forward<Func>(fp)))
+	constexpr auto wrap(Func&& fp) noexcept -> decltype(detail::wrap<detail::remove_cvref_t<Func>>::get(std::forward<Func>(fp)))
 	{
 		return detail::wrap<detail::remove_cvref_t<Func>>::get(std::forward<Func>(fp));
 	}
@@ -344,28 +344,28 @@ namespace exlib {
 		class Box {
 			Base _base;
 		public:
-			constexpr Box(Base b):_base(b) {}
-			constexpr Box() {}
+			constexpr Box(Base b) noexcept:_base(b) {}
+			constexpr Box() noexcept {}
 			constexpr Box(Box const&)=default;
 			constexpr Box& operator=(Box const&)=default;
-			template<typename O> constexpr Box& operator=(O const& o)
+			template<typename O> constexpr Box& operator=(O const& o) noexcept
 			{
 				_base=o;
 				return *this;
 			}
-			constexpr operator Base&()
+			constexpr operator Base&() noexcept
 			{
 				return _base;
 			}
-			constexpr operator Base const&() const
+			constexpr operator Base const&() const noexcept
 			{
 				return _base;
 			}
 #define make_bin_op_for_box(op)\
-constexpr Box operator op(Box o) const { return {_base ##op## o._base}; }\
-constexpr Box& operator ##op##=(Box o) { _base ##op##= o._base; return *this;}\
-template<typename O> constexpr Box operator op(O const& o) const { return {_base ##op## o}; }\
-template<typename O> constexpr Box& operator ##op##=(O const& o) { _base ##op##= o; return *this;}
+constexpr Box operator op(Box o) const noexcept { return {_base ##op## o._base}; }\
+constexpr Box& operator ##op##=(Box o) noexcept { _base ##op##= o._base; return *this;}\
+template<typename O> constexpr Box operator op(O const& o) noexcept const { return {_base ##op## o}; }\
+template<typename O> constexpr Box& operator ##op##=(O const& o) noexcept { _base ##op##= o; return *this;}
 			make_bin_op_for_box(+)
 				make_bin_op_for_box(-)
 				make_bin_op_for_box(/)
@@ -375,50 +375,50 @@ template<typename O> constexpr Box& operator ##op##=(O const& o) { _base ##op##=
 				make_bin_op_for_box(&)
 				make_bin_op_for_box(^)
 #undef make_bin_op_for_box
-				constexpr Box operator~() const
+				constexpr Box operator~() const noexcept
 			{
 				return {~_base};
 			}
-			constexpr operator bool() const
+			constexpr operator bool() const noexcept
 			{
 				return _base;
 			}
-			constexpr bool operator!() const
+			constexpr bool operator!() const noexcept
 			{
 				return !_base;
 			}
-			constexpr Box operator+() const
+			constexpr Box operator+() const noexcept
 			{
 				return *this;
 			}
-			constexpr Box operator-() const
+			constexpr Box operator-() const noexcept
 			{
 				return {-_base};
 			}
 #define make_shift_op_for_box(op)\
-constexpr Box operator##op##(size_t c) const {return {_base ##op## c};}\
-			constexpr Box operator##op##=(size_t c) { return _base ##op##=c,*this; }
+constexpr Box operator##op##(size_t c) const noexcept {return {_base ##op## c};}\
+			constexpr Box operator##op##=(size_t c) noexcept { return _base ##op##=c,*this; }
 			make_shift_op_for_box(<<)
 				make_shift_op_for_box(>>)
 #undef make_shift_op_for_box
-				constexpr Box operator++(int)
+				constexpr Box operator++(int) noexcept
 			{
 				auto c(*this);
 				++_base;
 				return c;
 			}
-			constexpr Box operator--(int)
+			constexpr Box operator--(int) noexcept
 			{
 				auto c(*this);
 				--_base;
 				return c;
 			}
-			constexpr Box& operator++()
+			constexpr Box& operator++() noexcept
 			{
 				++_base;
 				return *this;
 			}
-			constexpr Box& operator--()
+			constexpr Box& operator--() noexcept
 			{
 				--_base;
 				return *this;
@@ -432,9 +432,9 @@ constexpr Box operator##op##(size_t c) const {return {_base ##op## c};}\
 		}
 
 #define make_comp_op_for_box(op)\
-template<typename Base> constexpr bool operator##op##(Box<Base> a,Box<Base> b) {return static_cast<Base&>(a) ##op## static_cast<Base&>(b);}\
-template<typename Base,typename O> constexpr bool operator##op##(Box<Base> a,O b) {return static_cast<Base&>(a) ##op## b;}\
-template<typename O,typename Base> constexpr bool operator##op##(O a,Box<Base> b) {return a ##op## static_cast<Base&>(b);}
+template<typename Base> constexpr bool operator##op##(Box<Base> a,Box<Base> b) noexcept {return static_cast<Base&>(a) ##op## static_cast<Base&>(b);}\
+template<typename Base,typename O> constexpr bool operator##op##(Box<Base> a,O b) noexcept {return static_cast<Base&>(a) ##op## b;}\
+template<typename O,typename Base> constexpr bool operator##op##(O a,Box<Base> b) noexcept {return a ##op## static_cast<Base&>(b);}
 		make_comp_op_for_box(<)
 			make_comp_op_for_box(>)
 			make_comp_op_for_box(==)
