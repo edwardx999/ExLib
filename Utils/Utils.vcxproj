@@ -144,6 +144,7 @@
     <ClInclude Include="exsexp.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClInclude>
+    <ClInclude Include="exboundview.h" />
     <ClInclude Include="exstring.h" />
     <ClInclude Include="exmeta.h" />
     <ClInclude Include="extime.h" />

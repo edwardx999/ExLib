@@ -123,13 +123,15 @@ namespace exlib {
 			}
 			return mod_ring{mod-(o._val-_val),no_mod_tag{}};
 		}
-#define cassmd(op) static constexpr mod_ring operator op(mod_ring&& a,mod_ring const& o) { return std::move(a) op##= o;}
-		cassmd(+)
+
+	};
+
+#define cassmd(op) template<typename B,unsigned long long p> static constexpr mod_ring<B,p> operator op(mod_ring<B,p>&& a,mod_ring<B,p> const& o) { return std::move(a+=o);}
+	cassmd(+)
 		cassmd(-)
 		cassmd(*)
 		cassmd(/)
 #undef cass
-	};
 
 	template<typename T>
 	constexpr T additive_identity()
@@ -258,7 +260,7 @@ namespace exlib {
 	}
 
 	template<typename T,typename U>
-	constexpr std::decay<U>::type clamp(T val,U&& min,U&& max)
+	constexpr typename std::decay<U>::type clamp(T val,U&& min,U&& max)
 	{
 		assert(min<=max);
 		if(val>max)
@@ -757,7 +759,7 @@ namespace exlib {
 	template<typename T,typename Alloc=std::allocator<T>>
 	class LimitedSet:std::vector<T,Alloc> {
 	private:
-		using Base=std::vector<T>;
+		using Base=std::vector<T,Alloc>;
 	public:
 		using Base::iterator;
 		using Base::allocator_type;
