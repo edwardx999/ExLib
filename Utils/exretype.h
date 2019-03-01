@@ -362,9 +362,9 @@ namespace exlib {
 				return _base;
 			}
 #define make_bin_op_for_box(op)\
-constexpr Box operator op(Box o) const noexcept { return {_base ##op## o._base}; }\
+constexpr Box operator ##op##(Box o) const noexcept { return {_base ##op## o._base}; }\
 constexpr Box& operator ##op##=(Box o) noexcept { _base ##op##= o._base; return *this;}\
-template<typename O> constexpr Box operator op(O const& o) noexcept const { return {_base ##op## o}; }\
+template<typename O> constexpr Box operator ##op##(O const& o) const noexcept { return {_base ##op## o}; }\
 template<typename O> constexpr Box& operator ##op##=(O const& o) noexcept { _base ##op##= o; return *this;}
 			make_bin_op_for_box(+)
 				make_bin_op_for_box(-)
