@@ -104,28 +104,6 @@ namespace exlib {
 			{
 				return *begin();
 			}
-			constexpr operator linked_span<Container const>() const noexcept
-			{
-				return linked_span<Container const>(underlying(),cbegin(),cend());
-			}
-			constexpr linked_span subspan(iterator begin_=begin(),iterator end_=end()) const noexcept
-			{
-				return linked_span(underlying(),begin_,end_);
-			}
-			constexpr linked_span subspan(difference_type offset) const noexcept
-			{
-				auto b=begin();
-				std::advance(b,offset);
-				return linked_span(underlying(),b,end());
-			}
-			constexpr linked_span subspan(difference_type offset,size_t count) const noexcept
-			{
-				auto b=begin();
-				std::advance(b,offset);
-				auto e=b;
-				std::advance(b)
-					return linked_span(underlying(),b,end());
-			}
 		private:
 			iterator _begin;
 			iterator _end;
@@ -187,8 +165,42 @@ namespace exlib {
 			using Base=linked_span<Container>;
 		public:
 			using Base::Base;
+			using typename Base::iterator;
+			using typename Base::size_type;
+			using typename Base::difference_type;
 			constexpr bound_span(bound_span const&) noexcept=default;
 			constexpr bound_span& operator=(bound_span const&) noexcept=default;
+			constexpr operator bound_span<Container const>() const noexcept
+			{
+				return bound_span<Container const>(this->underlying(),this->begin(),this->end());
+			}
+
+			constexpr bound_span subspan(iterator begin_,iterator end_) const noexcept
+			{
+				return bound_span(this->underlying(),begin_,end_);
+			}
+			constexpr bound_span subspan() const noexcept
+			{
+				return *this;
+			}
+			constexpr bound_span subspan(iterator begin_) const noexcept
+			{
+				return bound_span(this->underlying(),begin_,this->end());
+			}
+			constexpr bound_span subspan(difference_type offset) const noexcept
+			{
+				auto b=this->begin();
+				std::advance(b,offset);
+				return bound_span(this->underlying(),b,end());
+			}
+			constexpr bound_span subspan(difference_type offset,size_type count) const noexcept
+			{
+				auto b=this->begin();
+				std::advance(b,offset);
+				auto e=b;
+				std::advance(e,count);
+				return bound_span(this->underlying(),b,e);
+			}
 		};
 
 		template<typename Container>
@@ -322,6 +334,11 @@ namespace exlib {
 	bound_view<Container> make_bound_view(Container& container,Args... args)
 	{
 		return bound_view<Container>(container,args...);
+	}
+	template<typename Container,typename... Args>
+	const_bound_view<Container> make_const_bound_view(Container& container,Args... args)
+	{
+		return const_bound_view<Container>(container,args...);
 	}
 }
 #endif
