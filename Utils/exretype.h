@@ -1,6 +1,18 @@
 #pragma once
 /*
 Contains utilities for combining and recreating types.
+
+Copyright 2018 Edward Xie
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 #ifndef EXRETYPE_H
 #define EXRETYPE_H
@@ -18,33 +30,188 @@ Contains utilities for combining and recreating types.
 namespace exlib {
 
 	/*
+		Allows both a pointer and reference to be passed, which will both decay to pointer semantics.
+		Useful to allow "references" while allowing call by reference.
+	*/
+	template<typename T>
+	struct ref_transfer {
+		T* _base;
+	public:
+		constexpr ref_transfer(T& obj):_base(&obj) {}
+		constexpr ref_transfer(T* obj):_base(obj) {}
+		constexpr operator T*() const
+		{
+			return _base;
+		}
+		constexpr T& operator*() const
+		{
+			return *_base;
+		}
+		constexpr T* operator->() const
+		{
+			return _base;
+		}
+		constexpr explicit operator bool() const
+		{
+			return _base;
+		}
+	};
+
+
+	namespace detail {
+
+		template<size_t N>
+		struct match_size {
+			using type=void;
+		};
+		template<>
+		struct match_size<1> {
+			using type=std::uint8_t;
+		};
+
+		template<>
+		struct match_size<2> {
+			using type=std::uint16_t;
+		};
+
+		template<>
+		struct match_size<4> {
+			using type=std::uint32_t;
+		};
+
+		template<>
+		struct match_size<8> {
+			using type=std::uint64_t;
+		};
+
+		template<typename T>
+		struct suppress_void {
+			using type=T;
+		};
+		template<>
+		struct suppress_void<void> {};
+	}
+
+	/*
 		Gets the unsigned integer with the given size.
 	*/
 	template<size_t N>
-	struct match_size;
-
-	template<>
-	struct match_size<1> {
-		using type=std::uint8_t;
+	struct match_size:detail::suppress_void<typename detail::match_size<N>::type> {
+		static_assert(!std::is_same<typename detail::match_size<N>::type,void>::value,"No matching uint type of given size");
 	};
 
-	template<>
-	struct match_size<2> {
-		using type=std::uint16_t;
-	};
-
-	template<>
-	struct match_size<4> {
-		using type=std::uint32_t;
-	};
-
-	template<>
-	struct match_size<8> {
-		using type=std::uint64_t;
-	};
-
+	/*
+		The unsigned integer type matching the given size.
+	*/
 	template<size_t N>
 	using match_size_t=typename match_size<N>::type;
+
+	namespace detail {
+
+		template<size_t N>
+		struct match_float_size_h {
+			template<typename... Extra>
+			static auto try_long_double(int,Extra...) -> decltype(std::enable_if<sizeof(long double)==N,long double>::type());
+			template<typename... Extra>
+			static void try_long_double(char,Extra...);
+
+			template<typename... Extra>
+			static auto try_double(int,Extra...) -> decltype(std::enable_if<sizeof(double)==N,double>::type());
+			template<typename... Extra>
+			static auto try_double(char,Extra...) -> decltype(try_long_double(0));
+
+			template<typename... Extra>
+			static auto try_float(int,Extra...) -> decltype(std::enable_if<sizeof(float)==N,float>::type());
+			template<typename... Extra>
+			static auto try_float(char,Extra...) -> decltype(try_double(0));
+
+			using type=decltype(try_float(0));
+			static_assert(!std::is_same<type,void>::value,"No floating-point type matching size");
+		};
+
+		template<size_t N>
+		struct least_float_size_h {
+			template<typename... Extra>
+			static auto try_long_double(int,Extra...) -> decltype(std::enable_if<sizeof(long double)>=N,long double>::type());
+			template<typename... Extra>
+			static void try_long_double(char,Extra...);
+
+			template<typename... Extra>
+			static auto try_double(int,Extra...) -> decltype(std::enable_if<sizeof(double)>=N,double>::type());
+			template<typename... Extra>
+			static auto try_double(char,Extra...) -> decltype(try_long_double(0));
+
+			template<typename... Extra>
+			static auto try_float(int,Extra...) -> decltype(std::enable_if<sizeof(float)>=N,float>::type());
+			template<typename... Extra>
+			static auto try_float(char,Extra...) -> decltype(try_double(0));
+
+			using type=decltype(try_float(0));
+			static_assert(!std::is_same<type,void>::value,"No floating-point type at least size");
+		};
+
+		template<size_t N>
+		struct least_size_h {
+			template<typename... Extra>
+			static auto try64(int,Extra...) -> decltype(std::enable_if<sizeof(uint64_t)>=N,uint64_t>::type());
+			template<typename... Extra>
+			static void try64(char,Extra...);
+
+			template<typename... Extra>
+			static auto try32(int,Extra...) -> decltype(std::enable_if<sizeof(uint32_t)>=N,uint32_t>::type());
+			template<typename... Extra>
+			static auto try32(char,Extra...) -> decltype(try64(0));
+
+			template<typename... Extra>
+			static auto try16(int,Extra...) -> decltype(std::enable_if<sizeof(uint16_t)>=N,uint16_t>::type());
+			template<typename... Extra>
+			static auto try16(char,Extra...) -> decltype(try32(0));
+
+			template<typename... Extra>
+			static auto try8(int,Extra...) -> decltype(std::enable_if<sizeof(uint8_t)>=N,uint8_t>::type());
+			template<typename... Extra>
+			static auto try8(char,Extra...) -> decltype(try16(0));
+
+			using type=decltype(try8(0));
+			static_assert(!std::is_same<type,void>::value,"No uint type at least size");
+		};
+	}
+
+	/*
+		Gets the floating point data type with same size as given amount.
+	*/
+	template<size_t N>
+	struct match_float_size:detail::suppress_void<typename detail::match_float_size_h<N>::type> {};
+
+	/*
+		Floating point data type with same size as given amount.
+	*/
+	template<size_t N>
+	using match_float_size_t=typename match_float_size<N>::type;
+
+	/*
+		Gets the floating point data type with size at least given amount.
+	*/
+	template<size_t N>
+	struct least_float_size:detail::suppress_void<typename detail::least_float_size_h<N>::type> {};
+
+	/*
+		Floating point data type with size at least given amount.
+	*/
+	template<size_t N>
+	using least_float_size_t=typename least_float_size<N>::type;
+
+	/*
+		Gets the unsigned integer data type with size at least given amount.
+	*/
+	template<size_t N>
+	struct least_size:detail::least_size_h<N> {};
+
+	/*
+		Unsigned integer data type with size at least given amount.
+	*/
+	template<size_t N>
+	using least_size_t=typename least_size<N>::type;
 
 	template<typename Forwardee>
 	class forward_string {
@@ -53,9 +220,8 @@ namespace exlib {
 		value_type const* data;
 	public:
 		forward_string(Forwardee const& f):data(f.c_str())
-		{
-		}
-		constexpr forward_string(value_type const* data):data(data){}
+		{}
+		constexpr forward_string(value_type const* data):data(data) {}
 		constexpr operator pointer const&() const
 		{
 			return data;
@@ -70,16 +236,44 @@ namespace exlib {
 		template<typename Func>
 		struct wrap {
 			template<typename F>
-			static constexpr decltype(auto) get(F&& f)
+			static constexpr F get(F&& f)
 			{
 				return std::forward<F>(f);
 			}
 		};
+#if !_EXRETYPE_HAS_CPP_14
+		template<typename T>
+		class func_pointer_wrapper;
 
 		template<typename Ret,typename... Args>
+		class func_pointer_wrapper<Ret(*)(Args...)> {
+			Ret(*f)(Args...);
+		public:
+			func_pointer_wrapper(Ret(*f)(Args...)):f(f) {}
+			Ret operator()(Args... args) const
+			{
+				return f(std::forward<Args>(args)...);
+			}
+		};
+
+		template<typename Ret,typename... Args>
+		class wrap<Ret(*)(Args...)> {
+			static constexpr func_pointer_wrapper<Ret(*)(Args...)> get(Ret(*f)(Args...))
+			{
+				return {f};
+			}
+		};
+		template<typename Ret,typename... Args>
+		struct wrap<Ret(Args...)> {
+			static constexpr func_pointer_wrapper<Ret(*)(Args...)> get(Ret(&f)(Args...))
+			{
+				return {&f};
+			}
+		};
+#else
+		template<typename Ret,typename... Args>
 		struct wrap<Ret(*)(Args...)> {
-			template<typename F>
-			static constexpr auto get(F f)
+			static constexpr auto get(Ret(*f)(Args...))
 			{
 				return [f](Args... args) -> Ret
 				{
@@ -88,14 +282,29 @@ namespace exlib {
 			}
 		};
 		template<typename Ret,typename... Args>
-		struct wrap<Ret(Args...)>:wrap<Ret(*)(Args...)> {};
+		struct wrap<Ret(Args...)> {
+			static constexpr auto get(Ret(&f)(Args...))
+			{
+				return [&f](Args... args) -> Ret
+				{
+					return (f(std::forward<Args>(args)...));
+				};
+			}
+		};
+#endif
+#if _EXRETYPE_HAS_CPP_20
+		using std::remove_cvref_t;
+#else
+		template<typename T>
+		using remove_cvref_t=typename std::remove_cv<typename std::remove_reference<T>::type>::type;
+#endif
 	}
 
 	//wraps a function pointer (or really anything callable) in a lambda
 	template<typename Func>
-	constexpr decltype(auto) wrap(Func&& fp)
+	constexpr auto wrap(Func&& fp) -> decltype(detail::wrap<detail::remove_cvref_t<Func>>::get(std::forward<Func>(fp)))
 	{
-		return detail::wrap<std::remove_cv_t<std::remove_reference_t<Func>>>::get(std::forward<Func>(fp));
+		return detail::wrap<detail::remove_cvref_t<Func>>::get(std::forward<Func>(fp));
 	}
 
 
@@ -120,14 +329,14 @@ namespace exlib {
 #endif
 
 	template<typename... Funcs>
-	constexpr auto make_overloaded(Funcs&&... f)
+	constexpr auto make_overloaded(Funcs&&... f) -> decltype(overloaded<detail::remove_cvref_t<decltype(wrap(f))>...>(std::forward<Funcs>(f)...))
 	{
-		return overloaded<std::remove_cv_t<std::remove_reference_t<decltype(wrap(f))>>...>(std::forward<Funcs>(f)...);
+		return overloaded<detail::remove_cvref_t<decltype(wrap(f))>...>(std::forward<Funcs>(f)...);
 	}
 
 #if _EXRETYPE_HAS_CPP_17
 	template<typename... Funcs>
-	overloaded(Funcs&&... f)->overloaded<std::remove_cv_t<std::remove_reference_t<decltype(wrap(f))>>...>;
+	overloaded(Funcs&&... f)->overloaded<detail::remove_cvref_t<decltype(wrap(f))>...>;
 #endif
 
 	namespace detail {

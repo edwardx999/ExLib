@@ -45,5 +45,11 @@
     <ClInclude Include="extime.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="exretype.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="exlazy.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

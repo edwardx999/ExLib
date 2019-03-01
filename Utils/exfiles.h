@@ -20,31 +20,11 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <stdio.h>
 #include <regex>
 namespace exlib {
+
+#ifdef _WINDOWS
 	/*
 		Returns a vector containing the filenames of all files in the first level of the given directory.
 	*/
-	template<typename String>
-	std::vector<String> files_in_dir(String const& path);
-
-	/*
-		Returns a String with any consecutive slashes replaced by a single slash.
-	*/
-	template<typename String,typename U>
-	String clean_multislashes(U const* input);
-
-	/*
-		Returns a String with any consecutive slashes replaced by a single slash.
-	*/
-	template<typename String>
-	String clean_multislashes(String const& input);
-
-	/*
-		Returns any consecutive slahes from the null-terminated input, and returns the new size of the input string.
-	*/
-	template<typename Iter>
-	constexpr size_t remove_multislashes(Iter input);
-
-#ifdef _WINDOWS
 	template<typename String>
 	std::vector<String> files_in_dir(String const& path)
 	{
@@ -67,7 +47,9 @@ namespace exlib {
 		return files;
 	}
 #endif
-
+	/*
+		Returns a String with any consecutive slashes replaced by a single slash.
+	*/
 	template<typename String,typename U>
 	String clean_multislashes(U const* input)
 	{
@@ -97,6 +79,9 @@ namespace exlib {
 		return out;
 	}
 
+	/*
+		Returns a String with any consecutive slashes replaced by a single slash.
+	*/
 	template<typename String>
 	String clean_multislashes(String const& input)
 	{
@@ -111,7 +96,7 @@ namespace exlib {
 
 	namespace detail {
 		template<typename Iter>
-		constexpr std::pair<Iter,Iter> find_multi_slash_block(Iter input)
+		constexpr std::pair<Iter,Iter> find_multi_slash_block(Iter input) noexcept
 		{
 			auto& slash_end=input;
 			while(true)
@@ -146,7 +131,7 @@ namespace exlib {
 			}
 		}
 		template<typename Iter>
-		constexpr Iter slash_copy(Iter write_head,Iter start,Iter end)
+		constexpr Iter slash_copy(Iter write_head,Iter start,Iter end) noexcept
 		{
 			for(;;)
 			{
@@ -160,7 +145,7 @@ namespace exlib {
 			}
 		}
 		template<typename Iter>
-		constexpr size_t remove_multislashes(Iter input)
+		constexpr size_t remove_multislashes(Iter input) noexcept
 		{
 			auto sb=find_multi_slash_block(input);
 			if(sb.second==sb.first)
@@ -185,8 +170,12 @@ namespace exlib {
 			}
 		}
 	}
+
+	/*
+		Returns any consecutive slahes from the null-terminated input, and returns the new size of the input string.
+	*/
 	template<typename Iter>
-	constexpr size_t remove_multislashes(Iter input)
+	constexpr size_t remove_multislashes(Iter input) noexcept
 	{
 		return detail::remove_multislashes(std::addressof(*input));
 	}
@@ -195,7 +184,7 @@ namespace exlib {
 		Finds the file extension (beyond the dot)
 	*/
 	template<typename Iter>
-	Iter find_extension(Iter begin,Iter end)
+	Iter find_extension(Iter begin,Iter end) noexcept
 	{
 		--begin;
 		auto it=end-1;
@@ -221,7 +210,7 @@ namespace exlib {
 		Finds the file name (beyond last slash or begin)
 	*/
 	template<typename Iter>
-	Iter find_filename(Iter begin,Iter end)
+	Iter find_filename(Iter begin,Iter end) noexcept
 	{
 		for(; end!=begin;)
 		{
@@ -236,7 +225,7 @@ namespace exlib {
 
 	namespace detail {
 		template<typename Iter,typename Pred>
-		Iter find_beyond_last(Iter begin,Pred p)
+		Iter find_beyond_last(Iter begin,Pred p) noexcept
 		{
 			auto last=0;
 			for(;;++begin)
@@ -262,7 +251,7 @@ namespace exlib {
 		Finds last slash or begin (might collide)
 	*/
 	template<typename Iter>
-	Iter find_path_end(Iter begin,Iter end)
+	Iter find_path_end(Iter begin,Iter end) noexcept
 	{
 		for(; end!=begin;)
 		{
@@ -276,20 +265,20 @@ namespace exlib {
 	}
 
 	template<typename Iter>
-	Iter find_extension(Iter begin)
+	Iter find_extension(Iter begin) noexcept
 	{
 		return detail::find_beyond_last(begin,[](auto c) { return c=='.'; });
 	}
 
 	template<typename Iter>
-	Iter find_filename(Iter begin)
+	Iter find_filename(Iter begin) noexcept
 	{
-		return detail::find_beyond_last(begin,[](auto c) { return is_slash(c) });
+		return detail::find_beyond_last(begin,[](auto c) { return is_slash(c); });
 	}
 
 
 	template<typename Iter>
-	Iter find_path_end(Iter begin)
+	Iter find_path_end(Iter begin) noexcept
 	{
 		auto last=begin;
 		for(;; ++begin)

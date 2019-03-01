@@ -147,7 +147,7 @@ namespace exlib {
 			/*
 				Makes threads look for tasks. Useful after stop() has been called to reactivate job search.
 			*/
-			void reactivate()
+			void reactivate() noexcept
 			{
 				_active=true;
 				_signal_start.notify_all();
@@ -158,12 +158,13 @@ namespace exlib {
 			void stop()
 			{
 				_active=false;
+				std::unique_lock<std::mutex> lock(_mtx);
 			}
 
 			/*
 				Whether the threads should be running. Not a guarantee that threads are or are not running.
 			*/
-			bool running() const
+			bool running() const noexcept
 			{
 				return _running;
 			}
@@ -171,7 +172,7 @@ namespace exlib {
 			/*
 				Whether the threads are looking for tasks.
 			*/
-			bool active() const
+			bool active() const noexcept
 			{
 				return _active;
 			}
@@ -201,14 +202,14 @@ namespace exlib {
 			}
 			void internal_stop()
 			{
-				this->stop();
+				this->_active=false;
 				this->_jobs_done.notify_one();
 			}
 			void stop_running()
 			{
 				this->_running=false;
 				this->_signal_start.notify_all();
-				this->stop();
+				this->_active=false;
 			}
 			void internal_terminate()
 			{
@@ -537,7 +538,7 @@ namespace exlib {
 		/*
 			Clears the jobs handled by this threadpool without synchronization.
 		*/
-		void clear_no_sync()
+		void clear_no_sync() noexcept
 		{
 			this->_jobs.clear();
 		}
@@ -572,7 +573,7 @@ namespace exlib {
 			});
 			return count;
 		}
-		bool wait_func()
+		bool wait_func() noexcept
 		{
 			return !this->_active||this->_jobs.empty();
 		}
