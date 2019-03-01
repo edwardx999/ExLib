@@ -186,23 +186,27 @@ namespace exlib {
 	template<typename Iter>
 	Iter find_extension(Iter begin,Iter end) noexcept
 	{
-		--begin;
-		auto it=end-1;
+		if(begin==end)
+		{
+			return end;
+		}
+		auto const real_end=end--;
 		while(1)
 		{
-			if(it==begin)
+			if(end==begin)
 			{
+				return real_end;
+			}
+			if(*end=='.')
+			{
+				++end;
 				return end;
 			}
-			if(*it=='.')
+			if(*end=='\\'||*end=='/')
 			{
-				return it+1;
+				return real_end;
 			}
-			if(*it=='\\'||*it=='/')
-			{
-				return end;
-			}
-			--it;
+			--end;
 		}
 	}
 
