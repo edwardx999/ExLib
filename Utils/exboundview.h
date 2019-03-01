@@ -2,6 +2,11 @@
 #ifndef EXBOUNDVIEW_H
 #define EXBOUNDVIEW_H
 #include <iterator>
+#ifdef _MSVC_LANG
+#define _EXBOUNDVIEW_HAS_CPP_17 _MSVC_LANG>=201700L
+#else
+#define _EXBOUNDVIEW_HAS_CPP_17 _cplusplus>=201700L
+#endif
 namespace exlib {
 
 	namespace detail {
@@ -9,12 +14,12 @@ namespace exlib {
 		template<typename Container>
 		struct has_random_access:std::is_base_of<
 			std::random_access_iterator_tag,
-			typename std::pointer_traits<typename Container::iterator>::iterator_category> {};
+			typename std::iterator_traits<typename Container::iterator>::iterator_category> {};
 
 		template<typename Container>
 		struct has_bidir_access:std::is_base_of<
 			std::bidirectional_iterator_tag,
-			typename std::pointer_traits<typename Container::iterator>::iterator_category> {};
+			typename std::iterator_traits<typename Container::iterator>::iterator_category> {};
 
 		template<typename Container>
 		class bound_span_base {
@@ -30,12 +35,13 @@ namespace exlib {
 			using const_reference=typename Container::const_reference;
 			using pointer=decltype(std::declval<Container&>().begin().operator->());
 			using const_pointer=typename Container::pointer;
-			constexpr bound_span_base(Container& base) noexcept:_base(base){}
+			constexpr bound_span_base(Container& base) noexcept:_base(&base)
+			{}
 			constexpr bound_span_base(bound_span_base const&) noexcept=default;
 			constexpr bound_span_base& operator=(bound_span_base const&) noexcept=default;
 			constexpr Container& underlying() const noexcept
 			{
-				return _base;
+				return *_base;
 			}
 		};
 
@@ -50,9 +56,9 @@ namespace exlib {
 				iterator end) noexcept:bound_span_base(base),_begin(begin),_end(end)
 			{}
 			constexpr linked_span(Container& base,
-				iterator begin) noexcept:c(base,begin,base.end()
+				iterator begin) noexcept:linked_span(base,begin,base.end())
 			{}
-			constexpr linked_span(Container& base) noexcept:bound_span(base,base.begin(),base.end())
+			constexpr linked_span(Container& base) noexcept:linked_span(base,base.begin(),base.end())
 			{}
 
 			constexpr linked_span(linked_span const&) noexcept=default;
@@ -118,7 +124,7 @@ namespace exlib {
 				std::advance(b,offset);
 				auto e=b;
 				std::advance(b)
-				return linked_span(underlying(),b,end());
+					return linked_span(underlying(),b,end());
 			}
 		private:
 			iterator _begin;
@@ -130,7 +136,7 @@ namespace exlib {
 			using Base=linked_span<Container,false>;
 		public:
 			using reverse_iterator=decltype(std::declval<Container&>().rbegin());
-			using const_reverser_iterator=decltype(std::declval<Container&>().crbegin());
+			using const_reverse_iterator=decltype(std::declval<Container&>().crbegin());
 			using Base::Base;
 			constexpr linked_span(linked_span const&) noexcept=default;
 			constexpr linked_span& operator=(linked_span const&) noexcept=default;
@@ -175,10 +181,9 @@ namespace exlib {
 
 		template<typename Container,bool random_access=has_random_access<Container>::value>
 		class bound_span;
-		
+
 		template<typename Container>
-		class bound_span<Container,false>:public linked_span<Container>
-		{
+		class bound_span<Container,false>:public linked_span<Container> {
 			using Base=linked_span<Container>;
 		public:
 			using Base::Base;
@@ -197,10 +202,11 @@ namespace exlib {
 			{}
 			constexpr bound_span(Container& base,iterator begin,size_t count) noexcept:bound_span(base,begin-base.begin(),begin-base.begin()+count)
 			{}
-			constexpr bound_span(Container& base,iterator begin) noexcept:bound_span(base,begin,base.end()-begin){}
+			constexpr bound_span(Container& base,iterator begin) noexcept:bound_span(base,begin,base.end()-begin)
+			{}
 
 			constexpr bound_span(bound_span const&) noexcept=default;
-			constexpr bound_span& operator(bound_span const&) noexcept=default;
+			constexpr bound_span& operator=(bound_span const&) noexcept=default;
 
 			constexpr iterator begin() noexcept
 			{
@@ -208,7 +214,7 @@ namespace exlib {
 			}
 			constexpr iterator end() noexcept
 			{
-				return this->underlying().begin()+_end;
+				return this->underlying().begin()+_finish;
 			}
 			constexpr const_iterator begin() const noexcept
 			{
@@ -224,7 +230,7 @@ namespace exlib {
 			}
 			constexpr const_iterator cend() const noexcept
 			{
-				return const_iterator{this->underlying().begin()+_end};
+				return const_iterator{this->underlying().begin()+_finish};
 			}
 			constexpr bool empty() const noexcept
 			{
@@ -285,18 +291,22 @@ namespace exlib {
 			reference at(size_t i) noexcept
 			{
 				auto real_pos=i+_start;
-				return this->underlying()[real_pos];
+				return this->underlying().at(real_pos);
 			}
 			const_reference at(size_t i) const noexcept
 			{
 				auto real_pos=i+_start;
-				return this->underlying()[real_pos];
+				return this->underlying().at(real_pos);
 			}
 		private:
 			size_t _start;
 			size_t _finish;
 		};
 
+#ifdef _EXBOUNDVIEW_HAS_CPP_17
+		template<typename Container,typename... Args>
+		bound_span(Container&,Args...)->bound_span<Container>;
+#endif
 	}
 
 	/*
@@ -306,6 +316,12 @@ namespace exlib {
 	using bound_view=detail::bound_span<Container>;
 
 	template<typename Container>
-	using const_bound_view=bound_span<Container const>;
+	using const_bound_view=bound_view<Container const>;
+
+	template<typename Container,typename... Args>
+	bound_view<Container> make_bound_view(Container& container,Args... args)
+	{
+		return bound_view<Container>(container,args...);
+	}
 }
 #endif
