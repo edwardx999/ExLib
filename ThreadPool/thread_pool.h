@@ -12,11 +12,11 @@
 #ifdef _MSVC_LANG
 #define _EXLIB_THREAD_POOL_HAS_CPP_20 _MSVC_LANG>202000l
 #define _EXLIB_THREAD_POOL_HAS_CPP_17 _MSVC_LANG>201700l
-#define _EXLIB_THREAD_POOL_HAS_CPP_14 _MSVC_LANG>201700l
+#define _EXLIB_THREAD_POOL_HAS_CPP_14 _MSVC_LANG>201400l
 #else
 #define _EXLIB_THREAD_POOL_HAS_CPP_20 __cplusplus>202000l
 #define _EXLIB_THREAD_POOL_HAS_CPP_17 __cplusplus>201700l
-#define _EXLIB_THREAD_POOL_HAS_CPP_14 __cplusplus>201700l
+#define _EXLIB_THREAD_POOL_HAS_CPP_14 __cplusplus>201400l
 #endif
 namespace exlib {
 
@@ -309,7 +309,7 @@ namespace exlib {
 	/*
 		Returns the hardware_concurrency, unless that returns 0, in which case returns def_val.
 	*/
-	decltype(std::thread::hardware_concurrency()) hardware_concurrency_or(decltype(std::thread::hardware_concurrency()) def_val)
+	decltype(std::thread::hardware_concurrency()) hardware_concurrency_or(decltype(std::thread::hardware_concurrency()) def_val=1)
 	{
 		auto const nt=std::thread::hardware_concurrency();
 		if(nt)
