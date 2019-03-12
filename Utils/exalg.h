@@ -59,7 +59,7 @@ namespace exlib {
 	}
 #endif
 
-	namespace detail {
+	namespace swap_detail {
 		template<typename A> //try ADL swap
 		constexpr auto try_swap2(A& a,A& b) -> decltype(swap(a,b),void())
 		{
@@ -87,7 +87,7 @@ namespace exlib {
 	template<typename A>
 	constexpr void swap(A& a,A& b)
 	{
-		detail::try_swap1(a,b);
+		swap_detail::try_swap1(a,b);
 	}
 
 	template<typename T=void>
@@ -129,9 +129,9 @@ namespace exlib {
 	}
 
 	template<typename Tpl,typename Func>
-	constexpr void for_each_in_tuple(Tpl&& tpl,Func f)
+	constexpr void for_each_in_tuple(Tpl&& tpl,Func&& f)
 	{
-		detail::for_each_in_tuple_h::apply(std::forward<Tpl>(tpl),f,std::make_index_sequence<std::tuple_size<typename std::remove_reference<Tpl>::type>::value>{});
+		detail::for_each_in_tuple_h::apply(std::forward<Tpl>(tpl),std::forward<Func>(f),std::make_index_sequence<std::tuple_size<typename std::remove_reference<Tpl>::type>::value>{});
 	}
 #endif
 
