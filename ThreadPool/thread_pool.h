@@ -222,6 +222,8 @@ namespace exlib {
 			//whether threads are actively looking for jobs
 			std::atomic<bool> _active;
 		};
+
+		
 	}
 	struct delay_start_t {};
 
@@ -274,12 +276,28 @@ namespace exlib {
 				parent.push_back(std::forward<Tasks>(tasks)...);
 			}
 			/*
+				See thread_pool_a::push_front
+			*/
+			template<typename... Tasks>
+			void push_front(Tasks&&... tasks)
+			{
+				parent.push_front(std::forward<Tasks>(tasks)...);
+			}
+			/*
 				See thread_pool_a::append
 			*/
 			template<typename Iter>
 			size_t append(Iter begin,Iter end)
 			{
 				return parent.append(begin,end);
+			}
+			/*
+				See thread_pool_a::prepend
+			*/
+			template<typename Iter>
+			size_t prepend(Iter begin,Iter end)
+			{
+				return parent.prepend(begin,end);
 			}
 			/*
 				Clears tasks.
@@ -449,6 +467,17 @@ namespace exlib {
 		}
 
 		/*
+			Adds a task to the front of thread pool without synchronization.
+			Task must define operator() that can take in Args...
+			or optionally parent_ref as a first argument and then Args...
+		*/
+		template<typename Task>
+		void push_front_no_sync(Task&& task)
+		{
+			this->_jobs.push_front(make_job(std::forward<Task>(task)));
+		}
+
+		/*
 			Adds tasks to the thread pool without synchronization.
 			Tasks must define operator() that can take in Args...
 			or optionally parent_ref as a first argument and then Args...
@@ -458,6 +487,18 @@ namespace exlib {
 		{
 			push_back_no_sync(std::forward<FirstTask>(first));
 			push_back_no_sync(std::forward<Rest>(rest)...);
+		}
+
+		/*
+			Adds tasks to the front of the thread pool without synchronization.
+			Tasks must define operator() that can take in Args...
+			or optionally parent_ref as a first argument and then Args...
+		*/
+		template<typename FirstTask,typename... Rest>
+		void push_front_no_sync(FirstTask&& first,Rest&&... rest)
+		{
+			push_front_no_sync(std::forward<FirstTask>(first));
+			push_front_no_sync(std::forward<Rest>(rest)...);
 		}
 
 		/*
@@ -475,6 +516,20 @@ namespace exlib {
 		}
 
 		/*
+			Adds task(s) to the front of the thread pool with synchronization and wakes an appropriate number of threads.
+			Tasks must define operator() that can take in Args...
+			or optionally parent_ref as a first argument and then Args...
+			Can be called safely by child threads.
+		*/
+		template<typename... Tasks>
+		void push_front(Tasks&&... tasks)
+		{
+			std::lock_guard<std::mutex> guard(this->_mtx);
+			push_front_no_sync(std::forward<Tasks>(tasks)...);
+			this->notify_count(sizeof...(Tasks));
+		}
+
+		/*
 			Adds task(s) to the thread pool without synchronization reading	from the given iterators.
 			Tasks must define operator() that can take in Args...
 			or optionally parent_ref as a first argument and then Args...
@@ -485,6 +540,19 @@ namespace exlib {
 		{
 			using category=typename std::iterator_traits<Iter>::iterator_category;
 			return append_no_sync(begin,end,category{});
+		}
+
+		/*
+			Adds task(s) to the front of the thread pool without synchronization reading from the given iterators.
+			Tasks must define operator() that can take in Args...
+			or optionally parent_ref as a first argument and then Args...
+			Returns the number of tasks added.
+		*/
+		template<typename Iter>
+		size_t prepend_no_sync(Iter begin,Iter end)
+		{
+			using category=typename std::iterator_traits<Iter>::iterator_category;
+			return prepend_no_sync(begin,end,category{});
 		}
 
 		/*
@@ -500,6 +568,23 @@ namespace exlib {
 		{
 			std::lock_guard<std::mutex> guard(this->_mtx);
 			auto const count=append_no_sync(begin,end);
+			this->notify_count(count);
+			return count;
+		}
+
+		/*
+			Adds task(s) to the front of the thread pool with synchronization and wakes an appropriate number of threads reading
+			from the given iterators.
+			Tasks must define operator() that can take in Args...
+			or optionally parent_ref as a first argument and then Args...
+			Returns the number of tasks added.
+			Can be called safely by child threads.
+		*/
+		template<typename Iter>
+		size_t prepend(Iter begin,Iter end)
+		{
+			std::lock_guard<std::mutex> guard(this->_mtx);
+			auto const count=prepend_no_sync(begin,end);
 			this->notify_count(count);
 			return count;
 		}
@@ -538,6 +623,26 @@ namespace exlib {
 			std::for_each(begin,end,[this,&count](auto&& task)
 			{
 				this->push_back_no_sync(std::forward<decltype(task)>(task));
+				++count;
+			});
+			return count;
+		}
+		template<typename Iter>
+		size_t prepend_no_sync(Iter begin,Iter end,std::random_access_iterator_tag)
+		{
+			std::for_each(begin,end,[this](auto&& task) // std has special hacks to convert some iterators to pointers and prevent code bloat
+			{
+				this->push_front_no_sync(std::forward<decltype(task)>(task));
+			});
+			return end-begin;
+		}
+		template<typename Iter>
+		size_t prepend_no_sync(Iter begin,Iter end,std::input_iterator_tag)
+		{
+			size_t count=0;
+			std::for_each(begin,end,[this,&count](auto&& task)
+			{
+				this->push_front_no_sync(std::forward<decltype(task)>(task));
 				++count;
 			});
 			return count;
