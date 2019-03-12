@@ -10,6 +10,7 @@
 namespace exlib {
 
 	namespace cstring_iterator_impl {
+
 		/*
 			Iterator for a c-string so that an end iterator can be passed to stl algorithms without calculating strlen.
 		*/
@@ -24,6 +25,9 @@ namespace exlib {
 			using difference_type=std::ptrdiff_t;
 			constexpr cstring_iterator(StrType str=nullptr):_loc(str)
 			{}
+			template<typename Other>
+			constexpr cstring_iterator(cstring_iterator<Other> str):_loc(static_cast<StrType>(str)){}
+
 			constexpr bool operator==(cstring_iterator o) const
 			{
 				return _loc==o._loc;
@@ -55,6 +59,14 @@ namespace exlib {
 			{
 				return _loc;
 			}
+			explicit constexpr operator StrType&()
+			{
+				return _loc;
+			}
+			explicit constexpr operator StrType const&() const
+			{
+				return _loc;
+			}
 		};
 		template<typename Base>
 		constexpr cstring_iterator<Base> begin(cstring_iterator<Base> it)
@@ -68,5 +80,11 @@ namespace exlib {
 		}
 	}
 	using cstring_iterator_impl::cstring_iterator;
+
+	template<typename StrType>
+	constexpr cstring_iterator<StrType> make_cstring_iterator(StrType str)
+	{
+		return {str};
+	}
 }
 #endif
