@@ -22,25 +22,17 @@ namespace exlib {
 			using pointer=StrType;
 			using iterator_category=std::forward_iterator_tag;
 			using difference_type=std::ptrdiff_t;
-			cstring_iterator(StrType str=nullptr):_loc(str)
+			constexpr cstring_iterator(StrType str=nullptr):_loc(str)
 			{}
-			friend cstring_iterator end(cstring_iterator)
-			{
-				return {nullptr};
-			}
-			friend cstring_iterator begin(cstring_iterator it)
-			{
-				return it;
-			}
-			bool operator==(cstring_iterator o) const
+			constexpr bool operator==(cstring_iterator o) const
 			{
 				return _loc==o._loc;
 			}
-			bool operator!=(cstring_iterator o) const
+			constexpr bool operator!=(cstring_iterator o) const
 			{
 				return _loc!=o._loc;
 			}
-			cstring_iterator& operator++()
+			constexpr cstring_iterator& operator++()
 			{
 				++_loc;
 				if(*_loc==value_type())
@@ -49,21 +41,31 @@ namespace exlib {
 				}
 				return *this;
 			}
-			cstring_iterator operator++(int)
+			constexpr cstring_iterator operator++(int)
 			{
 				auto copy(*this);
 				++(*this);
 				return copy;
 			}
-			reference operator*() const
+			constexpr reference operator*() const
 			{
 				return *_loc;
 			}
-			pointer operator->() const
+			constexpr pointer operator->() const
 			{
 				return _loc;
 			}
 		};
+		template<typename Base>
+		constexpr cstring_iterator<Base> begin(cstring_iterator<Base> it)
+		{
+			return it;
+		}
+		template<typename Base>
+		constexpr cstring_iterator<Base> end(cstring_iterator<Base>)
+		{
+			return {nullptr};
+		}
 	}
 	using cstring_iterator_impl::cstring_iterator;
 }
