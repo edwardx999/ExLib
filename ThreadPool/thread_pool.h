@@ -18,6 +18,11 @@
 #define _EXLIB_THREAD_POOL_HAS_CPP_17 __cplusplus>201700l
 #define _EXLIB_THREAD_POOL_HAS_CPP_14 __cplusplus>201400l
 #endif
+#if _EXLIB_THREAD_POOL_HAS_CPP_17
+#define _EXLIB_THREAD_POOL_NODISCARD [[nodiscard]]
+#else
+#define _EXLIB_THREAD_POOL_NODISCARD 
+#endif
 namespace exlib {
 
 	namespace thread_pool_detail {
@@ -154,7 +159,7 @@ namespace exlib {
 			/*
 				Whether the threads should be running. Not a guarantee that threads are or are not running.
 			*/
-			bool running() const noexcept
+			_EXLIB_THREAD_POOL_NODISCARD bool running() const noexcept
 			{
 				return _running;
 			}
@@ -162,7 +167,7 @@ namespace exlib {
 			/*
 				Whether the threads are looking for tasks.
 			*/
-			bool active() const noexcept
+			_EXLIB_THREAD_POOL_NODISCARD bool active() const noexcept
 			{
 				return _active;
 			}
@@ -184,7 +189,7 @@ namespace exlib {
 			/*
 				Tries locking access to the job queue.
 			*/
-			bool try_lock()
+			_EXLIB_THREAD_POOL_NODISCARD bool try_lock()
 			{
 				return _mtx.try_lock();
 			}
@@ -443,7 +448,7 @@ namespace exlib {
 				{
 					parent.lock();
 				}
-				bool try_lock()
+				_EXLIB_THREAD_POOL_NODISCARD bool try_lock()
 				{
 					return parent.try_lock();
 				}
@@ -451,7 +456,28 @@ namespace exlib {
 				{
 					return parent.unlock();
 				}
+				_EXLIB_THREAD_POOL_NODISCARD bool empty() const
+				{
+					return parent.empty();
+				}
+				_EXLIB_THREAD_POOL_NODISCARD bool empty_no_sync() const
+				{
+					return parent.empty_no_sync();
+				}
+				_EXLIB_THREAD_POOL_NODISCARD size_t num_jobs() const
+				{
+					return parent.num_jobs();
+				}
+				_EXLIB_THREAD_POOL_NODISCARD size_t num_jobs_no_sync() const
+				{
+					return parent.num_jobs_no_sync();
+				}
+				_EXLIB_THREAD_POOL_NODISCARD size_t num_threads() const
+				{
+					return parent.num_threads();
+				}
 			};
+			using const_parent_ref=parent_ref const;
 			using thread_pool_base::reactivate;
 			using thread_pool_base::active;
 			using thread_pool_base::stop;
@@ -794,7 +820,7 @@ namespace exlib {
 			/*
 				The number of threads.
 			*/
-			size_t num_threads() const noexcept
+			_EXLIB_THREAD_POOL_NODISCARD size_t num_threads() const noexcept
 			{
 				return this->_workers.size();
 			}
@@ -802,7 +828,7 @@ namespace exlib {
 			/*
 				The number of jobs left.
 			*/
-			size_t num_jobs() const
+			_EXLIB_THREAD_POOL_NODISCARD size_t num_jobs() const
 			{
 				std::unique_lock<std::mutex> lock(this->_mtx);
 				return num_jobs_no_sync();
@@ -811,7 +837,7 @@ namespace exlib {
 			/*
 				The number of jobs left read unsynchronized from the job queue.
 			*/
-			size_t num_jobs_no_sync() const noexcept
+			_EXLIB_THREAD_POOL_NODISCARD size_t num_jobs_no_sync() const noexcept
 			{
 				return this->_jobs.size();
 			}
@@ -819,7 +845,7 @@ namespace exlib {
 			/*
 				Whether job queue is empty.
 			*/
-			bool empty() const
+			_EXLIB_THREAD_POOL_NODISCARD bool empty() const
 			{
 				return num_jobs()==0;
 			}
@@ -827,7 +853,7 @@ namespace exlib {
 			/*
 				Whether job queue is empty read unsynchronized from the job queue.
 			*/
-			bool empty_no_sync() const noexcept
+			_EXLIB_THREAD_POOL_NODISCARD bool empty_no_sync() const noexcept
 			{
 				return num_jobs()==0;
 			}
