@@ -33,11 +33,6 @@ namespace exlib {
 		};
 
 		template<typename T>
-		struct wrap_reference<T const&> {
-			using type=std::reference_wrapper<T const>;
-		};
-
-		template<typename T>
 		using wrap_reference_t=typename wrap_reference<T>::type;
 
 #if _EXLIB_THREAD_POOL_HAS_CPP_14
