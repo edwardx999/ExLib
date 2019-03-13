@@ -166,6 +166,28 @@ namespace exlib {
 			{
 				return _active;
 			}
+
+			/*
+				Locks access to the job queue.
+			*/
+			void lock()
+			{
+				_mtx.lock();
+			}
+			/*
+				Unlocks access to the job queue.
+			*/
+			void unlock()
+			{
+				_mtx.unlock();
+			}
+			/*
+				Tries locking access to the job queue.
+			*/
+			bool try_lock()
+			{
+				return _mtx.try_lock();
+			}
 		protected:
 
 			void notify_count(size_t count)
@@ -208,7 +230,7 @@ namespace exlib {
 
 			thread_pool_base(size_t num_threads,bool start):_workers(num_threads),_running(start),_active(start)
 			{}
-			std::mutex _mtx;
+			std::mutex mutable _mtx;
 			std::condition_variable _signal_start;
 			std::condition_variable _jobs_done;
 			std::vector<std::thread> _workers;
@@ -224,8 +246,7 @@ namespace exlib {
 		public:
 			template<typename... Args>
 			ptr_wrapper(Args&&... args):_val(std::forward<Args>(args)...)
-			{
-			}
+			{}
 			T& operator*() const
 			{
 				return _val;
@@ -245,12 +266,14 @@ namespace exlib {
 			using reference=value_type;
 			using pointer=ptr_wrapper<value_type>;
 			template<typename F>
-			generator_iterator(Base base,F&& f=Functor{}):_base(base),Functor(std::forward<F>(f)) {}
+			generator_iterator(Base base,F&& f=Functor{}):_base(base),Functor(std::forward<F>(f))
+			{}
 #define make_op_for_gi(op)  generator_iterator operator op(difference_type d) const{return {_base op d,static_cast<Functor const&>(*this)}; } generator_iterator& operator op##=(difference_type d) const{_base op##= d; return *this; }
 			make_op_for_gi(-)
 				make_op_for_gi(+)
 #undef make_op_for_gi
-				difference_type operator-(generator_iterator const& o) const{
+				difference_type operator-(generator_iterator const& o) const
+			{
 				return _base-o._base;
 			}
 			generator_iterator& operator++()
@@ -301,6 +324,10 @@ namespace exlib {
 	}
 	struct delay_start_t {};
 
+#if _EXLIB_THREAD_POOL_HAS_CPP_17
+	constexpr delay_start_t delay_start{};
+#endif
+
 	/*
 		Returns the hardware_concurrency, unless that returns 0, in which case returns def_val.
 	*/
@@ -350,6 +377,11 @@ namespace exlib {
 				{
 					parent.push_back(std::forward<Tasks>(tasks)...);
 				}
+				template<typename... Tasks>
+				void push_back_no_sync(Tasks&&... tasks)
+				{
+					parent.push_back_no_sync(std::forward<Tasks>(tasks)...);
+				}
 				/*
 					See thread_pool_a::push_front
 				*/
@@ -357,6 +389,11 @@ namespace exlib {
 				void push_front(Tasks&&... tasks)
 				{
 					parent.push_front(std::forward<Tasks>(tasks)...);
+				}
+				template<typename... Tasks>
+				void push_front_no_sync(Tasks&&... tasks)
+				{
+					parent.push_front_no_sync(std::forward<Tasks>(tasks)...);
 				}
 				/*
 					See thread_pool_a::append
@@ -366,6 +403,11 @@ namespace exlib {
 				{
 					return parent.append(begin,end);
 				}
+				template<typename Iter>
+				size_t append_no_sync(Iter begin,Iter end)
+				{
+					return parent.append_no_sync(begin,end);
+				}
 				/*
 					See thread_pool_a::prepend
 				*/
@@ -374,12 +416,21 @@ namespace exlib {
 				{
 					return parent.prepend(begin,end);
 				}
+				template<typename Iter>
+				size_t prepend_no_sync(Iter begin,Iter end)
+				{
+					return parent.prepend_no_sync(begin,end);
+				}
 				/*
 					Clears tasks.
 				*/
 				void clear()
 				{
 					parent.clear();
+				}
+				void clear_no_sync()
+				{
+					parent.clear_no_sync();
 				}
 				/*
 					Signals the threads to end. Does not join them.
@@ -388,11 +439,26 @@ namespace exlib {
 				{
 					parent.internal_terminate();
 				}
+				void lock()
+				{
+					parent.lock();
+				}
+				bool try_lock()
+				{
+					return parent.try_lock();
+				}
+				void unlock()
+				{
+					return parent.unlock();
+				}
 			};
 			using thread_pool_base::reactivate;
 			using thread_pool_base::active;
 			using thread_pool_base::stop;
 			using thread_pool_base::running;
+			using thread_pool_base::lock;
+			using thread_pool_base::unlock;
+			using thread_pool_base::try_lock;
 			/*
 				Starts the threadpool with a certain number of threads and arguments initialized to the given arguments.
 			*/
@@ -407,7 +473,7 @@ namespace exlib {
 				Threads are not started.
 			*/
 			template<typename... T>
-			explicit thread_pool_a(size_t num_threads,delay_start_t,T&&... args):thread_pool_base(num_threads,false),_input(std::forward<T>(args)...)
+			explicit thread_pool_a(size_t num_threads,delay_start_t,T&&...args):thread_pool_base(num_threads,false),_input(std::forward<T>(args)...)
 			{}
 
 			/*
@@ -452,7 +518,7 @@ namespace exlib {
 			template<typename... Args>
 			void reactivate(Args&&... args)
 			{
-				set_args(std::forward<Args>(args));
+				set_args(std::forward<Args>(args)...);
 				this->reactivate();
 			}
 
@@ -466,18 +532,22 @@ namespace exlib {
 				{
 					std::unique_lock<std::mutex> lock(this->_mtx);
 					this->_jobs_done.wait(lock,[this]
-					{
-						return this->wait_func();
-					});
+						{
+							return this->wait_func();
+						});
 				}
 			}
+
+			enum wait_state:bool {
+				wait_no_timeout=true,wait_timeout=false
+			};
 
 			/*
 				Waits for all jobs to be finished or to be stop()ed.
 				If thread pool is not active, does nothing and returns true. Returns false if timeout expired.
 			*/
 			template<typename Rep,typename Period>
-			bool wait_for(std::chrono::duration<Rep,Period> const& rel_time)
+			wait_state wait_for(std::chrono::duration<Rep,Period> const& rel_time)
 			{
 				auto absolute_time=std::chrono::steady_clock::now()+rel_time;
 				return wait_until(absolute_time);
@@ -488,15 +558,15 @@ namespace exlib {
 				If thread pool is not active, does nothing and returns true. Returns false if timeout expired.
 			*/
 			template<typename Clock,typename Duration>
-			bool wait_until(std::chrono::time_point<Clock,Duration> const& rel_time)
+			wait_state wait_until(std::chrono::time_point<Clock,Duration> const& rel_time)
 			{
 				if(this->_active)
 				{
 					std::unique_lock<std::mutex> lock(this->_mtx);
 					return this->_jobs_done.wait_until(lock,rel_time,[this]
-					{
-						return this->wait_func();
-					});
+						{
+							return this->wait_func();
+						});
 				}
 				return true;
 			}
@@ -681,6 +751,87 @@ namespace exlib {
 				this->clear_no_sync();
 			}
 
+			friend struct make_worker_t;
+			struct make_worker_t {
+				thread_pool_a* parent;
+				std::thread operator()(size_t) const
+				{
+					return std::thread(&thread_pool_a::task_loop,parent);
+				}
+			};
+
+			/*
+				Changes the number of threads.
+			*/
+			void num_threads(size_t size)
+			{
+				if(size==this->_workers.size())
+				{
+					return;
+				}
+				if(this->_running)
+				{
+					if(size>this->_workers.size())
+					{
+						make_worker_t maker{this};
+						auto begin=thread_pool_detail::make_generator_iterator(size,maker);
+						decltype(begin) end{this->_workers.size()};
+						_workers.insert(_workers.end(),begin,end);
+					}
+					else
+					{
+						this->terminate();
+						this->_workers.resize(size);
+						this->start();
+					}
+				}
+				else
+				{
+					this->_workers.resize(size);
+				}
+			}
+
+			/*
+				The number of threads.
+			*/
+			size_t num_threads() const noexcept
+			{
+				return this->_workers.size();
+			}
+
+			/*
+				The number of jobs left.
+			*/
+			size_t num_jobs() const
+			{
+				std::unique_lock<std::mutex> lock(this->_mtx);
+				return num_jobs_no_sync();
+			}
+
+			/*
+				The number of jobs left read unsynchronized from the job queue.
+			*/
+			size_t num_jobs_no_sync() const noexcept
+			{
+				return this->_jobs.size();
+			}
+
+			/*
+				Whether job queue is empty.
+			*/
+			bool empty() const
+			{
+				return num_jobs()==0;
+			}
+
+			/*
+				Whether job queue is empty read unsynchronized from the job queue.
+			*/
+			bool empty_no_sync() const noexcept
+			{
+				return num_jobs()==0;
+			}
+
 		private:
 			friend struct make_job_functor_t;
 			template<typename Iter>
@@ -695,11 +846,12 @@ namespace exlib {
 			size_t append_no_sync(Iter begin,Iter end,std::input_iterator_tag)
 			{
 				size_t count=0;
-				std::for_each(begin,end,[this,&count](auto&& task)
-				{
-					this->push_back_no_sync(std::forward<decltype(task)>(task));
-					++count;
-				});
+				using input_type=typename std::iterator_traits<Iter>::reference;
+				std::for_each(begin,end,[this,&count](input_type task)
+					{
+						this->push_back_no_sync(std::forward<input_type>(task));
+						++count;
+					});
 				return count;
 			}
 			template<typename Iter>
@@ -714,11 +866,12 @@ namespace exlib {
 			size_t prepend_no_sync(Iter begin,Iter end,std::input_iterator_tag)
 			{
 				size_t count=0;
-				std::for_each(begin,end,[this,&count](auto&& task)
-				{
-					this->push_front_no_sync(std::forward<decltype(task)>(task));
-					++count;
-				});
+				using input_type=typename std::iterator_traits<Iter>::reference;
+				std::for_each(begin,end,[this,&count](input_type task)
+					{
+						this->push_front_no_sync(std::forward<input_type>(task));
+						++count;
+					});
 				return count;
 			}
 			bool wait_func() noexcept
