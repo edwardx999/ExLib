@@ -29,6 +29,19 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <cstdint>
 namespace exlib {
 
+	template<typename T>
+	struct wrap_reference {
+		using type=T;
+	};
+
+	template<typename T>
+	struct wrap_reference<T&> {
+		using type=std::reference_wrapper<T>;
+	};
+
+	template<typename T>
+	using wrap_reference_t=typename wrap_reference<T>::type;
+
 	/*
 		Allows both a pointer and reference to be passed, which will both decay to pointer semantics.
 		Useful to allow "references" while allowing call by reference.
@@ -285,7 +298,7 @@ namespace exlib {
 		struct wrap<Ret(Args...)> {
 			static constexpr auto get(Ret(&f)(Args...)) noexcept
 			{
-				return [&f](Args... args) -> Ret
+				return [f](Args... args) -> Ret
 				{
 					return (f(std::forward<Args>(args)...));
 				};
