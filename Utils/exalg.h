@@ -26,13 +26,57 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #endif
 #if EXALG_HAS_CPP_17
 #include <variant>
+#define EXALG_NODISCARD [[nodiscard]]
+#else
+#define EXALG_NODISCARD
 #endif
 #include <exception>
 #include <stddef.h>
 #include <tuple>
+#include "exretype.h"
 
 
 namespace exlib {
+
+	template<typename A,typename B>
+	EXALG_NODISCARD constexpr typename max_cref<A,B>::type min(A&& a,B&& b)
+	{
+		if(a<b)
+		{
+			return a;
+		}
+		return b;
+	}
+
+	template<typename A,typename B,typename Compare>
+	EXALG_NODISCARD constexpr typename max_cref<A,B>::type min(A&& a,B&& b,Compare c)
+	{
+		if(c(a,b))
+		{
+			return a;
+		}
+		return b;
+	}
+
+	template<typename A,typename B>
+	EXALG_NODISCARD constexpr typename max_cref<A,B>::type max(A&& a,B&& b)
+	{
+		if(a<b)
+		{
+			return b;
+		}
+		return a;
+	}
+
+	template<typename A,typename B,typename Compare>
+	EXALG_NODISCARD constexpr typename max_cref<A,B>::type max(A&& a,B&& b,Compare c)
+	{
+		if(c(a,b))
+		{
+			return b;
+		}
+		return a;
+	}
 
 	template<size_t I,typename T,size_t N>
 	constexpr T&& get(T(&&arr)[N])
@@ -134,7 +178,6 @@ namespace exlib {
 		detail::for_each_in_tuple_h::apply(std::forward<Tpl>(tpl),std::forward<Func>(f),std::make_index_sequence<std::tuple_size<typename std::remove_reference<Tpl>::type>::value>{});
 	}
 #endif
-
 
 	template<>
 	struct less<char const*> {
