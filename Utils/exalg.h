@@ -78,6 +78,26 @@ namespace exlib {
 		return std::forward<A>(a);
 	}
 
+	template<typename A,typename B>
+	EXALG_NODISCARD constexpr std::pair<typename max_cref<A,B>::type,typename max_cref<A,B>::type> minmax(A&& a,B&& b)
+	{
+		if(a<b)
+		{
+			return {std::forward<A>(a),std::forward<B>(b)};
+		}
+		return {std::forward<B>(b),std::forward<A>(a)};
+	}
+
+	template<typename A,typename B,typename Compare>
+	EXALG_NODISCARD constexpr std::pair<typename max_cref<A,B>::type,typename max_cref<A,B>::type> minmax(A&& a,B&& b,Compare c)
+	{
+		if(c(a,b))
+		{
+			return {std::forward<A>(a),std::forward<B>(b)};
+		}
+		return {std::forward<B>(b),std::forward<A>(a)};
+	}
+
 	template<size_t I,typename T,size_t N>
 	constexpr T&& get(T(&&arr)[N])
 	{
