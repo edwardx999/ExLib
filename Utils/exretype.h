@@ -19,11 +19,11 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #ifdef _MSVC_LANG
 #define _EXRETYPE_HAS_CPP_20 _MSVC_LANG>202000l
 #define _EXRETYPE_HAS_CPP_17 _MSVC_LANG>201700l
-#define _EXRETYPE_HAS_CPP_14 _MSVC_LANG>201700l
+#define _EXRETYPE_HAS_CPP_14 _MSVC_LANG>201400l
 #else
 #define _EXRETYPE_HAS_CPP_20 __cplusplus>202000l
 #define _EXRETYPE_HAS_CPP_17 __cplusplus>201700l
-#define _EXRETYPE_HAS_CPP_14 __cplusplus>201700l
+#define _EXRETYPE_HAS_CPP_14 __cplusplus>201400l
 #endif
 #include <type_traits>
 #include <cstdint>
@@ -677,6 +677,8 @@ template<typename O,typename Base> constexpr bool operator##op##(O a,Box<Base> b
 	using UnsignedChar=detail::Box<unsigned char>;
 	using SignedChar=detail::Box<signed char>;
 
+	using WChar=detail::Box<wchar_t>;
+
 	using Short=detail::Box<short>;
 	using UnsignedShort=detail::Box<unsigned short>;
 	using SignedShort=detail::Box<signed short>;
@@ -695,6 +697,12 @@ template<typename O,typename Base> constexpr bool operator##op##(O a,Box<Base> b
 
 	using Double=detail::Box<double>;
 	using Float=detail::Box<float>;
+
+	using Char16=detail::Box<char16_t>;
+	using Char32=detail::Box<char32_t>;
+#if _EXRETYPE_HAS_CPP_20
+	using Char8=detail::Box<char8_t>;
+#endif
 
 	template<typename T>
 	struct get_box {
@@ -719,6 +727,12 @@ template<typename O,typename Base> constexpr bool operator##op##(O a,Box<Base> b
 	get_box_specialization(unsigned long long);
 	get_box_specialization(float);
 	get_box_specialization(double);
+	get_box_specialization(wchar_t);
+	get_box_specialization(char16_t);
+	get_box_specialization(char32_t);
+#if _EXRETYPE_HAS_CPP_20
+	get_box_specialization(char8_t);
+#endif 
 #undef get_box_specialization
 
 	template<typename T>
