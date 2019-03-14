@@ -18,28 +18,32 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <functional>
 #include <stddef.h>
 #ifdef _MSVC_LANG
-#define EXALG_HAS_CPP_17 _MSVC_LANG>201700L
-#define EXALG_HAS_CPP_14 _MSVC_LANG>201400L
+#define _EXALG_HAS_CPP_17 _MSVC_LANG>=201700L
+#define _EXALG_HAS_CPP_14 _MSVC_LANG>=201400L
 #else
-#define EXALG_HAS_CPP_17 __cplusplus>201700L
-#define EXALG_HAS_CPP_14 __cplusplus>201400L
+#define _EXALG_HAS_CPP_17 __cplusplus>=201700L
+#define _EXALG_HAS_CPP_14 __cplusplus>=201400L
 #endif
-#if EXALG_HAS_CPP_17
-#include <variant>
-#define EXALG_NODISCARD [[nodiscard]]
+#if _EXALG_HAS_CPP_17
+#define _EXALG_NODISCARD [[nodiscard]]
 #else
-#define EXALG_NODISCARD
+#define _EXALG_NODISCARD
 #endif
 #include <exception>
 #include <stddef.h>
 #include <tuple>
 #include "exretype.h"
 
-
+#if _EXALG_HAS_CPP_17
+namespace std {
+	template<typename... Types>
+	class variant;
+}
+#endif
 namespace exlib {
 
 	template<typename A,typename B>
-	EXALG_NODISCARD constexpr typename max_cref<A,B>::type min(A&& a,B&& b)
+	_EXALG_NODISCARD constexpr typename max_cref<A,B>::type min(A&& a,B&& b)
 	{
 		if(a<b)
 		{
@@ -49,7 +53,7 @@ namespace exlib {
 	}
 
 	template<typename A,typename B,typename Compare>
-	EXALG_NODISCARD constexpr typename max_cref<A,B>::type min(A&& a,B&& b,Compare c)
+	_EXALG_NODISCARD constexpr typename max_cref<A,B>::type min(A&& a,B&& b,Compare c)
 	{
 		if(c(a,b))
 		{
@@ -59,7 +63,7 @@ namespace exlib {
 	}
 
 	template<typename A,typename B>
-	EXALG_NODISCARD constexpr typename max_cref<A,B>::type max(A&& a,B&& b)
+	_EXALG_NODISCARD constexpr typename max_cref<A,B>::type max(A&& a,B&& b)
 	{
 		if(a<b)
 		{
@@ -69,7 +73,7 @@ namespace exlib {
 	}
 
 	template<typename A,typename B,typename Compare>
-	EXALG_NODISCARD constexpr typename max_cref<A,B>::type max(A&& a,B&& b,Compare c)
+	_EXALG_NODISCARD constexpr typename max_cref<A,B>::type max(A&& a,B&& b,Compare c)
 	{
 		if(c(a,b))
 		{
@@ -79,7 +83,7 @@ namespace exlib {
 	}
 
 	template<typename A,typename B>
-	EXALG_NODISCARD constexpr std::pair<typename max_cref<A,B>::type,typename max_cref<A,B>::type> minmax(A&& a,B&& b)
+	_EXALG_NODISCARD constexpr std::pair<typename max_cref<A,B>::type,typename max_cref<A,B>::type> minmax(A&& a,B&& b)
 	{
 		if(a<b)
 		{
@@ -89,7 +93,7 @@ namespace exlib {
 	}
 
 	template<typename A,typename B,typename Compare>
-	EXALG_NODISCARD constexpr std::pair<typename max_cref<A,B>::type,typename max_cref<A,B>::type> minmax(A&& a,B&& b,Compare c)
+	_EXALG_NODISCARD constexpr std::pair<typename max_cref<A,B>::type,typename max_cref<A,B>::type> minmax(A&& a,B&& b,Compare c)
 	{
 		if(c(a,b))
 		{
@@ -118,7 +122,7 @@ namespace exlib {
 	{
 		return (obj->*mem_fn)(std::forward<Args>(args)...);
 	}
-#if	EXALG_HAS_CPP_17
+#if	_EXALG_HAS_CPP_17
 	/*
 		Version that has the member function constexpr bound to it,
 		MemFn is a member function pointer of T
@@ -172,7 +176,7 @@ namespace exlib {
 		}
 	};
 
-#if EXALG_HAS_CPP_14
+#if _EXALG_HAS_CPP_14
 
 	namespace detail
 	{
@@ -439,7 +443,7 @@ namespace exlib {
 	template<typename T,size_t N>
 	struct array_size<T[N]>:std::integral_constant<size_t,N> {};
 
-#if EXALG_HAS_CPP_17
+#if _EXALG_HAS_CPP_17
 	template<typename T>
 	inline constexpr size_t array_size_v=array_size<T>::value;
 #endif
@@ -855,7 +859,7 @@ namespace exlib {
 			constexpr static size_t value=N;
 		};
 
-#if EXALG_HAS_CPP_17
+#if _EXALG_HAS_CPP_17
 		template<typename... U>
 		struct gm<std::variant<U...>> {
 			constexpr static size_t value=sizeof...(U);
@@ -866,7 +870,7 @@ namespace exlib {
 		constexpr static size_t const value=gm<std::remove_cv_t<std::remove_reference_t<T>>>::value;
 	};
 
-#if EXALG_HAS_CPP_17
+#if _EXALG_HAS_CPP_17
 	template<typename T>
 	constexpr size_t get_max_v=get_max<T>::value;
 

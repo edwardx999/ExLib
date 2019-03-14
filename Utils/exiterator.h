@@ -3,9 +3,9 @@
 #define EXITERATOR_H
 #include <iterator>
 #ifdef _MSVC_LANG
-#define EXITERATOR_HAS_CPP17 _MSVC_LANG>=201700l
+#define _EXITERATOR_HAS_CPP17 _MSVC_LANG>=201700l
 #else
-#define EXITERATOR_HAS_CPP17 __cplusplus>=201700l
+#define _EXITERATOR_HAS_CPP17 __cplusplus>=201700l
 #endif
 namespace exlib {
 

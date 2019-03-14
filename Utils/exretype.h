@@ -17,13 +17,13 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #ifndef EXRETYPE_H
 #define EXRETYPE_H
 #ifdef _MSVC_LANG
-#define _EXRETYPE_HAS_CPP_20 _MSVC_LANG>202000l
-#define _EXRETYPE_HAS_CPP_17 _MSVC_LANG>201700l
-#define _EXRETYPE_HAS_CPP_14 _MSVC_LANG>201400l
+#define _EXRETYPE_HAS_CPP_20 _MSVC_LANG>=202000l
+#define _EXRETYPE_HAS_CPP_17 _MSVC_LANG>=201700l
+#define _EXRETYPE_HAS_CPP_14 _MSVC_LANG>=201400l
 #else
-#define _EXRETYPE_HAS_CPP_20 __cplusplus>202000l
-#define _EXRETYPE_HAS_CPP_17 __cplusplus>201700l
-#define _EXRETYPE_HAS_CPP_14 __cplusplus>201400l
+#define _EXRETYPE_HAS_CPP_20 __cplusplus>=202000l
+#define _EXRETYPE_HAS_CPP_17 __cplusplus>=201700l
+#define _EXRETYPE_HAS_CPP_14 __cplusplus>=201400l
 #endif
 #include <type_traits>
 #include <cstdint>

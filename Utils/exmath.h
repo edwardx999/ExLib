@@ -20,18 +20,19 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <array>
 #include <cstdlib>
 #include <assert.h>
-#if defined(_CONSTEXPR17)
-#define EX_CONSTEXPR _CONSTEXPR17
-#elif defined(_HAS_CXX17) || __cplusplus>201100L
-#define EX_CONSTEXPR constexpr
+#ifdef _MSVC_LANG
+#define _EXMATH_HAS_CPP_20 _MSVC_LANG>=202000l
+#define _EXMATH_HAS_CPP_17 _MSVC_LANG>=201700l
+#define _EXMATH_HAS_CPP_14 _MSVC_LANG>=201400l
 #else
-#define EX_CONSTEXPR
+#define _EXMATH_HAS_CPP_20 __cplusplus>=202000l
+#define _EXMATH_HAS_CPP_17 __cplusplus>=201700l
+#define _EXMATH_HAS_CPP_14 __cplusplus>=201400l
 #endif
 
-#define CONSTEXPR
-#ifdef _CONSTEXPR_IF
-#define EX_CONSTIF _CONSTEXPR_IF
-#elif defined(_HAS_CXX17) || __cplusplus>201700L
+#define EX_CONSTEXPR constexpr
+
+#if _EXMATH_HAS_CPP_17
 #define EX_CONSTIF constexpr
 #else
 #define EX_CONSTIF
@@ -770,11 +771,7 @@ namespace exlib {
 	RandomAccessContainer fattened_profile(RandomAccessContainer const& prof,size_t hp)
 	{
 		typedef std::decay<decltype(*prof.begin())>::type T;
-		if
-#if __cplusplus > 201700L
-			constexpr
-#endif
-			(std::is_trivially_copyable<T>::value&&sizeof(T)<=sizeof(size_t))
+		if EX_CONSTIF(std::is_trivially_copyable<T>::value&&sizeof(T)<=sizeof(size_t))
 		{
 			return fattened_profile(prof,hp,[](auto a,auto b)
 			{
