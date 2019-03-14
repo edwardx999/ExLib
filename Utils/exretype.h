@@ -29,6 +29,115 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <cstdint>
 namespace exlib {
 
+
+	namespace forward_like_impl {
+		template<typename T>
+		struct forward_like;
+
+		template<typename T>
+		struct forward_like<T&> {
+			template<typename U>
+			constexpr static U& get(U& u)
+			{
+				return u;
+			}
+		};
+		template<typename T>
+		struct forward_like<T const&> {
+			template<typename U>
+			constexpr static U const& get(U const& u)
+			{
+				return u;
+			}
+		};
+		template<typename T>
+		struct forward_like<T const volatile&> {
+			template<typename U>
+			constexpr static U const volatile& get(U const volatile& u)
+			{
+				return u;
+			}
+		};
+		template<typename T>
+		struct forward_like<T volatile&> {
+			template<typename U>
+			constexpr static U volatile& get(U volatile& u)
+			{
+				return u;
+			}
+		};
+		template<typename T>
+		struct forward_like<T&&> {
+			template<typename U>
+			constexpr static U&& get(U&& u)
+			{
+				return std::move(u);
+			}
+		};
+	}
+
+	template<typename Target,typename Orig>
+	constexpr auto forward_like(Orig&& orig) ->decltype(forward_like_impl::forward_like<Target>::get(std::forward<Orig>(orig)))
+	{
+		return forward_like_impl::forward_like<Target>::get(std::forward<Orig>(orig));
+	}
+
+	namespace max_cref_impl {
+		template<typename A,typename B>
+		struct max_cref;
+
+		template<typename A>
+		struct max_cref<A const&,A&> {
+			using type=A const&;
+		};
+		template<typename A>
+		struct max_cref<A&,A const&> {
+			using type=A const&;
+		};
+		template<typename A>
+		struct max_cref<A const&,A const&> {
+			using type=A const&;
+		};
+		template<typename A>
+		struct max_cref<A&,A&> {
+			using type=A&;
+		};
+	}
+
+	template<typename A,typename B>
+	struct max_cref:max_cref_impl::max_cref<A,B> {};
+
+	template<typename A,typename B>
+	using max_cref_t=typename max_cref<A,B>::type;
+
+	namespace max_cpointer_impl {
+		template<typename A,typename B>
+		struct max_cpointer;
+
+		template<typename A>
+		struct max_cpointer<A const*,A*> {
+			using type=A const*;
+		};
+		template<typename A>
+		struct max_cpointer<A*,A const*> {
+			using type=A const*;
+		};
+		template<typename A>
+		struct max_cpointer<A const*,A const*> {
+			using type=A const*;
+		};
+		template<typename A>
+		struct max_cpointer<A*,A*> {
+			using type=A*;
+		};
+	}
+
+	template<typename A,typename B>
+	struct max_cpointer:max_cpointer_impl::max_cpointer<A,B> {};
+
+	template<typename A,typename B>
+	using max_cpointer_t=typename max_cpointer<A,B>::type;
+
 	template<typename T>
 	struct wrap_reference {
 		using type=T;
@@ -50,9 +159,11 @@ namespace exlib {
 	struct ref_transfer {
 		T* _base;
 	public:
-		constexpr ref_transfer(T& obj):_base(&obj) {}
-		constexpr ref_transfer(T* obj):_base(obj) {}
-		constexpr operator T*() const noexcept
+		constexpr ref_transfer(T& obj):_base(&obj)
+		{}
+		constexpr ref_transfer(T* obj):_base(obj)
+		{}
+		constexpr operator T* () const noexcept
 		{
 			return _base;
 		}
@@ -234,12 +345,13 @@ namespace exlib {
 	public:
 		forward_string(Forwardee const& f):data(f.c_str())
 		{}
-		constexpr forward_string(value_type const* data):data(data) {}
-		constexpr operator pointer const&() const
+		constexpr forward_string(value_type const* data):data(data)
+		{}
+		constexpr operator pointer const& () const
 		{
 			return data;
 		}
-		constexpr operator pointer&()
+		constexpr operator pointer& ()
 		{
 			return data;
 		}
@@ -262,7 +374,8 @@ namespace exlib {
 		class func_pointer_wrapper<Ret(*)(Args...)> {
 			Ret(*f)(Args...);
 		public:
-			func_pointer_wrapper(Ret(*f)(Args...)):f(f) {}
+			func_pointer_wrapper(Ret(*f)(Args...)):f(f)
+			{}
 			Ret operator()(Args... args) const
 			{
 				return f(std::forward<Args>(args)...);
@@ -326,7 +439,7 @@ namespace exlib {
 	struct overloaded:private Funcs...
 	{
 		template<typename... F>
-		overloaded(F&&... f):Funcs(wrap(std::forward<F>(f)))...{
+		overloaded(F&& ... f):Funcs(wrap(std::forward<F>(f)))...{
 		}
 		using Funcs::operator()...;
 	};
@@ -336,20 +449,20 @@ namespace exlib {
 	struct overloaded:public Funcs...
 	{
 		template<typename... F>
-		overloaded(F&&... f):Funcs(wrap(std::forward<F>(f)))...{
+		overloaded(F&& ... f):Funcs(wrap(std::forward<F>(f)))...{
 		}
 	};
 #endif
 
 	template<typename... Funcs>
-	constexpr auto make_overloaded(Funcs&&... f) -> decltype(overloaded<detail::remove_cvref_t<decltype(wrap(f))>...>(std::forward<Funcs>(f)...))
+	constexpr auto make_overloaded(Funcs&& ... f) -> decltype(overloaded<detail::remove_cvref_t<decltype(wrap(f))>...>(std::forward<Funcs>(f)...))
 	{
 		return overloaded<detail::remove_cvref_t<decltype(wrap(f))>...>(std::forward<Funcs>(f)...);
 	}
 
 #if _EXRETYPE_HAS_CPP_17
 	template<typename... Funcs>
-	overloaded(Funcs&&... f)->overloaded<detail::remove_cvref_t<decltype(wrap(f))>...>;
+	overloaded(Funcs&& ... f)->overloaded<detail::remove_cvref_t<decltype(wrap(f))>...>;
 #endif
 
 	namespace detail {
@@ -357,8 +470,10 @@ namespace exlib {
 		class Box {
 			Base _base;
 		public:
-			constexpr Box(Base b) noexcept:_base(b) {}
-			constexpr Box() noexcept {}
+			constexpr Box(Base b) noexcept:_base(b)
+			{}
+			constexpr Box() noexcept
+			{}
 			constexpr Box(Box const&)=default;
 			constexpr Box& operator=(Box const&)=default;
 			template<typename O> constexpr Box& operator=(O const& o) noexcept
@@ -366,11 +481,11 @@ namespace exlib {
 				_base=o;
 				return *this;
 			}
-			constexpr operator Base&() noexcept
+			constexpr operator Base& () noexcept
 			{
 				return _base;
 			}
-			constexpr operator Base const&() const noexcept
+			constexpr operator Base const& () const noexcept
 			{
 				return _base;
 			}
