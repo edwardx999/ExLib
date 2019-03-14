@@ -51,5 +51,11 @@
     <ClInclude Include="exlazy.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="exfinally.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="exiterator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
