@@ -99,10 +99,17 @@ namespace exlib {
 	}
 
 	template<size_t I,typename T,size_t N>
-	constexpr T&& get(T(&&arr)[N])
+	constexpr T& get(T(&arr)[N])
 	{
 		return arr[I];
 	}
+
+	template<size_t I,typename T,size_t N>
+	constexpr T&& get(T(&&arr)[N])
+	{
+		return std::move(arr[I]);
+	}
+
 	/*
 		Call the member function as if it is a global function.
 	*/
@@ -117,7 +124,7 @@ namespace exlib {
 		MemFn is a member function pointer of T
 	*/
 	template<auto MemFn,typename T,typename... Args>
-	constexpr auto apply_mem_fn(T* obj,Args&&... args) -> decltype((obj->*MemFn)(std::forward<Args>(args)...))
+	constexpr decltype(auto) apply_mem_fn(T* obj,Args&&... args)
 	{
 		return (obj->*MemFn)(std::forward<Args>(args)...);
 	}
@@ -432,7 +439,7 @@ namespace exlib {
 	template<typename T,size_t N>
 	struct array_size<T[N]>:std::integral_constant<size_t,N> {};
 
-#if __cplusplus >= 201700L
+#if EXALG_HAS_CPP_17
 	template<typename T>
 	inline constexpr size_t array_size_v=array_size<T>::value;
 #endif
@@ -848,7 +855,7 @@ namespace exlib {
 			constexpr static size_t value=N;
 		};
 
-#if __cplusplus>201700LL
+#if EXALG_HAS_CPP_17
 		template<typename... U>
 		struct gm<std::variant<U...>> {
 			constexpr static size_t value=sizeof...(U);
@@ -859,7 +866,7 @@ namespace exlib {
 		constexpr static size_t const value=gm<std::remove_cv_t<std::remove_reference_t<T>>>::value;
 	};
 
-#if __cplusplus>201700L
+#if EXALG_HAS_CPP_17
 	template<typename T>
 	constexpr size_t get_max_v=get_max<T>::value;
 
