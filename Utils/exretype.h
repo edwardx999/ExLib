@@ -94,47 +94,44 @@ namespace exlib {
 		return forward_like_impl::forward_like<Target>::get(std::forward<Orig>(orig));
 	}
 
-	/*
-		Converts rvalue reference to values,
-		strips cv qualifiers from reference and value types
-	*/
+	//Strips cv qualifiers from reference and value types
 	template<typename T>
 	struct rvalue_reference_to_value {
 		using type=typename std::remove_cv<T>::type;
 	};
 
+	//Removes rvalue_reference and strips cv qualifiers
 	template<typename T>
-	struct rvalue_reference_to_value<T&&>:rvalue_reference_to_value<T> {
-	};
+	struct rvalue_reference_to_value<T&&>:rvalue_reference_to_value<T> {};
 
+	//Removes rvalue_reference and then strips cv qualifiers
 	template<typename T>
 	using rvalue_reference_to_value_t=typename rvalue_reference_to_value<T>::type;
 
 	namespace max_cref_impl {
 		template<typename... Types>
-		struct max_cref;
+		struct max_cref_impl;
 
 		//return nothing
 		template<>
-		struct max_cref<>{
+		struct max_cref_impl<> {
 			using type=void;
 		};
 
 		//return same type
 		template<typename A>
-		struct max_cref<A> {
+		struct max_cref_impl<A> {
 			using type=A;
 		};
 
 		//return same type
 		template<typename A>
-		struct max_cref<A,A>:max_cref<A> {
-		};
+		struct max_cref_impl<A,A>:max_cref_impl<A> {};
 
 		//utility to swap args to not repeat specializations
 		template<typename A,typename B,bool same=std::is_same<remove_cvref_t<A>,remove_cvref_t<B>>::value>
 		struct max_cref_swap {
-			using type=typename max_cref<B,A>::type;
+			using type=typename max_cref_impl<B,A>::type;
 		};
 
 		//no type if not same type
@@ -143,30 +140,29 @@ namespace exlib {
 
 		//utility to swap args to not repeat specializations, forward to special
 		template<typename A,typename B>
-		struct max_cref<A,B>:max_cref_swap<A,B>{};
+		struct max_cref_impl<A,B>:max_cref_swap<A,B> {};
 
 		//to const ref
 		template<typename A>
-		struct max_cref<A const&,A&> {
+		struct max_cref_impl<A const&,A&> {
 			using type=A const&;
 		};
 
 		//decay to value
 		template<typename A>
-		struct max_cref<A,A const&> {
+		struct max_cref_impl<A,A const&> {
 			using type=A;
 		};
 
 		//decay to value
 		template<typename A>
-		struct max_cref<A,A&> {
+		struct max_cref_impl<A,A&> {
 			using type=A;
 		};
-		
+
 		//fold across variadic types
 		template<typename A,typename B,typename... Rest>
-		struct max_cref<A,B,Rest...>:max_cref<typename max_cref<A,B>::type,Rest...> {
-		};
+		struct max_cref_impl<A,B,Rest...>:max_cref_impl<typename max_cref_impl<A,B>::type,Rest...> {};
 	}
 
 	/*
@@ -174,45 +170,62 @@ namespace exlib {
 		e.g. T&, T& -> T&
 		T const&, T& -> T const&
 		T, T const& -> T
+		T&&, T& -> T
 	*/
 	template<typename... Types>
-	struct max_cref:max_cref_impl::max_cref<typename rvalue_reference_to_value<Types>::type...> {};
+	struct max_cref:max_cref_impl::max_cref_impl<typename rvalue_reference_to_value<Types>::type...> {};
 
 	template<typename A,typename B>
 	using max_cref_t=typename max_cref<A,B>::type;
 
 	namespace max_cpointer_impl {
 		template<typename... Types>
-		struct max_cpointer;
+		struct max_cpointer_impl;
+
+		template<>
+		struct max_cpointer_impl<> {
+			using type=void;
+		};
 
 		template<typename T>
-		struct max_cpointer<T*> {
+		struct max_cpointer_impl<T*> {
 			using type=T*;
 		};
 
 		template<typename A>
-		struct max_cpointer<A const*,A*> {
+		struct max_cpointer_impl<A const*,A*> {
 			using type=A const*;
 		};
 		template<typename A>
-		struct max_cpointer<A*,A const*> {
+		struct max_cpointer_impl<A*,A const*> {
 			using type=A const*;
 		};
 		template<typename A>
-		struct max_cpointer<A const*,A const*> {
+		struct max_cpointer_impl<A const*,A const*> {
 			using type=A const*;
 		};
 		template<typename A>
-		struct max_cpointer<A*,A*> {
+		struct max_cpointer_impl<A*,A*> {
 			using type=A*;
+		};
+
+		template<typename A,typename B,typename... Rest>
+		struct max_cpointer_impl<A,B,Rest...>:max_cpointer_impl<typename max_cpointer_impl<A,B>::type,Rest...> {
+
 		};
 	}
 
-	template<typename A,typename B>
-	struct max_cpointer:max_cpointer_impl::max_cpointer<A,B> {};
+	/*
+		Given two pointer types, returns a const preserving pointer type
+		e.g. T*,T* -> T*
+		T const*,T* -> T const*
+		T const*,T const* -> T const*
+	*/
+	template<typename... Pointers>
+	struct max_cpointer:max_cpointer_impl::max_cpointer_impl<Pointers...> {};
 
-	template<typename A,typename B>
-	using max_cpointer_t=typename max_cpointer<A,B>::type;
+	template<typename... Pointers>
+	using max_cpointer_t=typename max_cpointer<Pointers...>::type;
 
 	template<typename T>
 	struct wrap_reference {
