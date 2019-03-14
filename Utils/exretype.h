@@ -216,7 +216,7 @@ namespace exlib {
 	}
 
 	/*
-		Given two pointer types, returns a const preserving pointer type
+		Given two or more pointer types, returns a const preserving pointer type
 		e.g. T*,T* -> T*
 		T const*,T* -> T const*
 		T const*,T const* -> T const*
@@ -226,6 +226,7 @@ namespace exlib {
 
 	template<typename... Pointers>
 	using max_cpointer_t=typename max_cpointer<Pointers...>::type;
+
 
 	template<typename T>
 	struct wrap_reference {
@@ -240,33 +241,49 @@ namespace exlib {
 	template<typename T>
 	using wrap_reference_t=typename wrap_reference<T>::type;
 
+	template<typename T>
+	struct unwrap_reference_wrapper {
+		using type=T;
+	};
+
+	template<typename T>
+	struct unwrap_reference_wrapper<std::reference_wrapper<T>> {
+		using type=T;
+	};
+
+	template<typename T>
+	using unwrap_reference_wrapper_t=typename unwrap_reference_wrapper<T>::type;
+
 	/*
 		Allows both a pointer and reference to be passed, which will both decay to pointer semantics.
 		Useful to allow "null references" while allowing call by reference.
 	*/
 	template<typename T>
 	struct ref_transfer {
-		T* _base;
+		T& _base;
 	public:
-		constexpr ref_transfer(T& obj):_base(&obj)
+		ref_transfer(ref_transfer const&)=delete;
+		constexpr ref_transfer(T& obj):_base(obj)
 		{}
-		constexpr ref_transfer(T* obj):_base(obj)
+		constexpr ref_transfer(T&& obj):_base(obj)
+		{}
+		constexpr ref_transfer(T* obj):_base(*obj)
 		{}
 		constexpr operator T* () const noexcept
 		{
-			return _base;
+			return &_base;
 		}
 		constexpr T& operator*() const noexcept
 		{
-			return *_base;
+			return _base;
 		}
 		constexpr T* operator->() const noexcept
 		{
-			return _base;
+			return &_base;
 		}
 		constexpr explicit operator bool() const noexcept
 		{
-			return _base;
+			return &_base;
 		}
 	};
 
