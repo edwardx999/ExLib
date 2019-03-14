@@ -43,9 +43,9 @@ namespace exlib {
 	{
 		if(a<b)
 		{
-			return a;
+			return std::forward<A>(a);
 		}
-		return b;
+		return std::forward<B>(b);
 	}
 
 	template<typename A,typename B,typename Compare>
@@ -53,9 +53,9 @@ namespace exlib {
 	{
 		if(c(a,b))
 		{
-			return a;
+			return std::forward<A>(a);
 		}
-		return b;
+		return std::forward<B>(b);
 	}
 
 	template<typename A,typename B>
@@ -63,9 +63,9 @@ namespace exlib {
 	{
 		if(a<b)
 		{
-			return b;
+			return std::forward<B>(b);
 		}
-		return a;
+		return std::forward<A>(a);
 	}
 
 	template<typename A,typename B,typename Compare>
@@ -73,9 +73,9 @@ namespace exlib {
 	{
 		if(c(a,b))
 		{
-			return b;
+			return std::forward<B>(b);
 		}
-		return a;
+		return std::forward<A>(a);
 	}
 
 	template<size_t I,typename T,size_t N>

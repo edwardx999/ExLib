@@ -29,6 +29,18 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <cstdint>
 namespace exlib {
 
+#if _EXRETYPE_HAS_CPP_20
+	using std::remove_cvref;
+	using std::remove_cvref_t;
+#else
+	template<typename T>
+	struct remove_cvref {
+		using type=typename std::remove_cv<typename std::remove_reference<T>::type>::type;
+	};
+
+	template<typename T>
+	using remove_cvref_t=typename remove_cvref<T>::type;
+#endif
 
 	namespace forward_like_impl {
 		template<typename T>
@@ -82,37 +94,101 @@ namespace exlib {
 		return forward_like_impl::forward_like<Target>::get(std::forward<Orig>(orig));
 	}
 
+	/*
+		Converts rvalue reference to values,
+		strips cv qualifiers from reference and value types
+	*/
+	template<typename T>
+	struct rvalue_reference_to_value {
+		using type=typename std::remove_cv<T>::type;
+	};
+
+	template<typename T>
+	struct rvalue_reference_to_value<T&&>:rvalue_reference_to_value<T> {
+	};
+
+	template<typename T>
+	using rvalue_reference_to_value_t=typename rvalue_reference_to_value<T>::type;
+
 	namespace max_cref_impl {
-		template<typename A,typename B>
+		template<typename... Types>
 		struct max_cref;
 
+		//return nothing
+		template<>
+		struct max_cref<>{
+			using type=void;
+		};
+
+		//return same type
+		template<typename A>
+		struct max_cref<A> {
+			using type=A;
+		};
+
+		//return same type
+		template<typename A>
+		struct max_cref<A,A>:max_cref<A> {
+		};
+
+		//utility to swap args to not repeat specializations
+		template<typename A,typename B,bool same=std::is_same<remove_cvref_t<A>,remove_cvref_t<B>>::value>
+		struct max_cref_swap {
+			using type=typename max_cref<B,A>::type;
+		};
+
+		//no type if not same type
+		template<typename A,typename B>
+		struct max_cref_swap<A,B,false> {};
+
+		//utility to swap args to not repeat specializations, forward to special
+		template<typename A,typename B>
+		struct max_cref<A,B>:max_cref_swap<A,B>{};
+
+		//to const ref
 		template<typename A>
 		struct max_cref<A const&,A&> {
 			using type=A const&;
 		};
+
+		//decay to value
 		template<typename A>
-		struct max_cref<A&,A const&> {
-			using type=A const&;
+		struct max_cref<A,A const&> {
+			using type=A;
 		};
+
+		//decay to value
 		template<typename A>
-		struct max_cref<A const&,A const&> {
-			using type=A const&;
+		struct max_cref<A,A&> {
+			using type=A;
 		};
-		template<typename A>
-		struct max_cref<A&,A&> {
-			using type=A&;
+		
+		//fold across variadic types
+		template<typename A,typename B,typename... Rest>
+		struct max_cref<A,B,Rest...>:max_cref<typename max_cref<A,B>::type,Rest...> {
 		};
 	}
 
-	template<typename A,typename B>
-	struct max_cref:max_cref_impl::max_cref<A,B> {};
+	/*
+		Gets the type that preserves the constness of both referenced types to allowing forwarded returning of parameter types
+		e.g. T&, T& -> T&
+		T const&, T& -> T const&
+		T, T const& -> T
+	*/
+	template<typename... Types>
+	struct max_cref:max_cref_impl::max_cref<typename rvalue_reference_to_value<Types>::type...> {};
 
 	template<typename A,typename B>
 	using max_cref_t=typename max_cref<A,B>::type;
 
 	namespace max_cpointer_impl {
-		template<typename A,typename B>
+		template<typename... Types>
 		struct max_cpointer;
+
+		template<typename T>
+		struct max_cpointer<T*> {
+			using type=T*;
+		};
 
 		template<typename A>
 		struct max_cpointer<A const*,A*> {
@@ -153,7 +229,7 @@ namespace exlib {
 
 	/*
 		Allows both a pointer and reference to be passed, which will both decay to pointer semantics.
-		Useful to allow "references" while allowing call by reference.
+		Useful to allow "null references" while allowing call by reference.
 	*/
 	template<typename T>
 	struct ref_transfer {
