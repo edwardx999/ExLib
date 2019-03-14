@@ -11,22 +11,25 @@ namespace exlib {
 
 	namespace cstring_iterator_impl {
 
+		template<typename StrType>
+		using char_type_t=typename std::remove_cv<typename std::iterator_traits<StrType>::value_type>::type;
+
 		/*
 			Iterator for a c-string so that an end iterator can be passed to stl algorithms without calculating strlen.
 		*/
-		template<typename StrType>
+		template<typename StrType,char_type_t<StrType> delim=char_type_t<StrType>{}>
 		class cstring_iterator {
 			StrType _loc;
 		public:
 			using reference=decltype(*_loc);
-			using value_type=typename std::remove_cv<typename std::remove_reference<reference>::type>::type;
+			using value_type=char_type_t<StrType>;
 			using pointer=StrType;
 			using iterator_category=std::forward_iterator_tag;
 			using difference_type=std::ptrdiff_t;
 			constexpr cstring_iterator(StrType str=nullptr):_loc(str)
 			{}
 			template<typename Other>
-			constexpr cstring_iterator(cstring_iterator<Other> str):_loc(static_cast<StrType>(str)){}
+			constexpr cstring_iterator(cstring_iterator<Other,delim> str):_loc(static_cast<StrType>(str)){}
 
 			constexpr bool operator==(cstring_iterator o) const
 			{
@@ -39,7 +42,7 @@ namespace exlib {
 			constexpr cstring_iterator& operator++()
 			{
 				++_loc;
-				if(*_loc==value_type())
+				if(*_loc==delim)
 				{
 					_loc=nullptr;
 				}
@@ -68,13 +71,14 @@ namespace exlib {
 				return _loc;
 			}
 		};
-		template<typename Base>
-		constexpr cstring_iterator<Base> begin(cstring_iterator<Base> it)
+
+		template<typename Base,char_type_t<Base> delim>
+		constexpr cstring_iterator<Base,delim> begin(cstring_iterator<Base,delim> it)
 		{
 			return it;
 		}
-		template<typename Base>
-		constexpr cstring_iterator<Base> end(cstring_iterator<Base>)
+		template<typename Base,char_type_t<Base> delim>
+		constexpr cstring_iterator<Base> end(cstring_iterator<Base,delim>)
 		{
 			return {nullptr};
 		}
