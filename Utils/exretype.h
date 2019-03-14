@@ -524,19 +524,14 @@ namespace exlib {
 			}
 		};
 #endif
-#if _EXRETYPE_HAS_CPP_20
-		using std::remove_cvref_t;
-#else
-		template<typename T>
-		using remove_cvref_t=typename std::remove_cv<typename std::remove_reference<T>::type>::type;
-#endif
+
 	}
 
 	//wraps a function pointer (or really anything callable) in a lambda
 	template<typename Func>
-	constexpr auto wrap(Func&& fp) noexcept -> decltype(detail::wrap<detail::remove_cvref_t<Func>>::get(std::forward<Func>(fp)))
+	constexpr auto wrap(Func&& fp) noexcept -> decltype(detail::wrap<remove_cvref_t<Func>>::get(std::forward<Func>(fp)))
 	{
-		return detail::wrap<detail::remove_cvref_t<Func>>::get(std::forward<Func>(fp));
+		return detail::wrap<remove_cvref_t<Func>>::get(std::forward<Func>(fp));
 	}
 
 
@@ -561,14 +556,14 @@ namespace exlib {
 #endif
 
 	template<typename... Funcs>
-	constexpr auto make_overloaded(Funcs&& ... f) -> decltype(overloaded<detail::remove_cvref_t<decltype(wrap(f))>...>(std::forward<Funcs>(f)...))
+	constexpr auto make_overloaded(Funcs&& ... f) -> decltype(overloaded<remove_cvref_t<decltype(wrap(f))>...>(std::forward<Funcs>(f)...))
 	{
-		return overloaded<detail::remove_cvref_t<decltype(wrap(f))>...>(std::forward<Funcs>(f)...);
+		return overloaded<remove_cvref_t<decltype(wrap(f))>...>(std::forward<Funcs>(f)...);
 	}
 
 #if _EXRETYPE_HAS_CPP_17
 	template<typename... Funcs>
-	overloaded(Funcs&& ... f)->overloaded<detail::remove_cvref_t<decltype(wrap(f))>...>;
+	overloaded(Funcs&& ... f)->overloaded<remove_cvref_t<decltype(wrap(f))>...>;
 #endif
 
 	namespace detail {
