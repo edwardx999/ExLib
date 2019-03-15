@@ -43,6 +43,7 @@ namespace exlib {
 #endif
 
 	namespace forward_like_impl {
+
 		template<typename T>
 		struct forward_like;
 
@@ -57,7 +58,7 @@ namespace exlib {
 		template<typename T>
 		struct forward_like<T const&> {
 			template<typename U>
-			constexpr static U const& get(U const& u)
+			constexpr static U const& get(U& u)
 			{
 				return u;
 			}
@@ -65,7 +66,7 @@ namespace exlib {
 		template<typename T>
 		struct forward_like<T const volatile&> {
 			template<typename U>
-			constexpr static U const volatile& get(U const volatile& u)
+			constexpr static U const volatile& get(U& u)
 			{
 				return u;
 			}
@@ -73,7 +74,7 @@ namespace exlib {
 		template<typename T>
 		struct forward_like<T volatile&> {
 			template<typename U>
-			constexpr static U volatile& get(U volatile& u)
+			constexpr static U volatile& get(U& u)
 			{
 				return u;
 			}
@@ -81,7 +82,7 @@ namespace exlib {
 		template<typename T>
 		struct forward_like<T&&> {
 			template<typename U>
-			constexpr static U&& get(U&& u)
+			constexpr static U&& get(U& u)
 			{
 				return std::move(u);
 			}
@@ -89,9 +90,9 @@ namespace exlib {
 	}
 
 	template<typename Target,typename Orig>
-	constexpr auto forward_like(Orig&& orig) ->decltype(forward_like_impl::forward_like<Target>::get(std::forward<Orig>(orig)))
+	constexpr auto forward_like(Orig&& orig) noexcept -> decltype(forward_like_impl::forward_like<Target>::get(orig))
 	{
-		return forward_like_impl::forward_like<Target>::get(std::forward<Orig>(orig));
+		return forward_like_impl::forward_like<Target>::get(orig);
 	}
 
 	//Strips cv qualifiers from reference and value types
