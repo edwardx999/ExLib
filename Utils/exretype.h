@@ -42,58 +42,40 @@ namespace exlib {
 	using remove_cvref_t=typename remove_cvref<T>::type;
 #endif
 
-	namespace forward_like_impl {
+	//courtesy https://vittorioromeo.info/Misc/fwdlike.html
+	template<typename Model,typename Orig>
+	struct apply_value_category:std::conditional<std::is_lvalue_reference_v<Model>,
+		std::remove_reference_t<Orig>&,
+		std::remove_reference_t<Orig>&&> {};
 
-		template<typename T>
-		struct forward_like;
+	template<typename T,typename U>
+	using apply_value_category_t=typename apply_value_category<T,U>::type;
 
-		template<typename T>
-		struct forward_like<T&> {
-			template<typename U>
-			constexpr static U& get(U& u)
-			{
-				return u;
-			}
-		};
-		template<typename T>
-		struct forward_like<T const&> {
-			template<typename U>
-			constexpr static U const& get(U& u)
-			{
-				return u;
-			}
-		};
-		template<typename T>
-		struct forward_like<T const volatile&> {
-			template<typename U>
-			constexpr static U const volatile& get(U& u)
-			{
-				return u;
-			}
-		};
-		template<typename T>
-		struct forward_like<T volatile&> {
-			template<typename U>
-			constexpr static U volatile& get(U& u)
-			{
-				return u;
-			}
-		};
-		template<typename T>
-		struct forward_like<T&&> {
-			template<typename U>
-			constexpr static U&& get(U& u)
-			{
-				return std::move(u);
-			}
-		};
-	}
-
-	template<typename Target,typename Orig>
-	constexpr auto forward_like(Orig&& orig) noexcept -> decltype(forward_like_impl::forward_like<Target>::get(orig))
+	template<typename Model,typename Orig>
+	constexpr apply_value_category_t<Model,Orig> forward_like(Orig&& orig) noexcept
 	{
-		return forward_like_impl::forward_like<Target>::get(orig);
+		return static_cast<apply_value_category_t<Model,Orig>>(orig);
 	}
+
+	//Given two types, gets the type that would make Original have the same const reference qualifiers as Model
+	//T const&, U& -> U const&
+	template<typename Model,typename Original>
+	struct const_like {
+		using type=Original;
+	};
+
+	template<typename T,typename U>
+	struct const_like<T&,U&> {
+		using type=U&;
+	};
+
+	template<typename T,typename U>
+	struct const_like<T const&,U&> {
+		using type=U const&;
+	};
+
+	template<typename T,typename U>
+	using const_like_t=typename const_like<T,U>::type;
 
 	//Strips cv qualifiers from reference and value types
 	template<typename T>
@@ -265,8 +247,6 @@ namespace exlib {
 	public:
 		ref_transfer(ref_transfer const&)=delete;
 		constexpr ref_transfer(T& obj):_base(obj)
-		{}
-		constexpr ref_transfer(T&& obj):_base(obj)
 		{}
 		constexpr ref_transfer(T* obj):_base(*obj)
 		{}

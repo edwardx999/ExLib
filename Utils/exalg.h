@@ -18,9 +18,11 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <functional>
 #include <stddef.h>
 #ifdef _MSVC_LANG
+#define _EXALG_HAS_CPP_20 _MSVC_LANG>=202000L
 #define _EXALG_HAS_CPP_17 _MSVC_LANG>=201700L
 #define _EXALG_HAS_CPP_14 _MSVC_LANG>=201400L
 #else
+#define _EXALG_HAS_CPP_20 __cplusplus>=202000L
 #define _EXALG_HAS_CPP_17 __cplusplus>=201700L
 #define _EXALG_HAS_CPP_14 __cplusplus>=201400L
 #endif
@@ -105,16 +107,23 @@ namespace exlib {
 
 
 namespace get_impl {
+#if !(_EXALG_HAS_CPP_20)
 	using std::get;
+#endif
 	template<size_t I,typename Container>
-	constexpr auto do_get(Container&& container) noexcept(noexcept(get<I>(container))) -> decltype(exlib::forward_like<Container>(get<I>(container)))
+	constexpr auto do_get(Container&& container) noexcept(noexcept(get<I>(container))) -> decltype(exlib::forward_like<Container&&>(get<I>(container)))
 	{
-		return exlib::forward_like<Container>(get<I>(container));
+		return exlib::forward_like<Container&&>(get<I>(container));
 	}
 	template<size_t I,typename Container,typename... Extra>
-	constexpr auto do_get(Container&& container,Extra...) noexcept(noexcept(container[I])) -> decltype(exlib::forward_like<Container>(container[I]))
+	constexpr auto do_get(Container&& container,Extra...) noexcept(noexcept(container[I])) -> decltype(exlib::forward_like<Container&&>(container[I]))
 	{
-		return exlib::forward_like<Container>(container[I]);
+		return exlib::forward_like<Container&&>(container[I]);
+	}
+	template<size_t I,typename T,size_t N>
+	constexpr T&& do_get(T(&& arr)[N]) noexcept
+	{
+		return std::move(arr[I]);
 	}
 }
 
