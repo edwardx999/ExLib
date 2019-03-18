@@ -42,6 +42,33 @@ namespace exlib {
 	using remove_cvref_t=typename remove_cvref<T>::type;
 #endif
 
+	/*
+		Get the optimal param type for unmodified values (based on x64 calling convention)
+		Suggested Usage: for simple non-virtual functions don't bother as it will be inlined anyway,
+			for complex functions take in by T const& and forward to a helper that takes in const_param_type<T>::type
+	*/
+	template<typename T>
+	struct const_param_type
+		:std::conditional<
+			std::is_trivially_copyable<T>::value&&sizeof(T)<=sizeof(size_t),
+			T const,
+			T const&>
+	{
+	};
+
+	template<typename T>
+	struct const_param_type<T[]> {
+		using type=T* const;
+	};
+
+	template<typename T,size_t N>
+	struct const_param_type<T[N]> {
+		using type=T* const;
+	};
+
+	template<typename T>
+	using const_param_type_t=typename const_param_type<T>::type;
+
 	//courtesy https://vittorioromeo.info/Misc/fwdlike.html
 	template<typename Model,typename Orig>
 	struct apply_value_category:std::conditional<std::is_lvalue_reference_v<Model>,
