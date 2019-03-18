@@ -271,7 +271,9 @@ namespace exlib {
 			using reference=value_type;
 			using pointer=ptr_wrapper<value_type>;
 			template<typename F>
-			generator_iterator(Base base,F&& f=Functor{}):_base(base),Functor(std::forward<F>(f))
+			generator_iterator(Base base,F&& f):_base(base),Functor(std::forward<F>(f))
+			{}
+			generator_iterator(Base base):generator_iterator(base,Functor{})
 			{}
 #define make_op_for_gi(op)  generator_iterator operator op(difference_type d) const{return {_base op d,static_cast<Functor const&>(*this)}; } generator_iterator& operator op##=(difference_type d) const{_base op##= d; return *this; }
 			make_op_for_gi(-)
@@ -318,6 +320,12 @@ namespace exlib {
 				make_comp_op_for_gi(>)
 				make_comp_op_for_gi(<=)
 				make_comp_op_for_gi(>=)
+#if _EXLIB_THREAD_POOL_HAS_CPP_20
+			auto operator<=>(generator_iterator const& o) const
+			{
+				return _base <=> o._base;
+			}
+#endif
 #undef make_comp_op_for_gi
 		};
 
@@ -780,7 +788,7 @@ namespace exlib {
 			friend struct make_worker_t;
 			struct make_worker_t {
 				thread_pool_a* parent;
-				std::thread operator()(size_t) const
+				std::thread operator()(char) const
 				{
 					return std::thread(&thread_pool_a::task_loop,parent);
 				}
@@ -791,7 +799,8 @@ namespace exlib {
 			*/
 			void num_threads(size_t size)
 			{
-				if(size==this->_workers.size())
+				assert(size!=0);
+				if(size==num_threads())
 				{
 					return;
 				}
@@ -800,8 +809,8 @@ namespace exlib {
 					if(size>this->_workers.size())
 					{
 						make_worker_t maker{this};
-						auto begin=thread_pool_detail::make_generator_iterator(size,maker);
-						decltype(begin) end{this->_workers.size()};
+						auto begin=thread_pool_detail::make_generator_iterator(reinterpret_cast<char*>(0),maker);
+						decltype(begin) end{reinterpret_cast<char*>(this->_workers.size())};
 						_workers.insert(_workers.end(),begin,end);
 					}
 					else
@@ -906,6 +915,7 @@ namespace exlib {
 			}
 			void create_threads()
 			{
+				assert(num_threads()!=0);
 				for(auto& worker:this->_workers)
 				{
 					worker=std::thread(&thread_pool_a::task_loop,this);
