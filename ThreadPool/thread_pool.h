@@ -261,8 +261,9 @@ namespace exlib {
 				return &_val;
 			}
 		};
+
 		template<typename Base,typename Functor>
-		class generator_iterator:Functor {
+		class transform_iterator:Functor {
 			Base _base;
 		public:
 			using iterator_category=typename std::iterator_traits<Base>::iterator_category;
@@ -271,35 +272,39 @@ namespace exlib {
 			using reference=value_type;
 			using pointer=ptr_wrapper<value_type>;
 			template<typename F>
-			generator_iterator(Base base,F&& f):_base(base),Functor(std::forward<F>(f))
+			transform_iterator(Base base,F&& f):_base(base),Functor(std::forward<F>(f))
 			{}
-			generator_iterator(Base base):generator_iterator(base,Functor{})
+			transform_iterator(Base base):transform_iterator(base,Functor{})
 			{}
-#define make_op_for_gi(op)  generator_iterator operator op(difference_type d) const{return {_base op d,static_cast<Functor const&>(*this)}; } generator_iterator& operator op##=(difference_type d) const{_base op##= d; return *this; }
+#define make_op_for_gi(op)  transform_iterator operator op(difference_type d) const{return {_base op d,static_cast<Functor const&>(*this)}; } transform_iterator& operator op##=(difference_type d) const{_base op##= d; return *this; }
 			make_op_for_gi(-)
 				make_op_for_gi(+)
 #undef make_op_for_gi
-				difference_type operator-(generator_iterator const& o) const
+				Base base() const
+			{
+				return _base;
+			}
+				difference_type operator-(transform_iterator const& o) const
 			{
 				return _base-o._base;
 			}
-			generator_iterator& operator++()
+			transform_iterator& operator++()
 			{
 				++_base;
 				return *this;
 			}
-			generator_iterator& operator--()
+			transform_iterator& operator--()
 			{
 				--_base;
 				return *this;
 			}
-			generator_iterator operator++(int)
+			transform_iterator operator++(int)
 			{
 				auto copy(*this);
 				++_base;
 				return copy;
 			}
-			generator_iterator operator--(int)
+			transform_iterator operator--(int)
 			{
 				auto copy(*this);
 				--_base;
@@ -313,26 +318,28 @@ namespace exlib {
 			{
 				return ptr_wrapper<value_type>(operator*());
 			}
-#define make_comp_op_for_gi(op) bool operator op(generator_iterator const& o) const {return _base op o._base;}
-			make_comp_op_for_gi(==)
-				make_comp_op_for_gi(!=)
-				make_comp_op_for_gi(<)
-				make_comp_op_for_gi(>)
-				make_comp_op_for_gi(<=)
-				make_comp_op_for_gi(>=)
+		};
+
+#define make_comp_op_for_gi(op) template<typename Base,typename Functor> auto operator op(transform_iterator<Base,Functor> const& a,transform_iterator<Base,Functor> const& b) -> decltype(std::declval<Base const&>() op std::declval<Base const&>()) {return a.base() op b.base();}
+		make_comp_op_for_gi(==)
+			make_comp_op_for_gi(!=)
+			make_comp_op_for_gi(<)
+			make_comp_op_for_gi(>)
+			make_comp_op_for_gi(<=)
+			make_comp_op_for_gi(>=)
 #if _EXLIB_THREAD_POOL_HAS_CPP_20
-			auto operator<=>(generator_iterator const& o) const
-			{
-				return _base <=> o._base;
+			template<typename Base,typename Functor>
+			auto operator<=> (transform_iterator<Base,Functor> const& a, transform_iterator<Base,Functor> const& b) -> decltype(std::declval<Base const&>() <=> std::declval<Base const&>())
+		{
+			return a.base() <=> b.base();
 			}
 #endif
 #undef make_comp_op_for_gi
-		};
 
 		template<typename Base,typename Functor>
-		generator_iterator<Base,typename std::decay<Functor>::type> make_generator_iterator(Base base,Functor&& f)
+		transform_iterator<Base,typename std::decay<Functor>::type> make_transform_iterator(Base base,Functor&& f)
 		{
-			return generator_iterator<Base,typename std::decay<Functor>::type>(base,std::forward<Functor>(f));
+			return transform_iterator<Base,typename std::decay<Functor>::type>(base,std::forward<Functor>(f));
 		}
 	}
 	struct delay_start_t {};
@@ -629,7 +636,7 @@ namespace exlib {
 			/*
 				calls join() and then does normal destruction
 			*/
-			~thread_pool_a()
+			~thread_pool_a() noexcept //if join errors, something's wrong with the threads and program should crash
 			{
 				join();
 			}
@@ -809,7 +816,7 @@ namespace exlib {
 					if(size>this->_workers.size())
 					{
 						make_worker_t maker{this};
-						auto begin=thread_pool_detail::make_generator_iterator(reinterpret_cast<char*>(0),maker);
+						auto begin=thread_pool_detail::make_transform_iterator(reinterpret_cast<char*>(0),maker);
 						decltype(begin) end{reinterpret_cast<char*>(this->_workers.size())};
 						_workers.insert(_workers.end(),begin,end);
 					}
@@ -872,8 +879,8 @@ namespace exlib {
 			template<typename Iter>
 			size_t append_no_sync(Iter begin,Iter end,std::random_access_iterator_tag)
 			{
-				auto gbegin=thread_pool_detail::make_generator_iterator(begin,make_job_functor_t{});
-				auto gend=thread_pool_detail::make_generator_iterator(end,make_job_functor_t{});
+				auto gbegin=thread_pool_detail::make_transform_iterator(begin,make_job_functor_t{});
+				auto gend=thread_pool_detail::make_transform_iterator(end,make_job_functor_t{});
 				this->_jobs.insert(this->_jobs.end(),gbegin,gend);
 				return end-begin;
 			}
@@ -892,8 +899,8 @@ namespace exlib {
 			template<typename Iter>
 			size_t prepend_no_sync(Iter begin,Iter end,std::random_access_iterator_tag)
 			{
-				auto gbegin=thread_pool_detail::make_generator_iterator(begin,make_job_functor_t{});
-				auto gend=thread_pool_detail::make_generator_iterator(end,make_job_functor_t{});
+				auto gbegin=thread_pool_detail::make_transform_iterator(begin,make_job_functor_t{});
+				auto gend=thread_pool_detail::make_transform_iterator(end,make_job_functor_t{});
 				this->_jobs.insert(_jobs.begin(),gbegin,gend);
 				return end-begin;
 			}
