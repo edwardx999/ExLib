@@ -29,6 +29,59 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <cstdint>
 namespace exlib {
 
+	template<typename... Bases>
+	struct combined:Bases...{
+
+	};
+
+	namespace empty_store_impl {
+		template<typename Type,bool ShouldInherit=std::is_empty<Type>::value>
+		class empty_store_base {
+			Type _value;
+		public:
+			Type& get()
+			{
+				return _value;
+			}
+			Type const& get() const
+			{
+				return _value;
+			}
+			template<typename... Args>
+			empty_store_base(Args&& ... args):_value(std::forward<Args>(args)...)
+			{}
+			empty_store_base()
+			{}
+		};
+		template<typename Type>
+		class empty_store_base<Type,true>:Type {
+		public:
+			Type& get()
+			{
+				return *this;
+			}
+			Type const& get() const
+			{
+				return *this;
+			}
+			template<typename... Args>
+			empty_store_base(Args&& ... args):Type(std::forward<Args>(args)...)
+			{}
+			empty_store_base(){}
+		};
+	}
+
+	template<typename Type>
+	class empty_store:public empty_store_impl::empty_store_base<Type> {
+		using Base=empty_store_impl::empty_store_base<Type>;
+	public:
+		template<typename... Args>
+		empty_store(Args&& ... args) noexcept(noexcept(Type(std::forward<Args>(args)...))):Base(std::forward<Args>(args)...)
+		{}
+		empty_store() noexcept(std::is_nothrow_default_constructible<Type>::value)
+		{}
+	};
+
 #if _EXRETYPE_HAS_CPP_20
 	using std::remove_cvref;
 	using std::remove_cvref_t;
@@ -50,20 +103,18 @@ namespace exlib {
 	template<typename T>
 	struct const_param_type
 		:std::conditional<
-			std::is_trivially_copyable<T>::value&&sizeof(T)<=sizeof(size_t),
-			T const,
-			T const&>
-	{
-	};
+		std::is_trivially_copyable<T>::value&&sizeof(T)<=sizeof(size_t),
+		T const,
+		T const&> {};
 
 	template<typename T>
 	struct const_param_type<T[]> {
-		using type=T* const;
+		using type=T*const;
 	};
 
 	template<typename T,size_t N>
 	struct const_param_type<T[N]> {
-		using type=T* const;
+		using type=T*const;
 	};
 
 	template<typename T>
@@ -273,9 +324,9 @@ namespace exlib {
 		T& _base;
 	public:
 		ref_transfer(ref_transfer const&)=delete;
-		constexpr ref_transfer(T& obj):_base(obj)
+		constexpr ref_transfer(T& obj) noexcept:_base(obj)
 		{}
-		constexpr ref_transfer(T* obj):_base(*obj)
+		constexpr ref_transfer(T* obj) noexcept:_base(*obj)
 		{}
 		constexpr operator T* () const noexcept
 		{
