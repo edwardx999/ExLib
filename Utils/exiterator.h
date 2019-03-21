@@ -94,7 +94,7 @@ namespace exlib {
 			return {nullptr};
 		}
 
-#if _EXITERATOR_HAS_CPP17
+#if _EXITERATOR_HAS_CPP17&&defined(__INTELLISENSE__)
 		template<typename CharType>
 		cstring_iterator(CharType*)->cstring_iterator<CharType>;
 #endif
