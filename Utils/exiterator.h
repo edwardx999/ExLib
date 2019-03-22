@@ -175,9 +175,9 @@ namespace exlib {
 				return static_cast<Derived const&>(*this);
 			}
 		public:
-			constexpr ValueType operator[](PtrDiffT s) const noexcept(noexcept(get_chained().get_functor()(get_chained()._base[s])))
+			constexpr ValueType operator[](PtrDiffT s) const noexcept(noexcept(get_chained().functor()(get_chained()._base[s])))
 			{
-				return get_chained().get_functor()(get_chained()._base[s]);
+				return get_chained().functor()(get_chained()._base[s]);
 			}
 		};
 
@@ -296,7 +296,7 @@ namespace exlib {
 		{
 			return _base;
 		}
-		constexpr Functor get_functor() const noexcept(std::is_nothrow_copy_constructible<Functor>::value)
+		constexpr Functor functor() const noexcept(std::is_nothrow_copy_constructible<Functor>::value)
 		{
 			return empty_store<Functor>::get();
 		}
@@ -338,9 +338,9 @@ namespace exlib {
 #undef make_comp_op_for_gi
 
 	template<typename Base,typename Functor>
-	constexpr auto operator+(transform_iterator<Base,Functor> const& it,typename transform_iterator<Base,Functor>::difference_type d) noexcept(noexcept(it.base()+d)&&std::is_nothrow_copy_constructible<Functor>::value) -> decltype(it.base()+d,transform_iterator<Base,Functor>{it.base(),it.get_functor()})
+	constexpr auto operator+(transform_iterator<Base,Functor> const& it,typename transform_iterator<Base,Functor>::difference_type d) noexcept(noexcept(it.base()+d)&&std::is_nothrow_copy_constructible<Functor>::value) -> decltype(it.base()+d,transform_iterator<Base,Functor>{it.base(),it.functor()})
 	{
-		return {it.base()+d,it.get_functor()};
+		return {it.base()+d,it.functor()};
 	}
 
 	template<typename PtrDiffT,typename Base,typename Functor>
@@ -350,9 +350,9 @@ namespace exlib {
 	}
 
 	template<typename Base,typename Functor>
-	constexpr auto operator-(transform_iterator<Base,Functor> const& it,typename transform_iterator<Base,Functor>::difference_type d) noexcept(noexcept(it.base()-d)&&std::is_nothrow_copy_constructible<Functor>::value) -> decltype(it.base()-d,transform_iterator<Base,Functor>{it.base(),it.get_functor()})
+	constexpr auto operator-(transform_iterator<Base,Functor> const& it,typename transform_iterator<Base,Functor>::difference_type d) noexcept(noexcept(it.base()-d)&&std::is_nothrow_copy_constructible<Functor>::value) -> decltype(it.base()-d,transform_iterator<Base,Functor>{it.base(),it.functor()})
 	{
-		return {it.base()-d,it.get_functor()};
+		return {it.base()-d,it.functor()};
 	}
 
 	template<typename Base,typename Functor>
@@ -464,5 +464,117 @@ namespace exlib {
 #undef make_comp_op_for_gi
 
 	using index_iterator=count_iterator<size_t>;
+
+	template<typename IntegralType>
+	count_iterator<IntegralType> make_count_iterator(IntegralType c)
+	{
+		return {c};
+	}
+
+	namespace filter_iterator_detail {
+		struct get_arrow_operator {
+			template<typename Iter>
+			constexpr static auto get(Iter iter)-> decltype(iter.operator->())
+			{
+				return iter.operator->();
+			}
+			template<typename Type,typename... Extra>
+			constexpr static Type* get(Type* ptr,Extra...)
+			{
+				return ptr;
+			}
+		};
+	}
+	template<typename Base,typename Functor>
+	class filter_iterator:empty_store<Functor> {
+		Base _base;
+		Base _end;
+		using Traits=std::iterator_traits<Base>;
+		void advance_until_satisfied()
+		{
+			for (;_base!=_end;++_base)
+			{
+				if (empty_store<Functor>::get()(*_base))
+				{
+					return;
+				}
+			}
+		}
+
+	public:
+		using value_type=typename Traits::value_type;
+		using difference_type=typename Traits::difference_type;
+		using pointer=typename Traits::pointer;
+		using reference=typename Traits::reference;
+		using iterator_category=std::forward_iterator_tag;
+
+		constexpr filter_iterator(Base iter,Base end,Functor f={}) noexcept(std::is_nothrow_move_constructible<Functor>::value):_base(iter),_end(end),empty_store(std::move(f))
+		{
+			advance_until_satisfied();
+		}
+
+		constexpr Functor predicate() const noexcept(std::is_nothrow_copy_constructible<Functor>::value)
+		{
+			return empty_store<Functor>::get();
+		}
+		constexpr reference operator*() const noexcept
+		{
+			return *_base;
+		}
+		constexpr pointer operator->() const noexcept
+		{
+			return filter_iterator_detail::get_arrow_operator::get(_base);
+		}
+		constexpr filter_iterator& operator++() noexcept (noexcept(empty_store<Functor>::get()(*_base)))
+		{
+			++_base;
+			advance_until_satisfied();
+			return *this;
+		}
+		constexpr filter_iterator operator++(int) noexcept (noexcept(empty_store<Functor>::get()(*_base)))
+		{
+			auto copy(*this);
+			++_base;
+			advance_until_satisfied();
+			return copy;
+		}
+		constexpr bool operator==(filter_iterator const& o) const noexcept
+		{
+			assert(_end==o._end);
+			return _base==o._base;
+		}
+		constexpr bool operator!=(filter_iterator const& o) const noexcept
+		{
+			assert(_end==o._end);
+			return _base!=o._base;
+		}
+		constexpr Base base() const noexcept(std::is_nothrow_copy_constructible<Base>::value)
+		{
+			return _base;
+		}
+	};
+
+	template<typename Iter,typename Functor>
+	filter_iterator<Iter,Functor> make_filter_iterator(Iter iter,Iter end,Functor f)
+	{
+		return {iter,end,std::move(f)};
+	}
+
+	template<typename... Iters>
+	struct combined_iterator {
+		std::tuple<Iters...> _iters;
+	public:
+		using value_type=std::tuple<typename std::iterator_traits<Iters>::value_type...>;
+		using difference_type=typename std::common_type<typename std::iterator_traits<Iters>::difference_type...>::type;
+		using reference=std::tuple<typename std::iterator_traits<Iters>::reference...>;
+		using pointer=iterator_detail::ptr_wrapper<reference>;
+		using iterator_category=typename std::common_type<typename std::iterator_traits<Iters>::iterator_category...>::type;
+		constexpr combined_iterator(Iters... iters) noexcept:_iters(iters...)
+		{
+		}
+		reference operator*() const noexcept
+		{
+		}
+	};
 }
 #endif
