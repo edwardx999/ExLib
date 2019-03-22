@@ -808,7 +808,7 @@ namespace exlib {
 			friend struct make_worker_t;
 			struct make_worker_t {
 				thread_pool_a* parent;
-				std::thread operator()(char) const
+				std::thread operator()(char const&) const
 				{
 					return std::thread(&thread_pool_a::task_loop,parent);
 				}
