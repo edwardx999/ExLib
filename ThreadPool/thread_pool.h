@@ -293,11 +293,11 @@ namespace exlib {
 			make_op_for_gi(-)
 				make_op_for_gi(+)
 #undef make_op_for_gi
-				Base base() const
+			Base base() const
 			{
 				return _base;
 			}
-				difference_type operator-(transform_iterator const& o) const
+			difference_type operator-(transform_iterator const& o) const
 			{
 				return _base-o._base;
 			}
@@ -335,17 +335,17 @@ namespace exlib {
 
 #define make_comp_op_for_gi(op) template<typename Base,typename Functor> auto operator op(transform_iterator<Base,Functor> const& a,transform_iterator<Base,Functor> const& b) -> decltype(std::declval<Base const&>() op std::declval<Base const&>()) {return a.base() op b.base();}
 		make_comp_op_for_gi(==)
-			make_comp_op_for_gi(!=)
-			make_comp_op_for_gi(<)
-			make_comp_op_for_gi(>)
-			make_comp_op_for_gi(<=)
-			make_comp_op_for_gi(>=)
+		make_comp_op_for_gi(!=)
+		make_comp_op_for_gi(<)
+		make_comp_op_for_gi(>)
+		make_comp_op_for_gi(<=)
+		make_comp_op_for_gi(>=)
 #if _EXLIB_THREAD_POOL_HAS_CPP_20
-			template<typename Base,typename Functor>
-			auto operator<=> (transform_iterator<Base,Functor> const& a, transform_iterator<Base,Functor> const& b) -> decltype(std::declval<Base const&>() <=> std::declval<Base const&>())
+		template<typename Base,typename Functor>
+		auto operator<=>(transform_iterator<Base,Functor> const& a,transform_iterator<Base,Functor> const& b) -> decltype(std::declval<Base const&>()<=>std::declval<Base const&>())
 		{
-			return a.base() <=> b.base();
-			}
+			return a.base()<=>b.base();
+		}
 #endif
 #undef make_comp_op_for_gi
 
@@ -377,6 +377,7 @@ namespace exlib {
 	namespace thread_pool_impl {
 		/*
 			Thread pool where the threadpool stores the given arguments and each task is given those arguments.
+			There should only be one controlling thread.
 			Recommended using thread_pool if using a thread pool multiple times to avoid code bloat.
 		*/
 		template<typename... Args>
@@ -527,7 +528,7 @@ namespace exlib {
 				Threads are not started.
 			*/
 			template<typename... T>
-			explicit thread_pool_a(size_t num_threads,delay_start_t,T&&...args):thread_pool_base(num_threads,false),_input(std::forward<T>(args)...)
+			explicit thread_pool_a(size_t num_threads,delay_start_t,T&&... args):thread_pool_base(num_threads,false),_input(std::forward<T>(args)...)
 			{}
 
 			/*
@@ -704,13 +705,14 @@ namespace exlib {
 				Adds task(s) to the thread pool with synchronization and wakes an appropriate number of threads.
 				Tasks must define operator() that can take in Args...
 				or optionally parent_ref as a first argument and then Args...
-				Can be called safely by child threads.
 			*/
 			template<typename... Tasks>
 			void push_back(Tasks&&... tasks)
 			{
-				std::lock_guard<std::mutex> guard(this->_mtx);
-				push_back_no_sync(std::forward<Tasks>(tasks)...);
+				{
+					std::lock_guard<std::mutex> guard(this->_mtx);
+					push_back_no_sync(std::forward<Tasks>(tasks)...);
+				}
 				this->notify_count(sizeof...(Tasks));
 			}
 
@@ -718,13 +720,14 @@ namespace exlib {
 				Adds task(s) to the front of the thread pool with synchronization and wakes an appropriate number of threads.
 				Tasks must define operator() that can take in Args...
 				or optionally parent_ref as a first argument and then Args...
-				Can be called safely by child threads.
 			*/
 			template<typename... Tasks>
 			void push_front(Tasks&&... tasks)
 			{
-				std::lock_guard<std::mutex> guard(this->_mtx);
-				push_front_no_sync(std::forward<Tasks>(tasks)...);
+				{
+					std::lock_guard<std::mutex> guard(this->_mtx);
+					push_front_no_sync(std::forward<Tasks>(tasks)...);
+				}
 				this->notify_count(sizeof...(Tasks));
 			}
 
@@ -760,13 +763,15 @@ namespace exlib {
 				Tasks must define operator() that can take in Args...
 				or optionally parent_ref as a first argument and then Args...
 				Returns the number of tasks added.
-				Can be called safely by child threads.
 			*/
 			template<typename Iter>
 			size_t append(Iter begin,Iter end)
 			{
-				std::lock_guard<std::mutex> guard(this->_mtx);
-				auto const count=append_no_sync(begin,end);
+				size_t count;
+				{
+					std::lock_guard<std::mutex> guard(this->_mtx);
+					count=append_no_sync(begin,end);
+				}
 				this->notify_count(count);
 				return count;
 			}
@@ -777,13 +782,15 @@ namespace exlib {
 				Tasks must define operator() that can take in Args...
 				or optionally parent_ref as a first argument and then Args...
 				Returns the number of tasks added.
-				Can be called safely by child threads.
 			*/
 			template<typename Iter>
 			size_t prepend(Iter begin,Iter end)
 			{
-				std::lock_guard<std::mutex> guard(this->_mtx);
-				auto const count=prepend_no_sync(begin,end);
+				size_t count;
+				{
+					std::lock_guard<std::mutex> guard(this->_mtx);
+					count=prepend_no_sync(begin,end);
+				}
 				this->notify_count(count);
 				return count;
 			}
@@ -804,15 +811,6 @@ namespace exlib {
 				std::lock_guard<std::mutex> guard(this->_mtx);
 				this->clear_no_sync();
 			}
-
-			friend struct make_worker_t;
-			struct make_worker_t {
-				thread_pool_a* parent;
-				std::thread operator()(char const&) const
-				{
-					return std::thread(&thread_pool_a::task_loop,parent);
-				}
-			};
 
 			/*
 				Changes the number of threads.
@@ -888,6 +886,16 @@ namespace exlib {
 			}
 
 		private:
+
+			friend struct make_worker_t;
+			struct make_worker_t {
+				thread_pool_a* parent;
+				std::thread operator()(char const&) const
+				{
+					return std::thread(&thread_pool_a::task_loop,parent);
+				}
+			};
+
 			friend struct make_job_functor_t;
 			template<typename Iter>
 			size_t append_no_sync(Iter begin,Iter end,std::random_access_iterator_tag)
