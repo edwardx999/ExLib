@@ -170,10 +170,10 @@ namespace exlib {
 			}
 			else if(*b!=*a)
 			{
-				if(int res=lowercase(*a)-lowercase(*b))
-				{
-					return res;
-				}
+				auto const la=lowercase(*a);
+				auto const lb=lowercase(*b);
+				if(la<lb) return -1;
+				if(la>lb) return 1;
 			}
 		}
 		return 0;
@@ -193,18 +193,23 @@ namespace exlib {
 		auto a_begin=a_start,b_begin=b_start;
 		for(;a_begin!=a_end&&*a_begin=='0';++a_begin);//strip away leading zeros
 		for(;b_begin!=b_end&&*b_begin=='0';++b_begin);
-		if(int res=(a_end-a_begin)-(b_end-b_begin))
 		{
-			return res;
+			std::size_t const anum_len=a_end-a_begin;
+			std::size_t const bnum_len=b_end-b_begin;
+			if(anum_len>bnum_len) return 1;
+			if(anum_len<bnum_len) return -1;
+			return 0;
 		}
 		for(auto ab=a_begin,bb=b_begin;ab!=a_end;++ab,++bb)
 		{
-			if(int res=*ab-*bb)
-			{
-				return res;
-			}
+			if(*ab>*bb) return 1;
+			if(*ab<*bb) return -1;
 		}
-		return int((b_begin-b_start)-(a_begin-a_start));
+		std::size_t const blength=b_end-b_start;
+		std::size_t const alength=a_end-a_start;
+		if(alength>blength) return 1;
+		if(alength<blength) return -1;
+		return 0;
 	}
 
 	//comparison similar to windows sorting
