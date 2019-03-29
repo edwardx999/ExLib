@@ -232,7 +232,7 @@ namespace exlib {
 			void internal_stop()
 			{
 				this->_active=false;
-				this->_jobs_done.notify_one();
+				this->_jobs_done.notify_all();
 			}
 			void stop_running()
 			{
@@ -243,7 +243,7 @@ namespace exlib {
 			void internal_terminate()
 			{
 				stop_running();
-				_jobs_done.notify_one();
+				_jobs_done.notify_all();
 			}
 
 			thread_pool_base(size_t num_threads,bool start):_workers(num_threads),_running(start),_active(start)
@@ -1041,7 +1041,7 @@ namespace exlib {
 					(*task)(parent_ref(*this),this->_input);
 					if(jobs_left==1)
 					{
-						this->_jobs_done.notify_one();
+						this->_jobs_done.notify_all();
 					}
 				}
 			}
