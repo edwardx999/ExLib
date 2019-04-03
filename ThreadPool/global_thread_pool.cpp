@@ -3,7 +3,10 @@
 namespace exlib {
 	namespace global_thread_pool {
 		namespace detail {
-			thread_pool pool;
+			thread_pool& get_pool() {
+				static thread_pool pool;
+				return pool;
+			}
 		}
 	}
 }

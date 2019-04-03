@@ -24,5 +24,16 @@
     <ClInclude Include="thread_pool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="global_thread_pool.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="global_thread_pool.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="gtptest.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

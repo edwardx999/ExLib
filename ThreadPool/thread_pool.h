@@ -22,6 +22,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <memory>
 #include <type_traits>
 #include <thread>
+#include <assert.h>
 #ifdef _MSVC_LANG
 #define _EXLIB_THREAD_POOL_HAS_CPP_20 _MSVC_LANG>=202000l
 #define _EXLIB_THREAD_POOL_HAS_CPP_17 _MSVC_LANG>=201700l
@@ -364,7 +365,7 @@ namespace exlib {
 	/*
 		Returns the hardware_concurrency, unless that returns 0, in which case returns def_val.
 	*/
-	decltype(std::thread::hardware_concurrency()) hardware_concurrency_or(decltype(std::thread::hardware_concurrency()) def_val=1)
+	inline decltype(std::thread::hardware_concurrency()) hardware_concurrency_or(decltype(std::thread::hardware_concurrency()) def_val=1)
 	{
 		auto const nt=std::thread::hardware_concurrency();
 		if(nt)
