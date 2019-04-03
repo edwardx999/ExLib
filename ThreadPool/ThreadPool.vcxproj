@@ -140,7 +140,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="global_thread_pool.cpp" />
-    <ClCompile Include="gtptest.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

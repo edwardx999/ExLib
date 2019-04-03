@@ -37,6 +37,9 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #else
 #define _EXLIB_THREAD_POOL_NODISCARD 
 #endif
+#if _EXLIB_THREAD_POOL_HAS_CPP_14
+#include <future>
+#endif
 namespace exlib {
 
 	namespace thread_pool_detail {
@@ -355,6 +358,26 @@ namespace exlib {
 		{
 			return transform_iterator<Base,typename std::decay<Functor>::type>(base,std::forward<Functor>(f));
 		}
+
+#if _EXLIB_THREAD_POOL_HAS_CPP_14
+		template<typename ReturnType>
+		struct set_promise_value {
+			template<typename Task, typename... Args>
+			static void set(std::promise<ReturnType>& promise, Task&& task, Args&& ... args)
+			{
+				promise.set_value(std::forward<Task>(task)(std::forward<Args>(args)...));
+			}
+		};
+		template<>
+		struct set_promise_value<void> {
+			template<typename Task, typename... Args>
+			static void set(std::promise<void>& promise, Task&& task, Args&& ... args)
+			{
+				std::forward<Task>(task)(std::forward<Args>(args)...);
+				promise.set_value();
+			}
+		};
+#endif
 	}
 	struct delay_start_t {};
 
@@ -379,6 +402,7 @@ namespace exlib {
 		/*
 			Thread pool where the threadpool stores the given arguments and each task is given those arguments.
 			There should only be one controlling thread.
+			No tasks added should throw.
 			Recommended using thread_pool if using a thread pool multiple times to avoid code bloat.
 		*/
 		template<typename... Args>
@@ -886,6 +910,28 @@ namespace exlib {
 				return num_jobs()==0;
 			}
 
+#if _EXLIB_THREAD_POOL_HAS_CPP_14
+			template<typename Task, typename... Args>
+			_EXLIB_THREAD_POOL_NODISCARD auto async(Task&& task,Args&&... args)
+			{
+				using Type=decltype(std::forward<Task>(task)(std::forward<Args>(args)...));
+				std::promise<Type> promise;
+				auto future = promise.get_future();
+				push_back([promise=std::move(promise),task=std::forward<Task>(task),args=std::forward<Args>(args)...](typename thread_pool::parent_ref) mutable
+				{
+					try
+					{
+						thread_pool_detail::set_promise_value<Type>::set(promise, std::forward<Task>(task), std::forward<Args>(args)...);
+					}
+					catch (...)
+					{
+						promise.set_exception(std::current_exception());
+					}
+				});
+				return future;
+			}
+#endif
+
 		private:
 
 			friend struct make_worker_t;
@@ -952,7 +998,7 @@ namespace exlib {
 			}
 			using TaskInput=std::tuple<thread_pool_detail::wrap_reference_t<Args>...>;
 			struct job {
-				virtual void operator()(parent_ref,TaskInput const& input)=0;
+				virtual void operator()(parent_ref,TaskInput const& input) noexcept=0;
 				virtual ~job()=default;
 			};
 			template<typename BaseFunc>
@@ -961,7 +1007,7 @@ namespace exlib {
 				template<typename F>
 				job_impl(F&& f):task(std::forward<F>(f))
 				{}
-				void operator()(parent_ref,TaskInput const& input) override
+				void operator()(parent_ref,TaskInput const& input) noexcept override
 				{
 					thread_pool_detail::apply(task,input);
 				}
@@ -972,7 +1018,7 @@ namespace exlib {
 				template<typename F>
 				job_impl_accept_parent(F&& f):task(std::forward<F>(f))
 				{}
-				void operator()(parent_ref tp,TaskInput const& input) override
+				void operator()(parent_ref tp,TaskInput const& input) noexcept override
 				{
 					thread_pool_detail::apply_fa(task,tp,input);
 				}
@@ -997,6 +1043,7 @@ namespace exlib {
 			template<typename Task>
 			static auto make_job(Task&& the_task) -> decltype(std::forward<Task>(the_task)(std::declval<parent_ref>(),std::declval<Args>()...),std::unique_ptr<job>())
 			{
+				static_assert(noexcept(std::forward<Task>(the_task)(std::declval<parent_ref>(),std::declval<Args>()...)),"Tasks cannot throw, use async/promise if you need errors");
 				return std::unique_ptr<job>(new job_impl_accept_parent<thread_pool_detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
 			}
 
@@ -1007,12 +1054,13 @@ namespace exlib {
 			}
 
 			template<typename Task>
-			static auto make_job2(Task&& the_task)  -> decltype(std::forward<Task>(the_task)(std::declval<Args>()...),std::unique_ptr<job>())
+			static auto make_job2(Task&& the_task) -> decltype(std::forward<Task>(the_task)(std::declval<Args>()...),std::unique_ptr<job>())
 			{
+				static_assert(noexcept(std::forward<Task>(the_task)(std::declval<Args>()...)),"Tasks cannot throw, use async/promise if you need errors");
 				return std::unique_ptr<job>(new job_impl<thread_pool_detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
 			}
 
-			void task_loop()
+			void task_loop() noexcept
 			{
 				while(true)
 				{
