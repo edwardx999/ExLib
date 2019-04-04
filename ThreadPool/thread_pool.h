@@ -359,11 +359,10 @@ namespace exlib {
 			return transform_iterator<Base,typename std::decay<Functor>::type>(base,std::forward<Functor>(f));
 		}
 
-#if _EXLIB_THREAD_POOL_HAS_CPP_14
 		template<typename ReturnType>
 		struct set_promise_value {
 			template<typename Task, typename... Args>
-			static void set(std::promise<ReturnType>& promise, Task&& task, Args&& ... args)
+			static void set(std::promise<ReturnType>& promise,Task&& task,Args&&... args)
 			{
 				promise.set_value(std::forward<Task>(task)(std::forward<Args>(args)...));
 			}
@@ -371,13 +370,29 @@ namespace exlib {
 		template<>
 		struct set_promise_value<void> {
 			template<typename Task, typename... Args>
-			static void set(std::promise<void>& promise, Task&& task, Args&& ... args)
+			static void set(std::promise<void>& promise,Task&& task,Args&&... args)
 			{
 				std::forward<Task>(task)(std::forward<Args>(args)...);
 				promise.set_value();
 			}
 		};
-#endif
+
+		template<typename Task,typename ReturnType,typename... Args>
+		struct TaskDoer {
+			Task task;
+			std::promise<ReturnType> promise;
+			void operator()(Args... args) noexcept
+			{
+				try
+				{
+					thread_pool_detail::set_promise_value<ReturnType>::set(promise,std::forward<Task>(task),std::forward<Args>(args)...);
+				}
+				catch (...)
+				{
+					promise.set_exception(std::current_exception());
+				}
+			}
+		};
 	}
 	struct delay_start_t {};
 
@@ -910,27 +925,31 @@ namespace exlib {
 				return num_jobs()==0;
 			}
 
-#if _EXLIB_THREAD_POOL_HAS_CPP_14
-			template<typename Task, typename... Args>
-			_EXLIB_THREAD_POOL_NODISCARD auto async(Task&& task,Args&&... args)
+			/*
+				Returns a future representing the result of running the given task asynchronously.
+			*/
+			template<typename Task>
+			_EXLIB_THREAD_POOL_NODISCARD auto async(Task&& task) -> std::future<decltype(std::forward<Task>(task)(std::declval<parent_ref>(),std::declval<Args>()...))>
 			{
-				using Type=decltype(std::forward<Task>(task)(std::forward<Args>(args)...));
-				std::promise<Type> promise;
-				auto future = promise.get_future();
-				push_back([promise=std::move(promise),task=std::forward<Task>(task),args=std::forward<Args>(args)...](typename thread_pool::parent_ref) mutable
-				{
-					try
-					{
-						thread_pool_detail::set_promise_value<Type>::set(promise, std::forward<Task>(task), std::forward<Args>(args)...);
-					}
-					catch (...)
-					{
-						promise.set_exception(std::current_exception());
-					}
-				});
+				using Type=decltype(std::forward<Task>(task)(parent_ref{*this}, std::declval<Args>()...));
+				thread_pool_detail::TaskDoer<typename std::decay<Task>::type,Type,parent_ref,Args...> doer{std::forward<Task>(task)};
+				auto future=doer.promise.get_future();
+				push_back(std::move(doer));
 				return future;
 			}
-#endif
+
+			/*
+				Returns a future representing the result of running the given task asynchronously.
+			*/
+			template<typename Task,typename... Extra>
+			_EXLIB_THREAD_POOL_NODISCARD auto async(Task&& task,Extra...) -> std::future<decltype(std::forward<Task>(task)(std::declval<Args>()...))>
+			{
+				using Type=decltype(std::forward<Task>(task)(std::declval<Args>()...));
+				thread_pool_detail::TaskDoer<typename std::decay<Task>::type,Type,Args...> doer{std::forward<Task>(task)};
+				auto future = doer.promise.get_future();
+				push_back(std::move(doer));
+				return future;
+			}
 
 		private:
 
