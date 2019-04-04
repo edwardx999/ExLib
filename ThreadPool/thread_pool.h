@@ -403,7 +403,7 @@ namespace exlib {
 		};
 
 		template<typename... Args,typename Task>
-		auto fake_invoke(Task task) -> decltype(task(std::declval<Args>()...));
+		auto fake_invoke(Task task) noexcept(noexcept(task(std::declval<Args>()...))) -> decltype(task(std::declval<Args>()...));
 
 		template<typename Task,typename... Args>
 		struct TaskDoer {
@@ -953,7 +953,7 @@ namespace exlib {
 				Returns a future representing the result of running the given task asynchronously.
 			*/
 			template<typename Task>
-			_EXLIB_THREAD_POOL_NODISCARD auto async(Task&& task) -> decltype(std::future<decltype(thread_pool_detail::fake_invoke<parent_ref,Args...>(std::forward<Task>(task)))>{})
+			_EXLIB_THREAD_POOL_NODISCARD auto async(Task&& task) -> std::future<decltype(thread_pool_detail::fake_invoke<parent_ref,Args...>(std::forward<Task>(task)))>
 			{
 				thread_pool_detail::TaskDoer<Task,parent_ref,Args...> doer{std::forward<Task>(task)};
 				auto future=doer.promise.get_future();
@@ -965,8 +965,9 @@ namespace exlib {
 				Returns a future representing the result of running the given task asynchronously.
 			*/
 			template<typename Task,typename... Extra>
-			_EXLIB_THREAD_POOL_NODISCARD auto async(Task&& task,Extra...) -> decltype(std::future<decltype(thread_pool_detail::fake_invoke<Args...>(std::forward<Task>(task)))>{})
+			_EXLIB_THREAD_POOL_NODISCARD auto async(Task&& task,Extra...) -> std::future<decltype(thread_pool_detail::fake_invoke<Args...>(std::forward<Task>(task)))>
 			{
+				static_assert(sizeof...(Extra)==0,"These arguments are only for SFINAE. Use lambda capture/bind if you want to arguments passed to a functor.");
 				thread_pool_detail::TaskDoer<Task,Args...> doer{std::forward<Task>(task)};
 				auto future=doer.promise.get_future();
 				push_back(std::move(doer));
@@ -1082,9 +1083,9 @@ namespace exlib {
 
 			//overload to try to fit to pass arguments with parent
 			template<typename Task>
-			static auto make_job(Task&& the_task) -> decltype(std::declval<typename std::decay<Task>::type>()(std::declval<parent_ref>(),std::declval<Args>()...),std::unique_ptr<job>())
+			static auto make_job(Task&& the_task) -> decltype(thread_pool_detail::fake_invoke<parent_ref,Args...>(std::forward<Task>(the_task)),std::unique_ptr<job>())
 			{
-				static_assert(noexcept(std::declval<typename std::decay<Task>::type>()(std::declval<parent_ref>(),std::declval<Args>()...)),"Tasks cannot throw, use async/promise if you need errors");
+				static_assert(noexcept(thread_pool_detail::fake_invoke<parent_ref,Args...>(std::forward<Task>(the_task))),"Tasks cannot throw, use async/promise if you need errors");
 				return std::unique_ptr<job>(new job_impl_accept_parent<thread_pool_detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
 			}
 
@@ -1095,9 +1096,9 @@ namespace exlib {
 			}
 
 			template<typename Task>
-			static auto make_job2(Task&& the_task) -> decltype(std::forward<Task>(the_task)(std::declval<Args>()...),std::unique_ptr<job>())
+			static auto make_job2(Task&& the_task) -> decltype(thread_pool_detail::fake_invoke<Args...>(std::forward<Task>(the_task)),std::unique_ptr<job>())
 			{
-				static_assert(noexcept(std::forward<Task>(the_task)(std::declval<Args>()...)),"Tasks cannot throw, use async/promise if you need errors");
+				static_assert(noexcept(thread_pool_detail::fake_invoke<Args...>(std::forward<Task>(the_task))),"Tasks cannot throw, use async/promise if you need errors");
 				return std::unique_ptr<job>(new job_impl<thread_pool_detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
 			}
 
