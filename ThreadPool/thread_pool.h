@@ -37,9 +37,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #else
 #define _EXLIB_THREAD_POOL_NODISCARD 
 #endif
-#if _EXLIB_THREAD_POOL_HAS_CPP_14
 #include <future>
-#endif
 namespace exlib {
 
 	namespace thread_pool_detail {

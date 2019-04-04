@@ -28,7 +28,7 @@ namespace exlib {
 		}
 
 		template<typename Task>
-		auto async(Task&& task) -> decltype(detail::get_pool().async(std::forward<Task>(task)))
+		_EXLIB_THREAD_POOL_NODISCARD auto async(Task&& task) -> decltype(detail::get_pool().async(std::forward<Task>(task)))
 		{
 			return detail::get_pool().async(std::forward<Task>(task));
 		}
