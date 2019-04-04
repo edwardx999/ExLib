@@ -377,7 +377,7 @@ namespace exlib {
 			}
 		};
 
-		template<typename Task,typename ReturnType,typename... Args>
+		template<bool no_throw/*=false*/,typename Task,typename ReturnType,typename... Args>
 		struct TaskDoer {
 			Task task;
 			std::promise<ReturnType> promise;
@@ -393,7 +393,18 @@ namespace exlib {
 				}
 			}
 		};
+
+		template<typename Task,typename ReturnType,typename... Args>
+		struct TaskDoer<true,Task,ReturnType,Args...> {
+			Task task;
+			std::promise<ReturnType> promise;
+			void operator()(Args... args) noexcept
+			{
+				thread_pool_detail::set_promise_value<ReturnType>::set(promise,std::forward<Task>(task),std::forward<Args>(args)...);
+			}
+		};
 	}
+
 	struct delay_start_t {};
 
 #if _EXLIB_THREAD_POOL_HAS_CPP_17
@@ -931,8 +942,9 @@ namespace exlib {
 			template<typename Task>
 			_EXLIB_THREAD_POOL_NODISCARD auto async(Task&& task) -> std::future<decltype(std::forward<Task>(task)(std::declval<parent_ref>(),std::declval<Args>()...))>
 			{
-				using Type=decltype(std::forward<Task>(task)(parent_ref{*this}, std::declval<Args>()...));
-				thread_pool_detail::TaskDoer<typename std::decay<Task>::type,Type,parent_ref,Args...> doer{std::forward<Task>(task)};
+				using Type=decltype(std::forward<Task>(task)(parent_ref{*this},std::declval<Args>()...));
+				constexpr bool no_throw=noexcept(std::forward<Task>(task)(parent_ref{*this},std::declval<Args>()...));
+				thread_pool_detail::TaskDoer<no_throw,typename std::decay<Task>::type,Type,parent_ref,Args...> doer{std::forward<Task>(task)};
 				auto future=doer.promise.get_future();
 				push_back(std::move(doer));
 				return future;
@@ -945,7 +957,8 @@ namespace exlib {
 			_EXLIB_THREAD_POOL_NODISCARD auto async(Task&& task,Extra...) -> std::future<decltype(std::forward<Task>(task)(std::declval<Args>()...))>
 			{
 				using Type=decltype(std::forward<Task>(task)(std::declval<Args>()...));
-				thread_pool_detail::TaskDoer<typename std::decay<Task>::type,Type,Args...> doer{std::forward<Task>(task)};
+				constexpr bool no_throw=noexcept(std::forward<Task>(task)(std::declval<Args>()...));
+				thread_pool_detail::TaskDoer<no_throw,typename std::decay<Task>::type,Type,Args...> doer{std::forward<Task>(task)};
 				auto future = doer.promise.get_future();
 				push_back(std::move(doer));
 				return future;
