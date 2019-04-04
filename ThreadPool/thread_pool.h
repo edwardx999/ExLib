@@ -377,34 +377,45 @@ namespace exlib {
 			}
 		};
 
-		template<bool no_throw/*=false*/,typename Task,typename... Args>
-		struct TaskDoer {
-			Task task;
-			using ReturnType=decltype(task(std::declval<Args>()...));
-			std::promise<ReturnType> promise;
-			void operator()(Args... args) noexcept
+		template<bool no_throw>
+		struct TaskDoerImpl {
+			template<typename Task,typename ReturnType,typename... Args>
+			static void run(Task& task,std::promise<ReturnType>& promise,Args&&... args)
 			{
 				try
 				{
 					thread_pool_detail::set_promise_value<ReturnType>::set(promise,task,std::forward<Args>(args)...);
 				}
-				catch (...)
+				catch(...)
 				{
 					promise.set_exception(std::current_exception());
 				}
 			}
 		};
 
-		template<typename Task,typename... Args>
-		struct TaskDoer<true,Task,Args...> {
-			Task task;
-			using ReturnType=decltype(task(std::declval<Args>()...));
-			std::promise<ReturnType> promise;
-			void operator()(Args... args) noexcept
+		template<>
+		struct TaskDoerImpl<true> {
+			template<typename Task,typename ReturnType,typename... Args>
+			static void run(Task& task,std::promise<ReturnType>& promise,Args&&... args)
 			{
 				thread_pool_detail::set_promise_value<ReturnType>::set(promise,task,std::forward<Args>(args)...);
 			}
 		};
+
+		template<typename... Args,typename Task>
+		auto fake_invoke(Task task) -> decltype(task(std::declval<Args>()...));
+
+		template<typename Task,typename... Args>
+		struct TaskDoer {
+			typename std::decay<Task>::type task;
+			using ReturnType=decltype(fake_invoke<Args...>(std::move(task)));
+			std::promise<ReturnType> promise;
+			void operator()(Args... args) noexcept
+			{
+				TaskDoerImpl<noexcept(task(std::declval<Args>()...))>::run(task,promise,std::forward<Args>(args)...);
+			}
+		};
+
 	}
 
 	struct delay_start_t {};
@@ -942,10 +953,9 @@ namespace exlib {
 				Returns a future representing the result of running the given task asynchronously.
 			*/
 			template<typename Task>
-			_EXLIB_THREAD_POOL_NODISCARD auto async(Task&& task) -> std::future<decltype(std::forward<Task>(task)(std::declval<parent_ref>(),std::declval<Args>()...))>
+			_EXLIB_THREAD_POOL_NODISCARD auto async(Task&& task) -> decltype(std::future<decltype(thread_pool_detail::fake_invoke<parent_ref,Args...>(std::forward<Task>(task)))>{})
 			{
-				constexpr bool no_throw=noexcept(std::forward<Task>(task)(parent_ref{*this},std::declval<Args>()...));
-				thread_pool_detail::TaskDoer<no_throw,typename std::decay<Task>::type,parent_ref,Args...> doer{std::forward<Task>(task)};
+				thread_pool_detail::TaskDoer<Task,parent_ref,Args...> doer{std::forward<Task>(task)};
 				auto future=doer.promise.get_future();
 				push_back(std::move(doer));
 				return future;
@@ -955,11 +965,10 @@ namespace exlib {
 				Returns a future representing the result of running the given task asynchronously.
 			*/
 			template<typename Task,typename... Extra>
-			_EXLIB_THREAD_POOL_NODISCARD auto async(Task&& task,Extra...) -> std::future<decltype(std::forward<Task>(task)(std::declval<Args>()...))>
+			_EXLIB_THREAD_POOL_NODISCARD auto async(Task&& task,Extra...) -> decltype(std::future<decltype(thread_pool_detail::fake_invoke<Args...>(std::forward<Task>(task)))>{})
 			{
-				constexpr bool no_throw=noexcept(std::forward<Task>(task)(std::declval<Args>()...));
-				thread_pool_detail::TaskDoer<no_throw,typename std::decay<Task>::type,Args...> doer{std::forward<Task>(task)};
-				auto future = doer.promise.get_future();
+				thread_pool_detail::TaskDoer<Task,Args...> doer{std::forward<Task>(task)};
+				auto future=doer.promise.get_future();
 				push_back(std::move(doer));
 				return future;
 			}
