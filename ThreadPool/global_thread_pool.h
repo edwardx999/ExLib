@@ -27,7 +27,7 @@ namespace exlib {
 			detail::get_pool().push_front(std::forward<Tasks>(tasks)...);
 		}
 
-		template<typename Tasks>
+		template<typename Task>
 		auto async(Task&& task) -> decltype(detail::get_pool().async(std::forward<Task>(task)))
 		{
 			return detail::get_pool().async(std::forward<Task>(task));
