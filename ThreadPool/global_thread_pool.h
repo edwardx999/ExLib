@@ -27,13 +27,11 @@ namespace exlib {
 			detail::get_pool().push_front(std::forward<Tasks>(tasks)...);
 		}
 
-#if _EXLIB_THREAD_POOL_HAS_CPP_14
-		template<typename Task,typename... Args>
-		auto async(Task&& task,Args&&... args)
+		template<typename Tasks>
+		auto async(Task&& task) -> decltype(detail::get_pool().async(std::forward<Task>(task)))
 		{
-			return detail::get_pool().async(std::forward<Task>(task),std::forward<Args>(args)...);
+			return detail::get_pool().async(std::forward<Task>(task));
 		}
-#endif
 	}
 }
 #endif
