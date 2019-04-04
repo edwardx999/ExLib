@@ -132,7 +132,7 @@ namespace exlib {
 #if _EXLIB_THREAD_POOL_HAS_CPP_17
 
 		template<typename... Args>
-		using no_rvalue_references=std::conjunction<std::negation<std::is_rvalue_reference<Args>>...>;
+		using no_rvalue_references=std::bool_constant<(!std::is_rvalue_reference_v<Args>&&...)>;
 #else
 		template<typename... Args>
 		struct no_rvalue_references;
