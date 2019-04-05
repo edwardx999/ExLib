@@ -648,10 +648,10 @@ namespace exlib {
 				Makes threads look for tasks. Useful after stop() has been called to reactivate job search.
 				Resets the args passed to the threads.
 			*/
-			template<typename... Args>
-			void reactivate(Args&&... args)
+			template<typename... TupleArgs>
+			void reactivate(TupleArgs&&... args)
 			{
-				set_args(std::forward<Args>(args)...);
+				set_args(std::forward<TupleArgs>(args)...);
 				this->reactivate();
 			}
 
@@ -1104,7 +1104,7 @@ namespace exlib {
 			template<typename Task,typename... Extra>
 			static std::unique_ptr<job> make_job2(Task&& the_task,Extra...)
 			{
-				static_assert(false,"Task fails to accepts proper arguments; must accept (parent_ref, Args...), or (Args...)");
+				static_assert(!std::is_same<Task,Task>::value,"Task fails to accepts proper arguments; must accept (parent_ref, Args...), or (Args...)");
 			}
 
 			template<typename Task>
