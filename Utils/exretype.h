@@ -35,7 +35,13 @@ namespace exlib {
 	};
 
 	namespace empty_store_impl {
-		template<typename Type,bool ShouldInherit=std::is_empty<Type>::value>
+		template<typename Type,bool ShouldInherit=std::is_empty<Type>::value&& 
+#if _EXRETYPE_HAS_CPP_14
+			!std::is_final<Type>::value
+#else
+			false
+#endif
+		>
 		class empty_store_base {
 			Type _value;
 		public:
