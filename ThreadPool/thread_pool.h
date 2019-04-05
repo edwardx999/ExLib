@@ -156,7 +156,7 @@ namespace exlib {
 			joining_thread() noexcept=default;
 			joining_thread(joining_thread&&) noexcept=default;
 			joining_thread& operator=(joining_thread&&) noexcept=default;
-			~joining_thread()
+			~joining_thread() noexcept
 			{
 				if(this->joinable())
 				{
