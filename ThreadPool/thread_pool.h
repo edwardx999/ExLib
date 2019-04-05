@@ -149,6 +149,22 @@ namespace exlib {
 		template<typename T>
 		using remove_cvref_t=typename std::remove_cv<typename std::remove_reference<T>::type>::type;
 #endif
+
+		class joining_thread:public std::thread {
+		public:
+			using std::thread::thread;
+			joining_thread() noexcept=default;
+			joining_thread(joining_thread&&) noexcept=default;
+			joining_thread& operator=(joining_thread&&) noexcept=default;
+			~joining_thread()
+			{
+				if(this->joinable())
+				{
+					this->join();
+				}
+			}
+		};
+
 		/*
 			The base of the threadpool that does not depend on special arguments.
 		*/
@@ -168,7 +184,7 @@ namespace exlib {
 			void stop()
 			{
 				_active=false;
-				std::unique_lock<std::mutex> lock(_mtx);
+				std::lock_guard<std::mutex> lock(_mtx);
 			}
 
 			/*
@@ -253,7 +269,7 @@ namespace exlib {
 			std::mutex mutable _mtx;
 			std::condition_variable _signal_start;
 			std::condition_variable _jobs_done;
-			std::vector<std::thread> _workers;
+			std::vector<joining_thread> _workers;
 			//whether threads are running
 			std::atomic<bool> _running;
 			//whether threads are actively looking for jobs
@@ -640,19 +656,16 @@ namespace exlib {
 			}
 
 			/*
-				Waits for all jobs to be finished or for it to be stop()ed (be inactived).
+				Waits for all jobs to be finished or for it to be stop()ed (be inactivated).
 				Threads keep running (if they already were), but tasks can be added without synchronization.
 			*/
 			void wait()
 			{
-				if(this->_active)
+				std::unique_lock<std::mutex> lock(this->_mtx);
+				this->_jobs_done.wait(lock,[this]
 				{
-					std::unique_lock<std::mutex> lock(this->_mtx);
-					this->_jobs_done.wait(lock,[this]
-						{
-							return this->wait_func();
-						});
-				}
+					return this->idle();
+				});
 			}
 
 			enum wait_state:bool {
@@ -661,7 +674,7 @@ namespace exlib {
 
 			/*
 				Waits for all jobs to be finished or to be stop()ed.
-				If thread pool is not active, does nothing and returns true. Returns false if timeout expired.
+				Returns false if timeout expired, otherwise true.
 			*/
 			template<typename Rep,typename Period>
 			wait_state wait_for(std::chrono::duration<Rep,Period> const& rel_time)
@@ -672,20 +685,16 @@ namespace exlib {
 
 			/*
 				Waits for all jobs to be finished or to be stop()ed.
-				If thread pool is not active, does nothing and returns true. Returns false if timeout expired.
+				Returns false if timeout expired, otherwise true.
 			*/
 			template<typename Clock,typename Duration>
 			wait_state wait_until(std::chrono::time_point<Clock,Duration> const& rel_time)
 			{
-				if(this->_active)
+				std::unique_lock<std::mutex> lock(this->_mtx);
+				return this->_jobs_done.wait_until(lock,rel_time,[this]
 				{
-					std::unique_lock<std::mutex> lock(this->_mtx);
-					return this->_jobs_done.wait_until(lock,rel_time,[this]
-						{
-							return this->wait_func();
-						});
-				}
-				return true;
+					return this->idle();
+				});
 			}
 
 			/*
@@ -702,10 +711,7 @@ namespace exlib {
 			*/
 			void join()
 			{
-				wait();
-				this->_active=false;
-				this->_running=false;
-				this->_signal_start.notify_all();
+				join_base();
 				this->join_all();
 			}
 
@@ -714,7 +720,7 @@ namespace exlib {
 			*/
 			~thread_pool_a() noexcept //if join errors, something's wrong with the threads and program should crash
 			{
-				join();
+				join_base();
 			}
 
 			/*
@@ -973,13 +979,21 @@ namespace exlib {
 			}
 
 		private:
+			
+			void join_base()
+			{
+				wait();
+				this->_active=false;
+				this->_running=false;
+				this->_signal_start.notify_all();
+			}
 
 			friend struct make_worker_t;
 			struct make_worker_t {
 				thread_pool_a* parent;
-				std::thread operator()(char const&) const
+				thread_pool_detail::joining_thread operator()(char const&) const
 				{
-					return std::thread(&thread_pool_a::task_loop,parent);
+					return thread_pool_detail::joining_thread(&thread_pool_a::task_loop,parent);
 				}
 			};
 
@@ -1024,7 +1038,7 @@ namespace exlib {
 					});
 				return count;
 			}
-			bool wait_func() noexcept
+			bool idle() noexcept
 			{
 				return !this->_active||this->_jobs.empty();
 			}
@@ -1033,7 +1047,7 @@ namespace exlib {
 				assert(num_threads()!=0);
 				for(auto& worker:this->_workers)
 				{
-					worker=std::thread(&thread_pool_a::task_loop,this);
+					worker=thread_pool_detail::joining_thread(&thread_pool_a::task_loop,this);
 				}
 			}
 			using TaskInput=std::tuple<thread_pool_detail::wrap_reference_t<Args>...>;
