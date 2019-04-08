@@ -93,7 +93,7 @@ namespace exlib {
 	class unique_function<Ret(Args...)> {
 		void(*_deleter)(void*);
 		Ret(*_func)(void*,Args...);
-		using Data=typename std::aligned_storage<unique_func_det::max_size, alignof(std::max_align_t)>::type;
+		using Data=typename std::aligned_storage<unique_func_det::max_size,alignof(std::max_align_t)>::type;
 		Data _data;
 		void cleanup()
 		{
