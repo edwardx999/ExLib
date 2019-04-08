@@ -82,7 +82,6 @@ namespace exlib {
 
 		template<typename Func>
 		struct func_constructor<Func,false> {
-			template<typename Func>
 			static void construct(void* location,Func func)
 			{
 				*static_cast<Func**>(location)=new Func{std::move(func)};
