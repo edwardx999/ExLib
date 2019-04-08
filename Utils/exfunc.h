@@ -95,6 +95,8 @@ namespace exlib {
 			}
 		}
 	public:
+		using result_type=Ret;
+
 		unique_function() noexcept:_deleter{nullptr},_func{nullptr}{}
 
 		template<typename Func>
@@ -119,7 +121,7 @@ namespace exlib {
 		{
 			if(_func)
 			{
-				return _func(static_cast<void*>(const_cast<size_t*>(_data.data())),std::forward<Args>(args)...);
+				return _func(const_cast<size_t*>(_data.data()),std::forward<Args>(args)...);
 			}
 			throw std::bad_function_call{};
 		}

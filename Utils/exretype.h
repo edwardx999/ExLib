@@ -327,28 +327,28 @@ namespace exlib {
 	*/
 	template<typename T>
 	struct ref_transfer {
-		T& _base;
+		T* _base;
 	public:
 		ref_transfer(ref_transfer const&)=delete;
-		constexpr ref_transfer(T& obj) noexcept:_base(obj)
+		constexpr ref_transfer(T& obj) noexcept:_base(&obj)
 		{}
-		constexpr ref_transfer(T* obj) noexcept:_base(*obj)
+		constexpr ref_transfer(T* obj) noexcept:_base(obj)
 		{}
 		constexpr operator T* () const noexcept
 		{
-			return &_base;
+			return _base;
 		}
 		constexpr T& operator*() const noexcept
 		{
-			return _base;
+			return *_base;
 		}
 		constexpr T* operator->() const noexcept
 		{
-			return &_base;
+			return _base;
 		}
 		constexpr explicit operator bool() const noexcept
 		{
-			return &_base;
+			return _base;
 		}
 	};
 
