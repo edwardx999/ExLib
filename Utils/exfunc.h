@@ -102,6 +102,7 @@ namespace exlib {
 			_deleter{&unique_func_det::indirect_deleter<Func>::do_delete},
 			_func{&unique_func_det::indirect_call<Func,Ret(Args...)>::call_me}
 		{
+			static_assert(alignof(Func)<=alignof(decltype(_data)),"Overaligned functions not supported");
 			unique_func_det::func_constructor<Func>::construct(_data.data(),std::move(func));
 		}
 
@@ -116,7 +117,7 @@ namespace exlib {
 
 		Ret operator()(Args... args) const
 		{
-			if (_func)
+			if(_func)
 			{
 				return _func(static_cast<void*>(const_cast<size_t*>(_data.data())),std::forward<Args>(args)...);
 			}
