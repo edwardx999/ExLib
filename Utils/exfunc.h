@@ -1,15 +1,21 @@
 #pragma once
 #ifndef EXFUNC_H
 #define EXFUNC_H
-#include <cstdint>
 #include <utility>
 #include <type_traits>
-#include <memory>
-#include <functional>
 #include <cstddef>
+#include <exception>
 namespace exlib {
 	template<typename Sig>
 	class unique_function;
+
+	class bad_function_call:public std::exception {
+	public:
+		virtual char const* what() const noexcept override
+		{
+			return "bad function call";
+		}
+	};
 
 	namespace unique_func_det {
 
@@ -131,7 +137,7 @@ namespace exlib {
 			{
 				return _func(const_cast<Data*>(&_data),std::forward<Args>(args)...);
 			}
-			throw std::bad_function_call{};
+			throw exlib::bad_function_call{};
 		}
 
 		template<typename Func>
