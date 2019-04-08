@@ -13,7 +13,7 @@ namespace exlib {
 
 	namespace unique_func_det {
 
-		template<typename T,bool trivial=std::is_nothrow_destructible<T>::value>
+		template<typename T,bool trivial/*false*/>
 		struct deleter {
 			constexpr static void do_delete(void* data)
 			{
@@ -32,21 +32,26 @@ namespace exlib {
 		constexpr size_t max_size=6*sizeof(std::size_t);
 #endif
 
-		template<typename T,bool fits=sizeof(T)<=max_size>
+		template<typename T,bool trivial=std::is_trivially_destructible<T>::value,bool fits=sizeof(T)<=max_size>
 		struct indirect_deleter {
 			constexpr static void do_delete(void* data)
 			{
-				deleter<T>::do_delete(data);
+				deleter<T,trivial>::do_delete(data);
 			}
 		};
-		template<typename Func>
-		struct indirect_deleter<Func,false> {
+		template<typename Func,bool trivial>
+		struct indirect_deleter<Func,trivial,false> {
 			constexpr static void do_delete(void* data)
 			{
 				auto const real_data=*static_cast<Func**>(data);
-				deleter<Func>::do_delete(real_data);
+				deleter<Func,trivial>::do_delete(real_data);
 				delete real_data;
 			}
+		};
+
+		template<typename Func>
+		struct indirect_deleter<Func,true,true> {
+			constexpr static void(*do_delete)(void*)=nullptr;
 		};
 		
 		template<typename Func,typename Sig,bool fits=sizeof(Func)<=max_size>
@@ -105,8 +110,8 @@ namespace exlib {
 
 		template<typename Func>
 		unique_function(Func func):
-			_deleter{&unique_func_det::indirect_deleter<Func>::do_delete},
-			_func{&unique_func_det::indirect_call<Func,Ret(Args...)>::call_me}
+			_deleter{unique_func_det::indirect_deleter<Func>::do_delete},
+			_func{unique_func_det::indirect_call<Func,Ret(Args...)>::call_me}
 		{
 			static_assert(alignof(Func)<=alignof(Data),"Overaligned functions not supported");
 			unique_func_det::func_constructor<Func>::construct(&_data,std::move(func));
