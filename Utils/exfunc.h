@@ -169,7 +169,7 @@ namespace exlib {
 	template<typename Sig>
 	class unique_function:unique_func_det::get_call_op<unique_function<Sig>,Sig> {
 		using get_call_op=unique_func_det::get_call_op<unique_function<Sig>,Sig>;
-		friend struct get_call_op;
+		friend get_call_op;
 		template<typename Ret,typename UniqueFunc,typename... Args>
 		friend Ret unique_func_det::call_op(UniqueFunc&,Args...);
 
