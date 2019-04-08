@@ -1,5 +1,5 @@
 /*
-Contains utilities for combining and recreating types.
+Contains unique_function, a move-only version of function
 
 Copyright 2019 Edward Xie
 
