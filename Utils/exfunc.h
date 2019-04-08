@@ -120,7 +120,7 @@ namespace exlib {
 		{
 			if(_deleter)
 			{
-				_deleter(static_cast<void*>(&_data));
+				_deleter(&_data);
 			}
 		}
 	public:
