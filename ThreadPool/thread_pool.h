@@ -131,6 +131,9 @@ namespace exlib {
 
 		template<typename... Args>
 		using no_rvalue_references=std::bool_constant<(!std::is_rvalue_reference_v<Args>&&...)>;
+
+		template<typename... Args>
+		using all_nothrow_copyable=std::bool_constant<(std::is_nothrow_copy_constructible_v<Args>&&...)>;
 #else
 		template<typename... Args>
 		struct no_rvalue_references;
@@ -140,6 +143,15 @@ namespace exlib {
 
 		template<typename T,typename... Rest>
 		struct no_rvalue_references<T,Rest...>:std::integral_constant<bool,!std::is_rvalue_reference<T>::value&&no_rvalue_references<Rest...>::value> {};
+
+		template<typename... Args>
+		struct all_nothrow_copyable;
+
+		template<>
+		struct all_nothrow_copyable<>:std::true_type {};
+
+		template<typename T, typename... Rest>
+		struct all_nothrow_copyable<T, Rest...>:std::integral_constant<bool,std::is_nothrow_copy_constructible<T>::value&&all_nothrow_copyable<Rest...>::value> {};
 #endif
 
 #if _EXLIB_THREAD_POOL_HAS_CPP_20
@@ -462,6 +474,7 @@ namespace exlib {
 		class thread_pool_a:thread_pool_detail::thread_pool_base {
 		public:
 			static_assert(thread_pool_detail::no_rvalue_references<Args...>::value,"rvalue references not allowed as arguments");
+			static_assert(thread_pool_detail::all_nothrow_copyable<Args...>::value,"Arguments must be no-throw copyable (thread_pool_a has no exception handling mechanism).");
 
 			friend class parent_ref;
 			/*
@@ -1097,7 +1110,7 @@ namespace exlib {
 			template<typename Task>
 			static auto make_job(Task&& the_task) -> decltype(thread_pool_detail::fake_invoke<parent_ref,Args...>(std::forward<Task>(the_task)),std::unique_ptr<job>())
 			{
-				static_assert(noexcept(thread_pool_detail::fake_invoke<parent_ref,Args...>(std::forward<Task>(the_task))),"Tasks cannot throw, use async/promise if you need errors");
+				static_assert(noexcept(thread_pool_detail::fake_invoke<parent_ref,Args...>(std::forward<Task>(the_task))),"Tasks cannot throw (thread_pool_a has no exception handling mechanism); use async/promise if you need errors.");
 				return std::unique_ptr<job>(new job_impl_accept_parent<thread_pool_detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
 			}
 
@@ -1110,7 +1123,7 @@ namespace exlib {
 			template<typename Task>
 			static auto make_job2(Task&& the_task) -> decltype(thread_pool_detail::fake_invoke<Args...>(std::forward<Task>(the_task)),std::unique_ptr<job>())
 			{
-				static_assert(noexcept(thread_pool_detail::fake_invoke<Args...>(std::forward<Task>(the_task))),"Tasks cannot throw, use async/promise if you need errors");
+				static_assert(noexcept(thread_pool_detail::fake_invoke<Args...>(std::forward<Task>(the_task))), "Tasks cannot throw (thread_pool_a has no exception handling mechanism); use async/promise if you need errors.");
 				return std::unique_ptr<job>(new job_impl<thread_pool_detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
 			}
 
