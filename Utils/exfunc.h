@@ -6,7 +6,7 @@
 #include <type_traits>
 #include <memory>
 #include <functional>
-#include <array>
+#include <cstddef>
 namespace exlib {
 	template<typename Sig>
 	class unique_function;
@@ -26,8 +26,11 @@ namespace exlib {
 			{}
 		};
 
-		constexpr size_t max_size_count = 4;
-		constexpr size_t max_size = sizeof(std::size_t[max_size_count]);
+#ifdef EX_UNIQUE_FUNCTION_MAX_SIZE
+		constexpr size_t max_size=EX_UNIQUE_FUNCTION_MAX_SIZE;
+#else
+		constexpr size_t max_size=6*sizeof(std::size_t);
+#endif
 
 		template<typename T,bool fits=sizeof(T)<=max_size>
 		struct indirect_deleter {
@@ -86,12 +89,13 @@ namespace exlib {
 	class unique_function<Ret(Args...)> {
 		void(*_deleter)(void*);
 		Ret(*_func)(void*,Args...);
-		std::array<std::size_t,unique_func_det::max_size_count> _data;
+		using Data=typename std::aligned_storage<unique_func_det::max_size, alignof(std::max_align_t)>::type;
+		Data _data;
 		void cleanup()
 		{
 			if(_deleter)
 			{
-				_deleter(static_cast<void*>(_data.data()));
+				_deleter(static_cast<void*>(&_data));
 			}
 		}
 	public:
@@ -104,8 +108,8 @@ namespace exlib {
 			_deleter{&unique_func_det::indirect_deleter<Func>::do_delete},
 			_func{&unique_func_det::indirect_call<Func,Ret(Args...)>::call_me}
 		{
-			static_assert(alignof(Func)<=alignof(decltype(_data)),"Overaligned functions not supported");
-			unique_func_det::func_constructor<Func>::construct(_data.data(),std::move(func));
+			static_assert(alignof(Func)<=alignof(Data),"Overaligned functions not supported");
+			unique_func_det::func_constructor<Func>::construct(&_data,std::move(func));
 		}
 
 		unique_function(unique_function&& o) noexcept:_func{std::exchange(o._func,nullptr)},_deleter{std::exchange(o._deleter,nullptr)},_data{o._data}
@@ -121,7 +125,7 @@ namespace exlib {
 		{
 			if(_func)
 			{
-				return _func(const_cast<size_t*>(_data.data()),std::forward<Args>(args)...);
+				return _func(const_cast<Data*>(&_data),std::forward<Args>(args)...);
 			}
 			throw std::bad_function_call{};
 		}
