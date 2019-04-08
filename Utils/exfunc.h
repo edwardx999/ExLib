@@ -127,7 +127,7 @@ namespace exlib {
 		struct get_call_op;
 
 		template<typename Ret,typename UniqueFunction,typename... Args>
-		Ret call_op(UniqueFunction& func,Args... args)
+		Ret call_op(UniqueFunction& func,Args&&... args)
 		{
 			if(func._func)
 			{
@@ -171,7 +171,7 @@ namespace exlib {
 		using get_call_op=unique_func_det::get_call_op<unique_function<Sig>,Sig>;
 		friend get_call_op;
 		template<typename Ret,typename UniqueFunc,typename... Args>
-		friend Ret unique_func_det::call_op(UniqueFunc&,Args...);
+		friend Ret unique_func_det::call_op(UniqueFunc&,Args&&...);
 
 		using DeleterType=void(*)(void*);
 		DeleterType _deleter;
