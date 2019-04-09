@@ -21,13 +21,13 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <regex>
 #include <string>
 #ifdef _MSVC_LANG
-#define _EXFILES_HAS_CPP_20 _MSVC_LANG>=202000L
-#define _EXFILES_HAS_CPP_17 _MSVC_LANG>=201700L
-#define _EXFILES_HAS_CPP_14 _MSVC_LANG>=201400L
+#define _EXFILES_HAS_CPP_20 (_MSVC_LANG>=202000L)
+#define _EXFILES_HAS_CPP_17 (_MSVC_LANG>=201700L)
+#define _EXFILES_HAS_CPP_14 (_MSVC_LANG>=201400L)
 #else
-#define _EXFILES_HAS_CPP_20 __cplusplus>=202000L
-#define _EXFILES_HAS_CPP_17 __cplusplus>=201700L
-#define _EXFILES_HAS_CPP_14 __cplusplus>=201400L
+#define _EXFILES_HAS_CPP_20 (__cplusplus>=202000L)
+#define _EXFILES_HAS_CPP_17 (__cplusplus>=201700L)
+#define _EXFILES_HAS_CPP_14 (__cplusplus>=201400L)
 #endif
 namespace exlib {
 

@@ -21,13 +21,13 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <cstdlib>
 #include <assert.h>
 #ifdef _MSVC_LANG
-#define _EXMATH_HAS_CPP_20 _MSVC_LANG>=202000l
-#define _EXMATH_HAS_CPP_17 _MSVC_LANG>=201700l
-#define _EXMATH_HAS_CPP_14 _MSVC_LANG>=201400l
+#define _EXMATH_HAS_CPP_20 (_MSVC_LANG>=202000l)
+#define _EXMATH_HAS_CPP_17 (_MSVC_LANG>=201700l)
+#define _EXMATH_HAS_CPP_14 (_MSVC_LANG>=201400l)
 #else
-#define _EXMATH_HAS_CPP_20 __cplusplus>=202000l
-#define _EXMATH_HAS_CPP_17 __cplusplus>=201700l
-#define _EXMATH_HAS_CPP_14 __cplusplus>=201400l
+#define _EXMATH_HAS_CPP_20 (__cplusplus>=202000l)
+#define _EXMATH_HAS_CPP_17 (__cplusplus>=201700l)
+#define _EXMATH_HAS_CPP_14 (__cplusplus>=201400l)
 #endif
 
 #define EX_CONSTEXPR constexpr

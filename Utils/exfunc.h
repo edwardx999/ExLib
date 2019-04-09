@@ -20,6 +20,11 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <type_traits>
 #include <cstddef>
 #include <exception>
+#ifdef _MSVC_LANG
+#define _EXFUNC_HAS_CPP_17 (_MSVC_LANG>=201700L)
+#else
+#define _EXFUNC_HAS_CPP_17 (__cplusplus>=201700L)
+#endif
 namespace exlib {
 
 	class bad_function_call:public std::exception {
@@ -32,30 +37,27 @@ namespace exlib {
 
 	namespace unique_func_det {
 
-		template<typename T,bool trivial/*false*/>
-		struct deleter {
-			constexpr static void do_delete(void* data)
-			{
-				static_cast<T*>(data)->~T();
-			}
-		};
-		template<typename T>
-		struct deleter<T,true> {
-			constexpr static void do_delete(void* data)
-			{}
-		};
-
 #ifdef EX_UNIQUE_FUNCTION_MAX_SIZE
 		constexpr size_t max_size=EX_UNIQUE_FUNCTION_MAX_SIZE;
 #else
 		constexpr size_t max_size=6*sizeof(std::size_t);
 #endif
+		constexpr size_t alignment=alignof(std::max_align_t);
 
-		template<typename T,bool trivial=std::is_trivially_destructible<T>::value,bool fits=sizeof(T)<=max_size>
+		template<typename T>
+		struct type_fits:std::integral_constant<bool,(alignof(T)<=alignment)&&(sizeof(T)<=max_size)>{};
+
+		template<typename T,bool trivial=std::is_trivially_destructible<T>::value,bool fits=type_fits<T>::value>
 		struct indirect_deleter {
-			constexpr static void do_delete(void* data)
+			static void destroy(void* data,std::false_type)
 			{
-				deleter<T,trivial>::do_delete(data);
+				static_cast<T*>(data)->~T();
+			}
+			static void destroy(void* data,std::true_type)
+			{}
+			static void do_delete(void* data)
+			{
+				destroy(data,std::integral_constant<bool,trivial>{});
 			}
 		};
 		template<typename Func,bool trivial>
@@ -63,7 +65,6 @@ namespace exlib {
 			constexpr static void do_delete(void* data)
 			{
 				auto const real_data=*static_cast<Func**>(data);
-				deleter<Func,trivial>::do_delete(real_data);
 				delete real_data;
 			}
 		};
@@ -106,8 +107,7 @@ namespace exlib {
 				return (**static_cast<Func const* const*>(obj))(std::forward<Args>(args)...);
 			}
 		};
-
-		template<typename Func,bool fits=sizeof(Func)<=max_size>
+		template<typename Func,bool fits=type_fits<Func>::value>
 		struct func_constructor {
 			static void construct(void* location,Func func)
 			{
@@ -119,6 +119,9 @@ namespace exlib {
 		struct func_constructor<Func,false> {
 			static void construct(void* location,Func func)
 			{
+#if !_EXFUNC_HAS_CPP_17
+				static_assert(alignof(Func)<=alignment,"Overaligned functions not supported");
+#endif
 				*static_cast<Func**>(location)=new Func{std::move(func)};
 			}
 		};
@@ -177,7 +180,7 @@ namespace exlib {
 		DeleterType _deleter;
 		using FuncType=typename unique_func_det::get_pfunc<Sig>::type;
 		FuncType _func;
-		using Data=typename std::aligned_storage<unique_func_det::max_size,alignof(std::max_align_t)>::type;
+		using Data=typename std::aligned_storage<unique_func_det::max_size,unique_func_det::alignment>::type;
 		Data _data;
 		void cleanup()
 		{
@@ -196,7 +199,6 @@ namespace exlib {
 			_deleter{unique_func_det::indirect_deleter<Func>::do_delete},
 			_func{unique_func_det::indirect_call<Func,Sig>::call_me}
 		{
-			static_assert(alignof(Func)<=alignof(Data),"Overaligned functions not supported");
 			unique_func_det::func_constructor<Func>::construct(&_data,std::move(func));
 		}
 

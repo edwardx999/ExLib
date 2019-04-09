@@ -19,7 +19,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <array>
 #include <algorithm>
 #define FORCEINLINE __forceinline
-#if __cplusplus>=201700l
+#if (__cplusplus>=201700l)
 #define IFCONSTEXPR constexpr
 #else
 #define IFCONSTEXPR
