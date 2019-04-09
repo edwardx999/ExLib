@@ -42,6 +42,7 @@ namespace exlib {
 #else
 		constexpr size_t max_size=6*sizeof(std::size_t);
 #endif
+		static_assert(max_size>=sizeof(void*),"Unique function must be able to fit at least a pointer.");
 		constexpr size_t alignment=alignof(std::max_align_t);
 
 		template<typename T>
@@ -108,7 +109,7 @@ namespace exlib {
 			}
 		}; 
 #pragma warning(push)
-#pragma warning(disable:4789) //MSVC complains about initializing overaligned types even when the specialization is used
+#pragma warning(disable:4789) //MSVC complains about initializing overaligned types even when the other specialization is used
 		template<typename Func,bool fits=type_fits<Func>::value>
 		struct func_constructor {
 			static void construct(void* location,Func func)
