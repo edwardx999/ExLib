@@ -23,6 +23,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <type_traits>
 #include <thread>
 #include <assert.h>
+#include <algorithm>
 #ifdef _MSVC_LANG
 #define _EXLIB_THREAD_POOL_HAS_CPP_20 (_MSVC_LANG>=202000L)
 #define _EXLIB_THREAD_POOL_HAS_CPP_17 (_MSVC_LANG>=201700L)
@@ -317,7 +318,7 @@ namespace exlib {
 			{}
 			transform_iterator(Base base):transform_iterator(base,Functor{})
 			{}
-#define make_op_for_gi(op)  transform_iterator operator op(difference_type d) const{return {_base op d,static_cast<Functor const&>(*this)}; } transform_iterator& operator op##=(difference_type d) const{_base op##= d; return *this; }
+#define make_op_for_gi(op)  transform_iterator operator op(difference_type d) const{return {_base op d,static_cast<Functor const&>(*this)}; } transform_iterator& operator op##=(difference_type d) {_base op##= d; return *this; }
 			make_op_for_gi(-)
 				make_op_for_gi(+)
 #undef make_op_for_gi
@@ -906,8 +907,47 @@ namespace exlib {
 					if(size>this->_workers.size())
 					{
 						make_worker_t maker{this};
-						auto begin=thread_pool_detail::make_transform_iterator(reinterpret_cast<char*>(0),maker);
-						decltype(begin) end{reinterpret_cast<char*>(this->_workers.size())};
+						struct count_iter {
+							using iterator_category=std::random_access_iterator_tag;
+							using difference_type=std::ptrdiff_t;
+							using value_type=size_t;
+							using reference=value_type;
+							using pointer=value_type const*;
+							size_t _count;
+							size_t operator*() const
+							{
+								return _count;
+							}
+							pointer operator->() const
+							{
+								return &_count;
+							}
+							std::ptrdiff_t operator-(count_iter o) const
+							{
+								return _count-o._count;
+							}
+							count_iter& operator++()
+							{
+								++_count;
+								return *this;
+							}
+							count_iter operator--()
+							{
+								auto copy{*this};
+								++_count;
+								return *this;
+							}
+							bool operator==(count_iter o) const
+							{
+								return _count==o._count;
+							}
+							bool operator!=(count_iter o) const
+							{
+								return _count!=o._count;
+							}
+						};
+						auto begin=thread_pool_detail::make_transform_iterator(count_iter{0},maker);
+						decltype(begin) end{count_iter{this->_workers.size()}};
 						_workers.insert(_workers.end(),begin,end);
 					}
 					else
@@ -1002,7 +1042,7 @@ namespace exlib {
 			friend struct make_worker_t;
 			struct make_worker_t {
 				thread_pool_a* parent;
-				thread_pool_detail::joining_thread operator()(char const&) const
+				thread_pool_detail::joining_thread operator()(size_t const&) const
 				{
 					return thread_pool_detail::joining_thread(&thread_pool_a::task_loop,parent);
 				}
