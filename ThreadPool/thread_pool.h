@@ -126,9 +126,7 @@ namespace exlib {
 			apply_fa_h(std::forward<Func>(f),std::forward<FirstArg>(fa),std::forward<Tuple>(tpl),make_index_sequence<std::tuple_size<typename std::remove_reference<Tuple>::type>::value>{});
 		}
 
-
 #if _EXLIB_THREAD_POOL_HAS_CPP_17
-
 		template<typename... Args>
 		using no_rvalue_references=std::bool_constant<(!std::is_rvalue_reference_v<Args>&&...)>;
 
@@ -387,7 +385,7 @@ namespace exlib {
 
 		template<typename ReturnType>
 		struct set_promise_value {
-			template<typename Task, typename... Args>
+			template<typename Task,typename... Args>
 			static void set(std::promise<ReturnType>& promise,Task& task,Args&&... args)
 			{
 				promise.set_value(task(std::forward<Args>(args)...));
@@ -395,7 +393,7 @@ namespace exlib {
 		};
 		template<>
 		struct set_promise_value<void> {
-			template<typename Task, typename... Args>
+			template<typename Task,typename... Args>
 			static void set(std::promise<void>& promise,Task& task,Args&&... args)
 			{
 				task(std::forward<Args>(args)...);
