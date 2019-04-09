@@ -47,7 +47,7 @@ namespace exlib {
 		template<typename T>
 		struct type_fits:std::integral_constant<bool,(alignof(T)<=alignment)&&(sizeof(T)<=max_size)>{};
 
-		template<typename T,typename trivial=std::is_trivially_destructible<T>,bool fits=type_fits<T>::value>
+		template<typename T,bool trivial=std::is_trivially_destructible<T>::value,bool fits=type_fits<T>::value>
 		struct indirect_deleter {
 			static void destroy(void* data,std::false_type)
 			{
@@ -57,10 +57,10 @@ namespace exlib {
 			{}
 			static void do_delete(void* data)
 			{
-				destroy(data,trivial{});
+				destroy(data,std::integral_constant<bool,trivial>{});
 			}
 		};
-		template<typename Func,typename trivial>
+		template<typename Func,bool trivial>
 		struct indirect_deleter<Func,trivial,false> {
 			constexpr static void do_delete(void* data)
 			{
@@ -70,7 +70,7 @@ namespace exlib {
 		};
 
 		template<typename Func>
-		struct indirect_deleter<Func,std::true_type,true> {
+		struct indirect_deleter<Func,true,true> {
 			constexpr static void(*do_delete)(void*)=nullptr;
 		};
 		
