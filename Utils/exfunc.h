@@ -47,7 +47,7 @@ namespace exlib {
 		template<typename T>
 		struct type_fits:std::integral_constant<bool,(alignof(T)<=alignment)&&(sizeof(T)<=max_size)>{};
 
-		template<typename T,bool trivial=std::is_trivially_destructible<T>::value,bool fits=type_fits<T>::value>
+		template<typename T,typename trivial=std::is_trivially_destructible<T>,bool fits=type_fits<T>::value>
 		struct indirect_deleter {
 			static void destroy(void* data,std::false_type)
 			{
@@ -57,10 +57,10 @@ namespace exlib {
 			{}
 			static void do_delete(void* data)
 			{
-				destroy(data,std::integral_constant<bool,trivial>{});
+				destroy(data,trivial{});
 			}
 		};
-		template<typename Func,bool trivial>
+		template<typename Func,typename trivial>
 		struct indirect_deleter<Func,trivial,false> {
 			constexpr static void do_delete(void* data)
 			{
@@ -70,11 +70,11 @@ namespace exlib {
 		};
 
 		template<typename Func>
-		struct indirect_deleter<Func,true,true> {
+		struct indirect_deleter<Func,std::true_type,true> {
 			constexpr static void(*do_delete)(void*)=nullptr;
 		};
 		
-		template<typename Func,typename Sig,bool fits=sizeof(Func)<=max_size>
+		template<typename Func,typename Sig,bool fits=type_fits<Func>::value>
 		struct indirect_call;
 
 		template<typename Func,typename Ret,typename... Args>
@@ -106,7 +106,9 @@ namespace exlib {
 			{
 				return (**static_cast<Func const* const*>(obj))(std::forward<Args>(args)...);
 			}
-		};
+		}; 
+#pragma warning(push)
+#pragma warning(disable:4789) //MSVC complains about initializing overaligned types even when the specialization is used
 		template<typename Func,bool fits=type_fits<Func>::value>
 		struct func_constructor {
 			static void construct(void* location,Func func)
@@ -114,6 +116,7 @@ namespace exlib {
 				new (location) Func{std::move(func)};
 			}
 		};
+#pragma warning(pop)
 
 		template<typename Func>
 		struct func_constructor<Func,false> {
