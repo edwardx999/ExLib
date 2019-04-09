@@ -13,6 +13,8 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 */
 #ifndef EX_MEM_H
 #define EX_MEM_H
+#ifndef EXMEM_H
+#define EXMEM_H
 #include <stdexcept>
 #include <vector>
 #include <type_traits>
@@ -1073,4 +1075,5 @@ namespace exlib {
 	};
 }
 #undef IFCONSTEXPR
+#endif
 #endif
