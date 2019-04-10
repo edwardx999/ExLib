@@ -235,6 +235,25 @@ namespace exlib {
 			{
 				return _mtx.try_lock();
 			}
+
+			/*
+				Signals thread pool to stop looking for work.
+			*/
+			void signal_stop()
+			{
+				this->_active=false;
+				this->_jobs_done.notify_all();
+			}
+
+			/*
+				Signals thread pool to terminate.
+			*/
+			void signal_terminate()
+			{
+				stop_running();
+				_jobs_done.notify_all();
+			}
+
 		protected:
 
 			void notify_count(size_t count)
@@ -258,21 +277,11 @@ namespace exlib {
 					}
 				}
 			}
-			void internal_stop()
-			{
-				this->_active=false;
-				this->_jobs_done.notify_all();
-			}
 			void stop_running()
 			{
 				this->_running=false;
 				this->_signal_start.notify_all();
 				this->_active=false;
-			}
-			void internal_terminate()
-			{
-				stop_running();
-				_jobs_done.notify_all();
 			}
 
 			thread_pool_base(size_t num_threads,bool start):_workers(num_threads),_running(start),_active(start)
@@ -491,7 +500,7 @@ namespace exlib {
 				*/
 				void stop()
 				{
-					parent.internal_stop();
+					parent.signal_stop();
 				}
 				/*
 					See thread_pool_a::push_back
@@ -561,7 +570,7 @@ namespace exlib {
 				*/
 				void terminate()
 				{
-					parent.internal_terminate();
+					parent.signal_terminate();
 				}
 				void lock()
 				{
@@ -596,6 +605,7 @@ namespace exlib {
 					return parent.num_threads();
 				}
 			};
+
 			using const_parent_ref=parent_ref const;
 			using thread_pool_base::reactivate;
 			using thread_pool_base::active;
@@ -604,6 +614,9 @@ namespace exlib {
 			using thread_pool_base::lock;
 			using thread_pool_base::unlock;
 			using thread_pool_base::try_lock;
+			using thread_pool_base::signal_stop;
+			using thread_pool_base::signal_terminate;
+
 			/*
 				Starts the threadpool with a certain number of threads and arguments initialized to the given arguments.
 			*/
