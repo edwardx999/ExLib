@@ -44,18 +44,8 @@ namespace std {
 #endif
 namespace exlib {
 
-	template<typename A,typename B>
-	_EXALG_NODISCARD constexpr typename max_cref<A,B>::type min(A&& a,B&& b) noexcept(noexcept(a<b))
-	{
-		if(a<b)
-		{
-			return std::forward<A>(a);
-		}
-		return std::forward<B>(b);
-	}
-
-	template<typename A,typename B,typename Compare>
-	_EXALG_NODISCARD constexpr typename max_cref<A,B>::type min(A&& a,B&& b,Compare c) noexcept(noexcept(c(a,b)))
+	template<typename A,typename B,typename Compare=std::less<void>>
+	_EXALG_NODISCARD constexpr typename max_cref<A,B>::type min(A&& a,B&& b,Compare c={}) noexcept(noexcept(c(a,b)))
 	{
 		if(c(a,b))
 		{
@@ -64,18 +54,8 @@ namespace exlib {
 		return std::forward<B>(b);
 	}
 
-	template<typename A,typename B>
-	_EXALG_NODISCARD constexpr typename max_cref<A,B>::type max(A&& a,B&& b) noexcept(noexcept(a<b))
-	{
-		if(a<b)
-		{
-			return std::forward<B>(b);
-		}
-		return std::forward<A>(a);
-	}
-
-	template<typename A,typename B,typename Compare>
-	_EXALG_NODISCARD constexpr typename max_cref<A,B>::type max(A&& a,B&& b,Compare c) noexcept (noexcept(c(a,b)))
+	template<typename A,typename B,typename Compare=std::less<void>>
+	_EXALG_NODISCARD constexpr typename max_cref<A,B>::type max(A&& a,B&& b,Compare c={}) noexcept (noexcept(c(a,b)))
 	{
 		if(c(a,b))
 		{
@@ -84,24 +64,79 @@ namespace exlib {
 		return std::forward<A>(a);
 	}
 
-	template<typename A,typename B>
-	_EXALG_NODISCARD constexpr std::pair<typename max_cref<A,B>::type,typename max_cref<A,B>::type> minmax(A&& a,B&& b) noexcept(noexcept(a<b))
-	{
-		if(a<b)
-		{
-			return {std::forward<A>(a),std::forward<B>(b)};
-		}
-		return {std::forward<B>(b),std::forward<A>(a)};
-	}
-
-	template<typename A,typename B,typename Compare>
-	_EXALG_NODISCARD constexpr std::pair<typename max_cref<A,B>::type,typename max_cref<A,B>::type> minmax(A&& a,B&& b,Compare c) noexcept(noexcept(c(a,b)))
+	template<typename A,typename B,typename Compare=std::less<void>>
+	_EXALG_NODISCARD constexpr std::pair<typename max_cref<A,B>::type,typename max_cref<A,B>::type> minmax(A&& a,B&& b,Compare c={}) noexcept(noexcept(c(a,b)))
 	{
 		if(c(a,b))
 		{
 			return {std::forward<A>(a),std::forward<B>(b)};
 		}
 		return {std::forward<B>(b),std::forward<A>(a)};
+	}
+
+	template<typename Iter,typename Transform,typename Compare=std::less<void>>
+	_EXALG_NODISCARD constexpr Iter min_keyed_element(Iter begin,Iter end,Transform transform,Compare c={}) noexcept(noexcept(transform(*begin))&&noexcept(c(transform(*begin),transform(*begin))))
+	{
+		if(begin==end)
+		{
+			return end;
+		}
+		auto min_val=transform(*begin);
+		auto min_iter=begin;
+		++begin;
+		for(;begin!=end;++begin)
+		{
+			auto value=transform(*begin);
+			if(c(value,min_val))
+			{
+				min_iter=begin;
+				min_val=std::move(value);
+			}
+		}
+		return min_iter;
+	}
+
+	template<typename Iter,typename Transform,typename Compare=std::less<void>>
+	_EXALG_NODISCARD constexpr Iter max_keyed_element(Iter begin,Iter end,Transform transform,Compare c={}) noexcept(noexcept(min_keyed_element(begin,end,std::move(transform),std::move(c))))
+	{
+		using type=decltype(transform(*begin));
+		struct inverter {
+			Compare c;
+			constexpr bool operator()(type const& a,type const& b) const noexcept(noexcept(c(a,b)))
+			{
+				return !(c(a,b));
+			}
+		};
+		return min_keyed_element(begin,end,std::move(transform),inverter{std::move(c)});
+	}
+
+	template<typename Iter,typename Transform,typename Compare=std::less<void>>
+	_EXALG_NODISCARD constexpr std::pair<Iter,Iter> minmax_keyed_element(Iter begin,Iter end,Transform transform,Compare c={}) noexcept(noexcept(transform(*begin))&&noexcept(c(transform(*begin),transform(*begin))))
+	{
+		if(begin==end)
+		{
+			return end;
+		}
+		auto min_val=transform(*begin);
+		auto max_val=min_val;
+		auto min_iter=begin;
+		auto max_iter=begin;
+		++begin;
+		for(;begin!=end;++begin)
+		{
+			auto value=transform(*begin);
+			if(c(value,min_val))
+			{
+				min_iter=begin;
+				min_val=std::move(value);
+			}
+			else
+			{
+				max_iter=begin;
+				max_val=std::move(value);
+			}
+		}
+		return {min_iter,max_iter};
 	}
 }
 
@@ -789,26 +824,26 @@ namespace exlib {
 	template<typename Comp,typename First,typename... Rest>
 	constexpr auto make_ct_map(First&& f,Rest&& ... r)
 	{
-		return ct_map<First::key_type,First::mapped_type,1+sizeof...(r),Comp>(std::forward<First>(f),std::forward<Rest>(r)...);
+		return ct_map<typename First::key_type,typename First::mapped_type,1+sizeof...(r),Comp>(std::forward<First>(f),std::forward<Rest>(r)...);
 	}
 
 	//inputs should be of type map_pair<Key,Value>
 	template<typename First,typename... T>
 	constexpr auto make_ct_map(First&& k,T&& ... rest)
 	{
-		return make_ct_map<compare<First::key_type>>(std::forward<First>(k),std::forward<T>(rest)...);
+		return make_ct_map<compare<typename First::key_type>>(std::forward<First>(k),std::forward<T>(rest)...);
 	}
 
 	template<typename Comp,typename T,size_t N>
 	constexpr auto make_ct_map(std::array<T,N> const& in)
 	{
-		return ct_map<T::key_type,T::mapped_type,N,Comp>(in);
+		return ct_map<typename T::key_type,typename T::mapped_type,N,Comp>(in);
 	}
 
 	template<typename T,size_t N>
 	constexpr auto make_ct_map(std::array<T,N> const& in)
 	{
-		return make_ct_map<compare<First::key_type>>(in);
+		return make_ct_map<compare<typename T::key_type>>(in);
 	}
 
 	namespace detail {
@@ -903,7 +938,7 @@ namespace exlib {
 		}
 
 		template<typename Ret,size_t... Is,typename Funcs,typename... Args>
-		constexpr Ret apply_ind_jump_h(size_t i,std::index_sequence<Is...>,Funcs&& funcs,Args&& ... args)
+		Ret apply_ind_jump_h(size_t i,std::index_sequence<Is...>,Funcs&& funcs,Args&& ... args)
 		{
 			using Func=Ret(Funcs&&,Args&&...);
 			static constexpr Func* jtable[]={&apply_single<Ret,Is,Funcs,Args...>...};
@@ -1030,10 +1065,12 @@ namespace exlib {
 	public:
 		size_t parse(char const* str,size_t len)
 		{
-
+			throw "Not implemented";
 		}
 		size_t parse(char const*)
-		{}
+		{
+			throw "Not implemented";
+		}
 	};
 }
 #endif

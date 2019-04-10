@@ -20,6 +20,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <array>
 #include <cstdlib>
 #include <assert.h>
+#include <cmath>
 #ifdef _MSVC_LANG
 #define _EXMATH_HAS_CPP_20 (_MSVC_LANG>=202000l)
 #define _EXMATH_HAS_CPP_17 (_MSVC_LANG>=201700l)
@@ -124,7 +125,7 @@ namespace exlib {
 			}
 			return mod_ring{mod-(o._val-_val),no_mod_tag{}};
 		}
-#define cassmd(op) constexpr mod_ring operator op(mod_ring const& o)&& { mod_ring ret(std::move(*this)); ret ##op##=o; return ret;}
+#define cassmd(op) constexpr mod_ring operator op(mod_ring const& o)&& { mod_ring ret(std::move(*this)); ret op ## =o; return ret;}
 		cassmd(+)
 			cassmd(-)
 			cassmd(*)
@@ -261,17 +262,17 @@ namespace exlib {
 	}
 
 	template<typename T,typename U>
-	constexpr U clamp(T val,U min,U max)
+	constexpr typename std::decay<U>::type clamp(T&& val,U&& min,U&& max)
 	{
 		if(val>max)
 		{
-			return max;
+			return std::forward<U>(max);
 		}
 		if(val<min)
 		{
-			return min;
+			return std::forward<U>(min);
 		}
-		return static_cast<U>(val);
+		return static_cast<typename std::decay<U>::type>(std::forward<T>(val));
 	}
 
 	template<typename U,typename T>
@@ -288,8 +289,8 @@ namespace exlib {
 		return static_cast<U>(val);
 	}
 
-	template<typename T1,typename T2> constexpr auto abs_dif(T1 x,T2 y) ->
-		decltype(x-y)
+	template<typename T1,typename T2> 
+	constexpr auto abs_dif(T1 x,T2 y) -> decltype(x-y)
 	{
 		return (x>y?x-y:y-x);
 	}
@@ -753,7 +754,7 @@ namespace exlib {
 			auto min=std::min_element(begin,end,c);
 			return std::fill_n(out,distance,*min);
 		}
-		return detail::get_fatten(begin,end,radius,out,c,std::iterator_traits<InputIter>::iterator_category{});
+		return detail::get_fatten(begin,end,radius,out,c,typename std::iterator_traits<InputIter>::iterator_category{});
 	}
 
 	/*
@@ -770,7 +771,7 @@ namespace exlib {
 	template<typename RandomAccessContainer>
 	RandomAccessContainer fattened_profile(RandomAccessContainer const& prof,size_t hp)
 	{
-		typedef std::decay<decltype(*prof.begin())>::type T;
+		typedef typename std::decay<decltype(*prof.begin())>::type T;
 		if EX_CONSTIF(std::is_trivially_copyable<T>::value&&sizeof(T)<=sizeof(size_t))
 		{
 			return fattened_profile(prof,hp,[](auto a,auto b)
@@ -790,8 +791,8 @@ namespace exlib {
 	template<typename T>
 	class LimitedSet {
 	public:
-		typedef typename ::std::vector<typename T>::iterator iterator;
-		typedef typename ::std::vector<typename T>::const_iterator const_iterator;
+		using iterator=typename ::std::vector<T>::iterator;
+		using const_iterator=typename ::std::vector<T>::const_iterator;
 	private:
 		size_t _max_size;
 		::std::vector<T> _data;
@@ -842,37 +843,36 @@ namespace exlib {
 			if(comp(in,_data.front()))
 			{
 				_data.insert(_data.begin(),std::forward<U>(in));
-				goto end;
 			}
-			if(!(comp(in,_data.back())))
+			else if(!(comp(in,_data.back())))
 			{
 				_data.insert(_data.end(),std::forward<U>(in));
-				goto end;
 			}
-			auto b=_data.begin();
-			auto e=_data.end();
-			decltype(b) m;
-			while(b<e)
+			else
 			{
-				m=b+std::distance(b,e)/2;
-				if(comp(in,*m))
+				auto b=_data.begin();
+				auto e=_data.end();
+				while(b<e)
 				{
-					if(!(comp(in,*(m-1))))
+					auto const m=b+std::distance(b,e)/2;
+					if(comp(in,*m))
 					{
-						_data.insert(m,std::forward<U>(in));
-						goto end;
+						if(!(comp(in,*(m-1))))
+						{
+							_data.insert(m,std::forward<U>(in));
+							break;
+						}
+						else
+						{
+							e=m;
+						}
 					}
 					else
 					{
-						e=m;
+						b=m+1;
 					}
 				}
-				else
-				{
-					b=m+1;
-				}
 			}
-end:
 			if(_data.size()>_max_size)
 			{
 				_data.erase(_data.end()-1);
@@ -959,9 +959,6 @@ end:
 }
 
 namespace std {
-	template<>
-	exlib::BigInteger const& max<exlib::BigInteger>(exlib::BigInteger const&,exlib::BigInteger const&);
-
 	template<>
 	struct is_integral<exlib::BigInteger>:public std::true_type {};
 
