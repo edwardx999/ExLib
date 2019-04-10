@@ -109,7 +109,7 @@ namespace exlib {
 	template<typename T>
 	struct const_param_type
 		:std::conditional<
-		std::is_trivially_copyable<T>::value&&sizeof(T)<=sizeof(size_t),
+		std::is_trivially_copyable<T>::value&&sizeof(T)<=sizeof(std::size_t),
 		T const,
 		T const&> {};
 
@@ -118,7 +118,7 @@ namespace exlib {
 		using type=T*const;
 	};
 
-	template<typename T,size_t N>
+	template<typename T,std::size_t N>
 	struct const_param_type<T[N]> {
 		using type=T*const;
 	};
@@ -355,7 +355,7 @@ namespace exlib {
 
 	namespace detail {
 
-		template<size_t N>
+		template<std::size_t N>
 		struct match_size {
 			using type=void;
 		};
@@ -390,7 +390,7 @@ namespace exlib {
 	/*
 		Gets the unsigned integer with the given size.
 	*/
-	template<size_t N>
+	template<std::size_t N>
 	struct match_size:detail::suppress_void<typename detail::match_size<N>::type> {
 		static_assert(!std::is_same<typename detail::match_size<N>::type,void>::value,"No matching uint type of given size");
 	};
@@ -398,12 +398,12 @@ namespace exlib {
 	/*
 		The unsigned integer type matching the given size.
 	*/
-	template<size_t N>
+	template<std::size_t N>
 	using match_size_t=typename match_size<N>::type;
 
 	namespace detail {
 
-		template<size_t N>
+		template<std::size_t N>
 		struct match_float_size_h {
 			template<typename... Extra>
 			static auto try_long_double(int,Extra...) -> decltype(std::enable_if<sizeof(long double)==N,long double>::type());
@@ -424,7 +424,7 @@ namespace exlib {
 			static_assert(!std::is_same<type,void>::value,"No floating-point type matching size");
 		};
 
-		template<size_t N>
+		template<std::size_t N>
 		struct least_float_size_h {
 			template<typename... Extra>
 			static auto try_long_double(int,Extra...) -> decltype(std::enable_if<sizeof(long double)>=N,long double>::type());
@@ -445,7 +445,7 @@ namespace exlib {
 			static_assert(!std::is_same<type,void>::value,"No floating-point type at least size");
 		};
 
-		template<size_t N>
+		template<std::size_t N>
 		struct least_size_h {
 			template<typename... Extra>
 			static auto try64(int,Extra...) -> decltype(std::enable_if<sizeof(uint64_t)>=N,uint64_t>::type());
@@ -475,37 +475,37 @@ namespace exlib {
 	/*
 		Gets the floating point data type with same size as given amount.
 	*/
-	template<size_t N>
+	template<std::size_t N>
 	struct match_float_size:detail::suppress_void<typename detail::match_float_size_h<N>::type> {};
 
 	/*
 		Floating point data type with same size as given amount.
 	*/
-	template<size_t N>
+	template<std::size_t N>
 	using match_float_size_t=typename match_float_size<N>::type;
 
 	/*
 		Gets the floating point data type with size at least given amount.
 	*/
-	template<size_t N>
+	template<std::size_t N>
 	struct least_float_size:detail::suppress_void<typename detail::least_float_size_h<N>::type> {};
 
 	/*
 		Floating point data type with size at least given amount.
 	*/
-	template<size_t N>
+	template<std::size_t N>
 	using least_float_size_t=typename least_float_size<N>::type;
 
 	/*
 		Gets the unsigned integer data type with size at least given amount.
 	*/
-	template<size_t N>
+	template<std::size_t N>
 	struct least_size:detail::least_size_h<N> {};
 
 	/*
 		Unsigned integer data type with size at least given amount.
 	*/
-	template<size_t N>
+	template<std::size_t N>
 	using least_size_t=typename least_size<N>::type;
 
 	template<typename Forwardee>

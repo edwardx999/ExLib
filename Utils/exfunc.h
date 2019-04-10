@@ -29,7 +29,7 @@ namespace exlib {
 
 	class bad_function_call:public std::exception {
 	public:
-		virtual char const* what() const noexcept override
+		char const* what() const noexcept override
 		{
 			return "bad function call";
 		}
@@ -38,12 +38,12 @@ namespace exlib {
 	namespace unique_func_det {
 
 #ifdef EX_UNIQUE_FUNCTION_MAX_SIZE
-		constexpr size_t max_size=EX_UNIQUE_FUNCTION_MAX_SIZE;
+		constexpr std::size_t max_size=EX_UNIQUE_FUNCTION_MAX_SIZE;
 #else
-		constexpr size_t max_size=6*sizeof(std::size_t);
+		constexpr std::size_t max_size=6*sizeof(std::size_t);
 #endif
 		static_assert(max_size>=sizeof(void*),"Unique function must be able to fit at least a pointer.");
-		constexpr size_t alignment=alignof(std::max_align_t);
+		constexpr std::size_t alignment=alignof(std::max_align_t);
 
 		template<typename T>
 		struct type_fits:std::integral_constant<bool,(alignof(T)<=alignment)&&(sizeof(T)<=max_size)>{};

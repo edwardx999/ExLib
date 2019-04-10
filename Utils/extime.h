@@ -60,9 +60,9 @@ namespace exlib {
 	}
 	/*
 		Returns a pair of the time it takes to perform op on the args, and the result of that op.
-		By default the measure is std::chrono::milliseconds.
+		By default the measure is steady_clock::duration
 	*/
-	template<typename Measure=std::chrono::milliseconds,typename Op,typename... Args>
+	template<typename Measure=typename std::chrono::steady_clock::duration,typename Op,typename... Args>
 	constexpr auto time_action(Op&& op,Args&&... args) -> timing<Measure,decltype(std::forward<Op>(op)(std::forward<Args>(args)...))>
 	{
 		return detail::time_helper<Measure,decltype(std::forward<Op>(op)(std::forward<Args>(args)...))>::get(std::forward<Op>(op),std::forward<Args>(args)...);

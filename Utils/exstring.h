@@ -28,7 +28,7 @@ namespace exlib {
 	template<typename T,typename U>
 	constexpr int strcmp(T const* a,U const* b)
 	{
-		for(size_t i=0;;++i)
+		for(std::size_t i=0;;++i)
 		{
 			if(a[i]<b[i])
 			{
@@ -46,10 +46,10 @@ namespace exlib {
 	}
 
 	template<typename T>
-	constexpr size_t strlen(T const* p)
+	constexpr std::size_t strlen(T const* p)
 	{
 		assert(p!=nullptr);
-		size_t i=0;
+		std::size_t i=0;
 		while(p[i]!=0)
 		{
 			++i;
@@ -73,15 +73,15 @@ namespace exlib {
 	702	-> "aaa"
 	703	-> "aab"
 	...
-	String must have constructor that takes in (char* string,size_t count).
+	String must have constructor that takes in (char* string,std::size_t count).
 	Default buffer_size used to create the string is 15 (enough to fit 64 bit unsigned), increase if you need more.
 	Giving negative values to this function will result in odd behavior.
 	*/
 	template<
 		typename String=std::string,
 		typename String::value_type alphabet_start='a',
-		size_t alphabet_size='z'-alphabet_start+1,
-		size_t buffer_size=15,
+		std::size_t alphabet_size='z'-alphabet_start+1,
+		std::size_t buffer_size=15,
 		typename N
 	>
 		String ordinal_lettering(N n)
@@ -105,7 +105,7 @@ namespace exlib {
 	}
 
 	template<typename String>
-	String front_padded_string(String const& in,size_t numpadding,typename String::value_type padding)
+	String front_padded_string(String const& in,std::size_t numpadding,typename String::value_type padding)
 	{
 		if(in.size()>=numpadding) return in;
 		size_t padding_needed=numpadding-in.size();
@@ -126,21 +126,21 @@ namespace exlib {
 	}
 
 	template<typename String>
-	String back_padded_string(String const& in,size_t numpadding,typename String::value_type padding)
+	String back_padded_string(String const& in,std::size_t numpadding,typename String::value_type padding)
 	{
 		if(in.size()>=numpadding) return in;
-		size_t padding_needed=numpadding-in.size();
+		std::size_t padding_needed=numpadding-in.size();
 		String out(in);
 		out.insert(out.end(),padding_needed,padding);
 		return out;
 	}
 
 	template<typename String>
-	String& pad_back(String& in,size_t numpadding,typename String::value_type padding)
+	String& pad_back(String& in,std::size_t numpadding,typename String::value_type padding)
 	{
 		if(in.size()<numpadding)
 		{
-			size_t padding_needed=numpadding-in.size();
+			std::size_t padding_needed=numpadding-in.size();
 			in.insert(in.end(),padding_needed,padding);
 		}
 		return in;

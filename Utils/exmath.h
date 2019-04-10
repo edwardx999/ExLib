@@ -346,7 +346,7 @@ namespace exlib {
 		}
 		//if the value is fixed, returns that fixed value. Otherwises returns bases[index()]*variant().
 		//index value checked
-		template<size_t N>
+		template<std::size_t N>
 		constexpr FixedType value(std::array<FixedType,N> const& bases) const
 		{
 			if(_index==fixed_index)
@@ -371,7 +371,7 @@ namespace exlib {
 
 		//if the value is fixed, returns that fixed value. Otherwises returns bases[index()]*variant().
 		//index value unchecked
-		template<size_t N>
+		template<std::size_t N>
 		constexpr FixedType operator()(std::array<FixedType,N> const& bases) const
 		{
 			if(_index==fixed_index)
@@ -398,7 +398,7 @@ namespace exlib {
 		}
 
 		//does nothing if value is already fixed, otherwises fixes the value to bases[index]*variant()
-		template<size_t N>
+		template<std::size_t N>
 		constexpr void fix_from(std::array<FixedType,N> const& bases)
 		{
 			if(_index==fixed_index) return;
@@ -564,7 +564,7 @@ namespace exlib {
 		constexpr auto make_digit_array()
 		{
 			std::array<CharType,'9'-'0'+1+'z'-'a'+1> arr{{}};
-			size_t pos=0;
+			std::size_t pos=0;
 			for(CharType i='0';i<='9';++pos,++i)
 			{
 				arr[pos]=i;
@@ -655,16 +655,37 @@ namespace exlib {
 	}
 #endif
 	namespace detail {
-
-		template<typename Iter,typename Comp>
-		constexpr auto get_end_swap_if(Iter it,Iter end,size_t radius,Iter& el,Comp c)
+#ifdef NDEBUG
+		using std::min_element;
+#else
+		template<typename Iter,typename Comp> //in debug mode msvc complains about using <= as a comparison operator
+		constexpr Iter min_element(Iter begin,Iter end,Comp c)
 		{
-			if(static_cast<size_t>(end-it)>radius)
+			if(begin==end)
+			{
+				return begin;
+			}
+			auto min_el=begin;
+			++begin;
+			for(;begin!=end;++begin)
+			{
+				if(c(*begin,*min_el))
+				{
+					min_el=begin;
+				}
+			}
+			return min_el;
+		}
+#endif
+		template<typename Iter,typename Comp>
+		constexpr Iter get_end_swap_if(Iter it,Iter end,std::size_t radius,Iter& current_min,Comp c)
+		{
+			if(static_cast<std::size_t>(end-it)>radius)
 			{
 				auto const before_range_end=it+radius;
-				if(c(*before_range_end,*el))
+				if(c(*before_range_end,*current_min))
 				{
-					el=before_range_end;
+					current_min=before_range_end;
 				}
 				return before_range_end+1;
 			}
@@ -674,32 +695,32 @@ namespace exlib {
 			}
 		}
 		template<typename InputIter,typename OutputIter,typename Comp>
-		constexpr auto get_fatten(InputIter begin,InputIter end,size_t radius,OutputIter out,Comp c,std::random_access_iterator_tag)
+		constexpr auto get_fatten(InputIter begin,InputIter end,std::size_t radius,OutputIter out,Comp c) -> typename std::enable_if<std::is_convertible<typename std::iterator_traits<InputIter>::iterator_category&,std::random_access_iterator_tag&>::value,OutputIter>::type
 		{
-			auto el=std::min_element(begin,begin+radius,c);
+			auto current_min=std::min_element(begin,begin+radius,c);
 			for(auto it=begin;it<end;++it,++out)
 			{
 				//[) boundaries of search_range
-				auto const range_begin=(static_cast<size_t>(it-begin))<=radius?begin:it-radius;
+				auto const range_begin=(static_cast<std::size_t>(it-begin))<=radius?begin:it-radius;
 				//comparison to last element done with this function
-				auto const range_end=get_end_swap_if(it,end,radius,el,c);
-				if(el<range_begin)
+				auto const range_end=get_end_swap_if(it,end,radius,current_min,c);
+				if(current_min<range_begin)
 				{
-					el=std::min_element(range_begin,range_end,c);
+					current_min=min_element(range_begin,range_end,c);
 				}
-				*out=*el;
+				*out=*current_min;
 			}
 			return out;
 		}
 
-		template<typename InputIter,typename OutputIter,typename Comp>
-		auto get_fatten(InputIter begin,InputIter end,size_t radius,OutputIter out,Comp c,std::input_iterator_tag)
+		template<typename InputIter,typename OutputIter,typename Comp,typename... Extra>
+		auto get_fatten(InputIter begin,InputIter end,std::size_t radius,OutputIter out,Comp c,Extra...)
 		{
 			auto range_begin=begin;
 			auto range_end=begin;
 			std::advance(range_end,radius);
 			auto el=std::min_element(range_begin,range_end,c);
-			size_t forepadding=0;
+			std::size_t forepadding=0;
 			for(auto it=begin;it!=end;++it)
 			{
 				if(range_end!=end)
@@ -715,7 +736,7 @@ namespace exlib {
 					if(el==range_begin)
 					{
 						++range_begin;
-						el=std::min_element(range_begin,range_end,c);
+						el=min_element(range_begin,range_end,c);
 					}
 					else
 					{
@@ -738,7 +759,7 @@ namespace exlib {
 		Ranges should not overlap
 	*/
 	template<typename InputIter,typename OutputIter,typename Comp=std::less_equal<typename std::iterator_traits<InputIter>::value_type>>
-	constexpr OutputIter get_fatten(InputIter begin,InputIter end,size_t radius,OutputIter out,Comp c={})
+	constexpr OutputIter get_fatten(InputIter begin,InputIter end,std::size_t radius,OutputIter out,Comp c={})
 	{
 		if(begin==end)
 		{
@@ -748,20 +769,20 @@ namespace exlib {
 		{
 			return std::copy(begin,end,out);
 		}
-		size_t const distance=std::distance(begin,end);
+		std::size_t const distance=std::distance(begin,end);
 		if(distance<radius+1) //all elements in the radius of every element
 		{
 			auto min=std::min_element(begin,end,c);
 			return std::fill_n(out,distance,*min);
 		}
-		return detail::get_fatten(begin,end,radius,out,c,typename std::iterator_traits<InputIter>::iterator_category{});
+		return detail::get_fatten(begin,end,radius,out,c);
 	}
 
 	/*
 		Makes a container in which each element becomes the minimum element within hp of its index
 	*/
 	template<typename RandomAccessContainer,typename Comp>
-	RandomAccessContainer fattened_profile(RandomAccessContainer const& prof,size_t hp,Comp comp)
+	RandomAccessContainer fattened_profile(RandomAccessContainer const& prof,std::size_t hp,Comp comp)
 	{
 		RandomAccessContainer res(prof.size());
 		get_fatten(prof.begin(),prof.end(),hp,res.begin(),comp);
@@ -769,10 +790,10 @@ namespace exlib {
 	}
 
 	template<typename RandomAccessContainer>
-	RandomAccessContainer fattened_profile(RandomAccessContainer const& prof,size_t hp)
+	RandomAccessContainer fattened_profile(RandomAccessContainer const& prof,std::size_t hp)
 	{
 		typedef typename std::decay<decltype(*prof.begin())>::type T;
-		if EX_CONSTIF(std::is_trivially_copyable<T>::value&&sizeof(T)<=sizeof(size_t))
+		if EX_CONSTIF(std::is_trivially_copyable<T>::value&&sizeof(T)<=sizeof(std::size_t))
 		{
 			return fattened_profile(prof,hp,[](auto a,auto b)
 			{
@@ -794,20 +815,20 @@ namespace exlib {
 		using iterator=typename ::std::vector<T>::iterator;
 		using const_iterator=typename ::std::vector<T>::const_iterator;
 	private:
-		size_t _max_size;
+		std::size_t _max_size;
 		::std::vector<T> _data;
 	public:
-		LimitedSet(size_t s):_data(),_max_size(s)
+		LimitedSet(std::size_t s):_data(),_max_size(s)
 		{
 			_data.reserve(s);
 		}
 		LimitedSet():LimitedSet(0)
 		{}
-		void max_size(size_t s)
+		void max_size(std::size_t s)
 		{
 			_max_size=s;
 		}
-		size_t max_size() const
+		std::size_t max_size() const
 		{
 			return _max_size;
 		}
@@ -827,7 +848,7 @@ namespace exlib {
 		{
 			return _data.end();
 		}
-		size_t size() const
+		std::size_t size() const
 		{
 			return _data.size();
 		}
@@ -911,9 +932,9 @@ namespace exlib {
 		template<typename T>
 		friend void operator<<(std::basic_ostream<T>,BigInteger const&);
 
-		size_t size() const;
-		size_t capacity() const;
-		void reserve(size_t);
+		std::size_t size() const;
+		std::size_t capacity() const;
+		void reserve(std::size_t);
 
 		bool operator==(BigInteger const&) const;
 		bool operator<(BigInteger const&) const;
@@ -933,10 +954,10 @@ namespace exlib {
 		BigInteger& operator%=(BigInteger const&);
 		static div_t div(BigInteger const&,BigInteger const&);
 
-		BigInteger operator>>(size_t) const;
-		BigInteger& operator>>=(size_t);
-		BigInteger operator<<(size_t) const;
-		BigInteger& operator<<=(size_t);
+		BigInteger operator>>(std::size_t) const;
+		BigInteger& operator>>=(std::size_t);
+		BigInteger operator<<(std::size_t) const;
+		BigInteger& operator<<=(std::size_t);
 		BigInteger operator&(BigInteger const&) const;
 		BigInteger& operator&=(BigInteger const&);
 		BigInteger operator|(BigInteger const&) const;
@@ -973,15 +994,15 @@ namespace exlib {
 		data.back()&=0x8000'0000'0000'0000;
 		data.front()=val&0x7FFF'FFFF'FFFF'FFFF;
 	}
-	inline size_t BigInteger::size() const
+	inline std::size_t BigInteger::size() const
 	{
 		return data.size();
 	}
-	inline size_t BigInteger::capacity() const
+	inline std::size_t BigInteger::capacity() const
 	{
 		return data.capacity();
 	}
-	inline void BigInteger::reserve(size_t n)
+	inline void BigInteger::reserve(std::size_t n)
 	{
 		auto old_back_val=data.back();
 		auto& old_back=data.back();
@@ -996,7 +1017,7 @@ namespace exlib {
 		{
 			return false;
 		}
-		size_t limit=std::min(other.size(),size());
+		std::size_t limit=std::min(other.size(),size());
 	}
 }
 #undef EX_CONSTIF

@@ -463,7 +463,7 @@ namespace exlib {
 #endif
 #undef make_comp_op_for_gi
 
-	using index_iterator=count_iterator<size_t>;
+	using index_iterator=count_iterator<std::size_t>;
 
 	template<typename IntegralType>
 	count_iterator<IntegralType> make_count_iterator(IntegralType c)

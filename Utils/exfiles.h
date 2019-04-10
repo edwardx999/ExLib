@@ -155,7 +155,7 @@ namespace exlib {
 			}
 		}
 		template<typename Iter>
-		constexpr size_t remove_multislashes(Iter input) noexcept
+		constexpr std::size_t remove_multislashes(Iter input) noexcept
 		{
 			auto sb=find_multi_slash_block(input);
 			if(sb.second==sb.first)
@@ -185,7 +185,7 @@ namespace exlib {
 		Returns any consecutive slahes from the null-terminated input, and returns the new size of the input string.
 	*/
 	template<typename CharType>
-	constexpr size_t remove_multislashes(CharType* input) noexcept
+	constexpr std::size_t remove_multislashes(CharType* input) noexcept
 	{
 		return detail::remove_multislashes(input);
 	}
