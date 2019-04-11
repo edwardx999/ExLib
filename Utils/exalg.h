@@ -128,9 +128,14 @@ namespace exlib {
 			if(c(value,min_val))
 			{
 				min_iter=begin;
+				if(!c(value,max_val))
+				{
+					max_iter=begin;
+					max_val=value;
+				}
 				min_val=std::move(value);
 			}
-			else
+			else if(!c(value,max_val))
 			{
 				max_iter=begin;
 				max_val=std::move(value);
