@@ -50,29 +50,35 @@ namespace exlib {
 
 		template<typename T,bool trivial=std::is_trivially_destructible<T>::value,bool fits=type_fits<T>::value>
 		struct indirect_deleter {
-			static void destroy(void* data,std::false_type)
+			static void destroy(void* data,std::false_type) noexcept
 			{
 				static_cast<T*>(data)->~T();
 			}
-			static void destroy(void* data,std::true_type)
+			static void destroy(void* data,std::true_type) noexcept
 			{}
-			static void do_delete(void* data)
+			static void do_delete(void* data) noexcept
 			{
 				destroy(data,std::integral_constant<bool,trivial>{});
 			}
 		};
 		template<typename Func,bool trivial>
 		struct indirect_deleter<Func,trivial,false> {
-			constexpr static void do_delete(void* data)
+			constexpr static void do_delete(void* data) noexcept
 			{
 				auto const real_data=*static_cast<Func**>(data);
 				delete real_data;
 			}
 		};
 
+		using DeleterFunc=
+#if _EXFUNC_HAS_CPP_17
+			void(*)(void*) noexcept;
+#else
+			void(*)(void*);
+#endif
 		template<typename Func>
 		struct indirect_deleter<Func,true,true> {
-			constexpr static void(*do_delete)(void*)=nullptr;
+			constexpr static DeleterFunc do_delete=nullptr;
 		};
 		
 		template<typename Func,typename Sig,bool fits=type_fits<Func>::value>
@@ -179,9 +185,7 @@ namespace exlib {
 		friend get_call_op;
 		template<typename Ret,typename UniqueFunc,typename... Args>
 		friend Ret unique_func_det::call_op(UniqueFunc&,Args&&...);
-
-		using DeleterType=void(*)(void*);
-		DeleterType _deleter;
+		unique_func_det::DeleterFunc _deleter;
 		using FuncType=typename unique_func_det::get_pfunc<Sig>::type;
 		FuncType _func;
 		using Data=typename std::aligned_storage<unique_func_det::max_size,unique_func_det::alignment>::type;
@@ -203,12 +207,12 @@ namespace exlib {
 			_deleter{unique_func_det::indirect_deleter<Func>::do_delete},
 			_func{unique_func_det::indirect_call<Func,Sig>::call_me}
 		{
+			static_assert(std::is_nothrow_destructible<Func>::value,"You shall have a noexcept destructor or else this could leak memory.");
 			unique_func_det::func_constructor<Func>::construct(&_data,std::move(func));
 		}
 
 		unique_function(unique_function&& o) noexcept:_func{std::exchange(o._func,nullptr)},_deleter{std::exchange(o._deleter,nullptr)},_data{o._data}
-		{
-		}
+		{}
 
 		explicit operator bool() const noexcept
 		{
@@ -220,8 +224,14 @@ namespace exlib {
 		template<typename Func>
 		unique_function& operator=(Func func)
 		{
-			unique_function uf{std::move(func)};
-			uf.swap(*this);
+			static_assert(std::is_nothrow_destructible<Func>::value,"You shall have a noexcept destructor or else this could leak memory.");
+			unique_function{std::move(func)}.swap(*this);
+			return *this;
+		}
+
+		unique_function& operator=(unique_function&& func) noexcept
+		{
+			unique_function{std::move(func)}.swap(*this);
 			return *this;
 		}
 
@@ -232,7 +242,7 @@ namespace exlib {
 			std::swap(_data,other._data);
 		}
 
-		~unique_function()
+		~unique_function() noexcept
 		{
 			cleanup();
 		}
