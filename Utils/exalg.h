@@ -175,7 +175,7 @@ namespace exlib {
 		Call the member function as if it is a global function.
 	*/
 	template<typename T,typename Ret,typename... Args>
-	constexpr Ret apply_mem_fn(T* obj,Ret(T::* mem_fn)(Args...),Args&& ... args)
+	constexpr Ret apply_mem_fn(T* obj,Ret(T::* mem_fn)(Args...),Args&&... args)
 	{
 		return (obj->*mem_fn)(std::forward<Args>(args)...);
 	}
@@ -185,7 +185,7 @@ namespace exlib {
 		MemFn is a member function pointer of T
 	*/
 	template<auto MemFn,typename T,typename... Args>
-	constexpr decltype(auto) apply_mem_fn(T* obj,Args&& ... args)
+	constexpr decltype(auto) apply_mem_fn(T* obj,Args&&... args)
 	{
 		return (obj->*MemFn)(std::forward<Args>(args)...);
 	}
@@ -522,7 +522,7 @@ namespace exlib {
 			return concat(a,b,std::make_index_sequence<Nf>(),std::make_index_sequence<Mf>());
 		}
 		template<typename A,typename B,typename... C>
-		constexpr auto str_concat(A const& a,B const& b,C const& ... c)
+		constexpr auto str_concat(A const& a,B const& b,C const&... c)
 		{
 			return str_concat(str_concat(a,b),c...);
 		}
@@ -539,14 +539,14 @@ namespace exlib {
 
 	//concatenate arrays (std::array<T,N> or T[N]) and returns an std::array<T,CombinedLen> of the arrays
 	template<typename A,typename B,typename... C>
-	constexpr auto concat(A const& a,B const& b,C const& ... c)
+	constexpr auto concat(A const& a,B const& b,C const&... c)
 	{
 		return concat(concat(a,b),c...);
 	}
 
 	//concatenate str arrays (std::array<T,N> or T[N]) and returns an std::array<T,CombinedLen> of the arrays
 	template<typename A,typename B,typename... C>
-	constexpr auto str_concat(A const& a,B const& b,C const& ... c)
+	constexpr auto str_concat(A const& a,B const& b,C const&... c)
 	{
 		return concat(detail::str_concat(a,b,c...),"");
 	}
@@ -795,7 +795,7 @@ namespace exlib {
 		using Data::data;
 
 		template<typename... Args>
-		constexpr ct_map(Args&& ... rest):Data{{std::forward<Args>(rest)...}}
+		constexpr ct_map(Args&&... rest):Data{{std::forward<Args>(rest)...}}
 		{
 			static_assert(sizeof...(Args)==entries,"Wrong number of entries");
 			qsort(begin(),end(),lt_comp<key_compare>());
@@ -822,14 +822,14 @@ namespace exlib {
 
 	//inputs should be of type map_pair<Key,Value>
 	template<typename Comp,typename First,typename... Rest>
-	constexpr auto make_ct_map(First&& f,Rest&& ... r)
+	constexpr auto make_ct_map(First&& f,Rest&&... r)
 	{
 		return ct_map<typename First::key_type,typename First::mapped_type,1+sizeof...(r),Comp>(std::forward<First>(f),std::forward<Rest>(r)...);
 	}
 
 	//inputs should be of type map_pair<Key,Value>
 	template<typename First,typename... T>
-	constexpr auto make_ct_map(First&& k,T&& ... rest)
+	constexpr auto make_ct_map(First&& k,T&&... rest)
 	{
 		return make_ct_map<compare<typename First::key_type>>(std::forward<First>(k),std::forward<T>(rest)...);
 	}
@@ -859,7 +859,7 @@ namespace exlib {
 	}
 
 	template<typename Type=void,typename... Args>
-	constexpr std::array<typename detail::ma_ret<Type,Args...>::type,sizeof...(Args)> make_array(Args&& ... args)
+	constexpr std::array<typename detail::ma_ret<Type,Args...>::type,sizeof...(Args)> make_array(Args&&... args)
 	{
 		return
 		{{
@@ -932,27 +932,34 @@ namespace exlib {
 	namespace detail {
 
 		template<typename Ret,size_t I,typename Funcs,typename...Args>
-		constexpr Ret apply_single(Funcs&& funcs,Args&& ... args)
+		constexpr Ret apply_single(Funcs&& funcs,Args&&... args)
 		{
-			return static_cast<Ret>(std::get<I>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...));
+			return static_cast<Ret>(get<I>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...));
 		}
 
+		template<typename Ret,typename IndexSequence,typename Funcs,typename... Args>
+		struct get_jump_table;
+
 		template<typename Ret,size_t... Is,typename Funcs,typename... Args>
-		Ret apply_ind_jump_h(size_t i,std::index_sequence<Is...>,Funcs&& funcs,Args&& ... args)
-		{
+		struct get_jump_table<Ret,std::index_sequence<Is...>,Funcs,Args...> {
 			using Func=Ret(Funcs&&,Args&&...);
 			static constexpr Func* jtable[]={&apply_single<Ret,Is,Funcs,Args...>...};
-			return jtable[i](std::forward<Funcs>(funcs),std::forward<Args>(args)...);
+		};
+
+		template<typename Ret,size_t... Is,typename Funcs,typename... Args>
+		constexpr Ret apply_ind_jump_h(size_t i,std::index_sequence<Is...>,Funcs&& funcs,Args&&... args)
+		{
+			return get_jump_table<Ret,std::index_sequence<Is...>,Funcs,Args...>::jtable[i](std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 		}
 
 		template<typename Ret,size_t N,typename Funcs,typename... Args>
-		constexpr Ret apply_ind_jump(size_t i,Funcs&& funcs,Args&& ... args)
+		constexpr Ret apply_ind_jump(size_t i,Funcs&& funcs,Args&&... args)
 		{
 			return apply_ind_jump_h<Ret>(i,std::make_index_sequence<N>(),std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 		}
 
 		template<typename Ret,size_t I,size_t Max,typename Tuple,typename... Args>
-		constexpr Ret apply_ind_linear_h(size_t i,Tuple&& funcs,Args&& ... args)
+		constexpr Ret apply_ind_linear_h(size_t i,Tuple&& funcs,Args&&... args)
 		{
 			if constexpr(I<Max)
 			{
@@ -969,13 +976,13 @@ namespace exlib {
 		}
 
 		template<typename Ret,size_t NumFuncs,typename Tuple,typename... Args>
-		constexpr Ret apply_ind_linear(size_t i,Tuple&& funcs,Args&& ... args)
+		constexpr Ret apply_ind_linear(size_t i,Tuple&& funcs,Args&&... args)
 		{
 			return apply_ind_linear_h<Ret,0,NumFuncs>(i,std::forward<Tuple>(funcs),std::forward<Args>(args)...);
 		}
 
 		template<typename Ret,size_t Lower,size_t Upper,typename Funcs,typename... Args>
-		constexpr Ret apply_ind_bh(size_t i,Funcs&& funcs,Args&& ... args)
+		constexpr Ret apply_ind_bh(size_t i,Funcs&& funcs,Args&&... args)
 		{
 			if constexpr(Lower<Upper)
 			{
@@ -1000,17 +1007,17 @@ namespace exlib {
 		}
 
 		template<typename Ret,size_t NumFuncs,typename Funcs,typename... Args>
-		constexpr Ret apply_ind_bsearch(size_t i,Funcs&& funcs,Args&& ... args)
+		constexpr Ret apply_ind_bsearch(size_t i,Funcs&& funcs,Args&&... args)
 		{
 			return apply_ind_bh<Ret,0,NumFuncs>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 		}
 	}
 
-	//Returns static_cast<Ret>(std::get<i>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...)); Ret can be void.
+	//Returns static_cast<Ret>(get<i>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...)); Ret can be void.
 	//Assumes i is less than NumFuncs, otherwise behavior is undefined.
 	//Other overloads automatically determine Ret and NumFuncs if they are not supplied.
 	template<typename Ret,size_t NumFuncs,typename Funcs,typename... Args>
-	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&& ... args)
+	constexpr Ret apply_ind(size_t i,Funcs&& funcs,Args&&... args)
 	{
 		//MSVC currently can't inline the function pointers used by jump so I have a somewhat arbitrary
 		//heuristic for choosing which apply to use
@@ -1025,13 +1032,13 @@ namespace exlib {
 	}
 
 	template<size_t NumFuncs,typename Ret,typename Funcs,typename... Args>
-	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&& ... args)
+	constexpr Ret apply_ind(size_t i,Funcs&& funcs,Args&&... args)
 	{
 		return apply_ind<Ret,NumFuncs>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 	}
 
 	template<size_t NumFuncs,typename Funcs,typename... Args>
-	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&& ... args)
+	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&&... args)
 	{
 		if constexpr(NumFuncs==0)
 		{
@@ -1039,20 +1046,20 @@ namespace exlib {
 		}
 		else
 		{
-			using Ret=decltype(std::get<0>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...));
+			using Ret=decltype(get<0>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...));
 			return apply_ind<Ret,NumFuncs>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 		}
 	}
 
 	template<typename Ret,typename Funcs,typename... Args>
-	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&& ... args)
+	constexpr Ret apply_ind(size_t i,Funcs&& funcs,Args&&... args)
 	{
 		constexpr size_t N=get_max<std::remove_cv_t<std::remove_reference_t<Funcs>>>::value;
 		return apply_ind<Ret,N>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 	}
 
 	template<typename Funcs,typename... Args>
-	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&& ... args)
+	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&&... args)
 	{
 		constexpr size_t N=get_max<std::remove_cv_t<std::remove_reference_t<Funcs>>>::value;
 		return apply_ind<N>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
@@ -1072,5 +1079,31 @@ namespace exlib {
 			throw "Not implemented";
 		}
 	};
+
+#if _EXALG_HAS_CPP_14
+	namespace detail {
+		template<typename Char,typename Value>
+		struct charp_pair {
+			Char symbol;
+			Value const* value;
+		};
+		//a compile string map of a search tree where each letter is traverse along a branch of possible strings 
+		template<typename Char,typename Value,size_t N,typename Tree>
+		class ct_string_map {
+			std::array<Value,N> _values;
+			Tree _layers; //Tree of char pairs
+			static constexpr depth=std::tuple_size<Layers>::value;
+		public:
+			template<typename... CharT>
+			constexpr ct_string_map(CharT const* const*... strings)
+			{
+				for(size_t i=0;i<sizeof...(CharT);++i)
+				{
+				}
+			}
+		};
+	}
+	
+#endif
 }
 #endif
