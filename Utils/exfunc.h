@@ -70,15 +70,18 @@ namespace exlib {
 			}
 		};
 
-		using DeleterFunc=
+		struct trivial_deleter {
 #if _EXFUNC_HAS_CPP_17
-			void(*)(void*) noexcept;
+			static constexpr void (*do_delete)(void*) noexcept = nullptr;
 #else
-			void(*)(void*);
+			static constexpr void (*do_delete)(void*) = nullptr;
 #endif
+		};
+
+		using DeleterFunc=typename std::remove_const<decltype(trivial_deleter::do_delete)>::type;
+
 		template<typename Func>
-		struct indirect_deleter<Func,true,true> {
-			constexpr static DeleterFunc do_delete=nullptr;
+		struct indirect_deleter<Func,true,true>:trivial_deleter {
 		};
 		
 		template<typename Func,typename Sig,bool fits=type_fits<Func>::value>
