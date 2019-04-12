@@ -193,7 +193,7 @@ namespace exlib {
 		FuncType _func;
 		using Data=typename std::aligned_storage<unique_func_det::max_size,unique_func_det::alignment>::type;
 		Data _data;
-		void cleanup()
+		void cleanup() noexcept
 		{
 			if(_deleter)
 			{
@@ -227,7 +227,6 @@ namespace exlib {
 		template<typename Func>
 		unique_function& operator=(Func func)
 		{
-			static_assert(std::is_nothrow_destructible<Func>::value,"You shall have a noexcept destructor or else this could leak memory.");
 			unique_function{std::move(func)}.swap(*this);
 			return *this;
 		}

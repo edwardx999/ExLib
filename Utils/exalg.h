@@ -75,7 +75,7 @@ namespace exlib {
 	}
 
 	template<typename Iter,typename Transform,typename Compare=std::less<void>>
-	_EXALG_NODISCARD constexpr Iter min_keyed_element(Iter begin,Iter end,Transform transform,Compare c={}) noexcept(noexcept(transform(*begin))&&noexcept(c(transform(*begin),transform(*begin))))
+	_EXALG_NODISCARD constexpr Iter min_keyed_element(Iter begin,Iter end,Transform transform,Compare c={}) noexcept(noexcept(c(transform(*begin),transform(*begin))))
 	{
 		if(begin==end)
 		{
@@ -97,7 +97,7 @@ namespace exlib {
 	}
 
 	template<typename Iter,typename Transform,typename Compare=std::less<void>>
-	_EXALG_NODISCARD constexpr Iter max_keyed_element(Iter begin,Iter end,Transform transform,Compare c={}) noexcept(noexcept(min_keyed_element(begin,end,std::move(transform),std::move(c))))
+	_EXALG_NODISCARD constexpr Iter max_keyed_element(Iter begin,Iter end,Transform transform,Compare c={}) noexcept(noexcept(c(transform(*begin),transform(*begin))))
 	{
 		using type=decltype(transform(*begin));
 		struct inverter {
@@ -111,7 +111,7 @@ namespace exlib {
 	}
 
 	template<typename Iter,typename Transform,typename Compare=std::less<void>>
-	_EXALG_NODISCARD constexpr std::pair<Iter,Iter> minmax_keyed_element(Iter begin,Iter end,Transform transform,Compare c={}) noexcept(noexcept(transform(*begin))&&noexcept(c(transform(*begin),transform(*begin))))
+	_EXALG_NODISCARD constexpr std::pair<Iter,Iter> minmax_keyed_element(Iter begin,Iter end,Transform transform,Compare c={}) noexcept(noexcept(c(transform(*begin),transform(*begin))))
 	{
 		if(begin==end)
 		{
@@ -939,6 +939,7 @@ namespace exlib {
 		template<typename Ret,size_t I,typename Funcs,typename...Args>
 		constexpr Ret apply_single(Funcs&& funcs,Args&&... args)
 		{
+			using std::get;
 			return static_cast<Ret>(get<I>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...));
 		}
 
@@ -1097,7 +1098,7 @@ namespace exlib {
 		class ct_string_map {
 			std::array<Value,N> _values;
 			Tree _layers; //Tree of char pairs
-			static constexpr depth=std::tuple_size<Layers>::value;
+			static constexpr auto depth=std::tuple_size<Tree>::value;
 		public:
 			template<typename... CharT>
 			constexpr ct_string_map(CharT const* const*... strings)

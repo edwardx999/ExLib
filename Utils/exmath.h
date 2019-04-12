@@ -135,7 +135,7 @@ namespace exlib {
 
 
 
-		template<typename T>
+	template<typename T>
 	constexpr T additive_identity()
 	{
 		return T{0};
@@ -289,7 +289,7 @@ namespace exlib {
 		return static_cast<U>(val);
 	}
 
-	template<typename T1,typename T2> 
+	template<typename T1,typename T2>
 	constexpr auto abs_dif(T1 x,T2 y) -> decltype(x-y)
 	{
 		return (x>y?x-y:y-x);
@@ -557,7 +557,8 @@ namespace exlib {
 		return num_digits;
 	}
 
-#if __cplusplus>201700L
+
+#if _EXMATH_HAS_CPP_17
 
 	namespace detail {
 		template<typename CharType>
@@ -565,16 +566,21 @@ namespace exlib {
 		{
 			std::array<CharType,'9'-'0'+1+'z'-'a'+1> arr{{}};
 			std::size_t pos=0;
-			for(CharType i='0';i<='9';++pos,++i)
+			for(CharType i='0'; i<='9'; ++pos,++i)
 			{
 				arr[pos]=i;
 			}
-			for(CharType i='a';i<='z';++pos,++i)
+			for(CharType i='a'; i<='z'; ++pos,++i)
 			{
 				arr[pos]=i;
 			}
 			return arr;
 		}
+
+		template<typename Char>
+		struct digit_array_holder {
+			constexpr static auto digits=make_digit_array<Char>();
+		};
 
 		/*template<typename CharType>
 		constexpr auto const& digit_array()
@@ -583,29 +589,67 @@ namespace exlib {
 			return arr;
 		}*/
 	}
+	
+	template<typename Iter,typename Num,typename DigitIter>
+	constexpr Iter fill_num_array_unchecked(Iter end,Num num,DigitIter digits,int base=10)
+	{
+		if constexpr(std::is_unsigned_v<Num>)
+		{
+			--end;
+			while(true)
+			{
+				*end=digits[num%base];
+				num/=base;
+				if(num==0)
+				{
+					break;
+				}
+				--end;
+			};
+		}
+		else
+		{
+			auto const negative=num<0;
+			if(!negative)
+			{
+				fill_num_array_unchecked(end,static_cast<std::make_unsigned_t<Num>>(num),digits,base);
+			}
+			else
+			{
+				--end;
+				while(true)
+				{
+					if constexpr(-1%10==-1)
+					{
+						*end=digits[(-(num%base))];
+					}
+					else
+					{
+						*end=digits[base-(num%base)];
+					}
+					num/=base;
+					if(num==0)
+					{
+						break;
+					}
+					--end;
+				}
+			}
+		}
+		return end;
+	}
 
 	template<auto val,int base,typename CharType=char>
 	constexpr auto to_string()
 	{
 		using T=decltype(val);
 		static_assert(std::is_integral_v<T>,"Integer type required");
-		constexpr auto digits=detail::make_digit_array<CharType>();
+		constexpr auto digits=detail::digit_array_holder<CharType>::digits.data();
 		if constexpr(std::is_unsigned_v<T>||val>=0)
 		{
 			std::array<CharType,num_digits(val,base)+1> number{{}};
-			auto v=val;
 			number.back()='\0';
-			auto it=number.end()-2;
-			while(true)
-			{
-				*it=digits[v%base];
-				v/=base;
-				if(v==0)
-				{
-					break;
-				}
-				--it;
-			};
+			fill_num_array_unchecked(number.end()-1,val,digits,base);
 			return number;
 		}
 		else
@@ -613,25 +657,7 @@ namespace exlib {
 			std::array<CharType,num_digits(val,base)+2> number{{}};
 			auto v=val;
 			number.back()='\0';
-			number.front()='-';
-			auto it=number.end()-2;
-			while(true)
-			{
-				if constexpr(-1%base==-1)
-				{
-					*it=digits[(-(v%base))];
-				}
-				else
-				{
-					*it=digits[base-(v%base)];
-				}
-				v/=base;
-				if(v==0)
-				{
-					break;
-				}
-				--it;
-			}
+			fill_num_array_unchecked(number.end()-1,val,digits,base);
 			return number;
 		}
 	}
@@ -667,7 +693,7 @@ namespace exlib {
 			}
 			auto min_el=begin;
 			++begin;
-			for(;begin!=end;++begin)
+			for(; begin!=end; ++begin)
 			{
 				if(c(*begin,*min_el))
 				{
@@ -698,7 +724,7 @@ namespace exlib {
 		constexpr auto get_fatten(InputIter begin,InputIter end,std::size_t radius,OutputIter out,Comp c) -> typename std::enable_if<std::is_convertible<typename std::iterator_traits<InputIter>::iterator_category&,std::random_access_iterator_tag&>::value,OutputIter>::type
 		{
 			auto current_min=std::min_element(begin,begin+radius,c);
-			for(auto it=begin;it<end;++it,++out)
+			for(auto it=begin; it<end; ++it,++out)
 			{
 				//[) boundaries of search_range
 				auto const range_begin=(static_cast<std::size_t>(it-begin))<=radius?begin:it-radius;
@@ -721,7 +747,7 @@ namespace exlib {
 			std::advance(range_end,radius);
 			auto el=std::min_element(range_begin,range_end,c);
 			std::size_t forepadding=0;
-			for(auto it=begin;it!=end;++it)
+			for(auto it=begin; it!=end; ++it)
 			{
 				if(range_end!=end)
 				{
@@ -901,7 +927,7 @@ namespace exlib {
 		}
 	public:
 		template<typename Compare>
-		void insert(T&& in,Compare comp)
+		void insert(T&&in,Compare comp)
 		{
 			_insert(std::move(in),comp);
 		}
@@ -910,7 +936,7 @@ namespace exlib {
 		{
 			_insert(in,comp);
 		}
-		void insert(T&& in)
+		void insert(T&&in)
 		{
 			_insert(std::move(in),std::less<T>());
 		}
@@ -919,106 +945,6 @@ namespace exlib {
 			_insert(in,std::less<T>());
 		}
 	};
-	/*
-		Little-endian arbitrarily sized 2's complement integer.
-	*/
-	class BigInteger {
-		std::vector<int64_t> data;
-	public:
-		struct div_t;
-
-		BigInteger(int64_t);
-
-		template<typename T>
-		friend void operator<<(std::basic_ostream<T>,BigInteger const&);
-
-		std::size_t size() const;
-		std::size_t capacity() const;
-		void reserve(std::size_t);
-
-		bool operator==(BigInteger const&) const;
-		bool operator<(BigInteger const&) const;
-		bool operator>(BigInteger const&) const;
-
-		BigInteger operator+(BigInteger const&) const;
-		BigInteger& operator+=(BigInteger const&);
-		BigInteger operator-(BigInteger const&) const;
-		BigInteger& operator-=(BigInteger const&);
-		BigInteger operator-() const;
-		BigInteger& negate();
-		BigInteger operator*(BigInteger const&) const;
-		BigInteger& operator*=(BigInteger const&);
-		BigInteger operator/(BigInteger const&) const;
-		BigInteger& operator/=(BigInteger const&);
-		BigInteger operator%(BigInteger const&) const;
-		BigInteger& operator%=(BigInteger const&);
-		static div_t div(BigInteger const&,BigInteger const&);
-
-		BigInteger operator>>(std::size_t) const;
-		BigInteger& operator>>=(std::size_t);
-		BigInteger operator<<(std::size_t) const;
-		BigInteger& operator<<=(std::size_t);
-		BigInteger operator&(BigInteger const&) const;
-		BigInteger& operator&=(BigInteger const&);
-		BigInteger operator|(BigInteger const&) const;
-		BigInteger& operator|=(BigInteger const&);
-		BigInteger operator^(BigInteger const&) const;
-		BigInteger& operator^=(BigInteger const&);
-		BigInteger operator~() const;
-		BigInteger& bitwise_negate();
-
-		int signum() const;
-
-		operator int64_t() const;
-		operator double() const;
-	};
-
-	struct BigInteger::div_t {
-		BigInteger quot;
-		BigInteger rem;
-	};
-}
-
-namespace std {
-	template<>
-	struct is_integral<exlib::BigInteger>:public std::true_type {};
-
-	template<>
-	struct is_signed<exlib::BigInteger>:public std::true_type {};
-}
-
-namespace exlib {
-	inline BigInteger::BigInteger(int64_t val):data(5)
-	{
-		data.back()|=val;
-		data.back()&=0x8000'0000'0000'0000;
-		data.front()=val&0x7FFF'FFFF'FFFF'FFFF;
-	}
-	inline std::size_t BigInteger::size() const
-	{
-		return data.size();
-	}
-	inline std::size_t BigInteger::capacity() const
-	{
-		return data.capacity();
-	}
-	inline void BigInteger::reserve(std::size_t n)
-	{
-		auto old_back_val=data.back();
-		auto& old_back=data.back();
-		data.reserve(n);
-		old_back&=0x7FFF'FFFF'FFFF'FFFF;
-		data.back()|=old_back_val;
-		data.back()&=0x8000'0000'0000'0000;
-	}
-	inline bool BigInteger::operator==(BigInteger const& other) const
-	{
-		if(signum()!=other.signum())
-		{
-			return false;
-		}
-		std::size_t limit=std::min(other.size(),size());
-	}
 }
 #undef EX_CONSTIF
 #undef EX_CONSTEXPR
