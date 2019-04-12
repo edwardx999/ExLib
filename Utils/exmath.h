@@ -582,16 +582,14 @@ namespace exlib {
 			constexpr static auto digits=make_digit_array<Char>();
 		};
 
-		/*template<typename CharType>
-		constexpr auto const& digit_array()
-		{
-			static constexpr auto arr=make_digit_array<CharType>();
-			return arr;
-		}*/
+		template<typename Iter>
+		using iter_val_t=typename std::iterator_traits<Iter>::value_type;
 	}
 	
-	template<typename Iter,typename Num,typename DigitIter>
-	constexpr Iter fill_num_array_unchecked(Iter end,Num num,DigitIter digits,int base=10)
+	//fills in a range working backwards from end and returns the start iter written to
+	//unchecked, make sure your range can fit
+	template<typename Iter,typename Num,typename DigitTable=detail::iter_val_t<Iter> const*>
+	constexpr Iter fill_num_array_unchecked(Iter end,Num num,int base=10,DigitTable digits=detail::digit_array_holder<detail::iter_val_t<DigitTable>>::digits.data())
 	{
 		if constexpr(std::is_unsigned_v<Num>)
 		{
@@ -612,7 +610,7 @@ namespace exlib {
 			auto const negative=num<0;
 			if(!negative)
 			{
-				fill_num_array_unchecked(end,static_cast<std::make_unsigned_t<Num>>(num),digits,base);
+				return fill_num_array_unchecked(end,static_cast<std::make_unsigned_t<Num>>(num),base,digits);
 			}
 			else
 			{
@@ -649,7 +647,7 @@ namespace exlib {
 		{
 			std::array<CharType,num_digits(val,base)+1> number{{}};
 			number.back()='\0';
-			fill_num_array_unchecked(number.end()-1,val,digits,base);
+			fill_num_array_unchecked(number.end()-1,val,base,digits);
 			return number;
 		}
 		else
@@ -657,7 +655,7 @@ namespace exlib {
 			std::array<CharType,num_digits(val,base)+2> number{{}};
 			auto v=val;
 			number.back()='\0';
-			fill_num_array_unchecked(number.end()-1,val,digits,base);
+			fill_num_array_unchecked(number.end()-1,val,base,digits);
 			return number;
 		}
 	}
