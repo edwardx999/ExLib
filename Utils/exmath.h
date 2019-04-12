@@ -133,8 +133,6 @@ namespace exlib {
 #undef cass
 	};
 
-
-
 	template<typename T>
 	constexpr T additive_identity()
 	{
@@ -179,31 +177,15 @@ namespace exlib {
 	}
 
 	template<typename T>
-	constexpr T abs(T const& a)
+	constexpr T abs(T a)
 	{
 		if(a<0)
 		{
-			return -a;
+			return -std::move(a);
 		}
-		return a;
+		return std::move(a);
 	}
 
-	template<typename T>
-	struct get_signed {
-		typedef T type;
-	};
-
-#define _def_get_signed(ntype)\
-	template<>\
-	struct get_signed<unsigned ntype> {\
-		typedef signed ntype type;\
-	}
-	_def_get_signed(char);
-	_def_get_signed(short);
-	_def_get_signed(int);
-	_def_get_signed(long);
-	_def_get_signed(long long);
-#undef _def_get_signed
 	namespace detail {
 		template<typename R,typename T,typename U,typename V,typename W>
 		struct min_modular_distance_type {
@@ -211,7 +193,7 @@ namespace exlib {
 		};
 		template<typename T,typename U,typename V,typename W>
 		struct min_modular_distance_type<void,T,U,V,W> {
-			typedef typename get_signed<typename std::common_type<T,U,V,W>::type>::type type;
+			typedef typename std::make_signed<typename std::common_type<T,U,V,W>::type>::type type;
 		};
 	}
 	/*
