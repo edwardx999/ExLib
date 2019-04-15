@@ -1105,7 +1105,7 @@ namespace exlib {
 			}
 			bool idle() const noexcept
 			{
-				return !this->_active||this->_active_thread_count==0;
+				return !this->_active||(this->_jobs.empty()&&this->_active_thread_count==0);
 			}
 			void create_threads()
 			{
@@ -1154,27 +1154,27 @@ namespace exlib {
 
 			//overload to try to fit to pass arguments without parent
 			template<typename Task,typename... Extra>
-			static std::unique_ptr<job> make_job(Task&& the_task,Extra...)
+			static std::unique_ptr<job> make_job(Task&&the_task,Extra...)
 			{
 				return make_job2(std::forward<Task>(the_task));
 			}
 
 			//overload to try to fit to pass arguments with parent
 			template<typename Task>
-			static auto make_job(Task&& the_task) -> decltype(thread_pool_detail::fake_invoke<parent_ref,Args...>(std::forward<Task>(the_task)),std::unique_ptr<job>())
+			static auto make_job(Task&&the_task) -> decltype(thread_pool_detail::fake_invoke<parent_ref,Args...>(std::forward<Task>(the_task)),std::unique_ptr<job>())
 			{
 				static_assert(noexcept(thread_pool_detail::fake_invoke<parent_ref,Args...>(std::forward<Task>(the_task))),"Tasks cannot throw (thread_pool_a has no exception handling mechanism); use async/promise if you need errors.");
 				return std::unique_ptr<job>(new job_impl_accept_parent<thread_pool_detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
 			}
 
 			template<typename Task,typename... Extra>
-			static std::unique_ptr<job> make_job2(Task&& the_task,Extra...)
+			static std::unique_ptr<job> make_job2(Task&&the_task,Extra...)
 			{
 				static_assert(!std::is_same<Task,Task>::value,"Task fails to accepts proper arguments; must accept (parent_ref, Args...), or (Args...)");
 			}
 
 			template<typename Task>
-			static auto make_job2(Task&& the_task) -> decltype(thread_pool_detail::fake_invoke<Args...>(std::forward<Task>(the_task)),std::unique_ptr<job>())
+			static auto make_job2(Task&&the_task) -> decltype(thread_pool_detail::fake_invoke<Args...>(std::forward<Task>(the_task)),std::unique_ptr<job>())
 			{
 				static_assert(noexcept(thread_pool_detail::fake_invoke<Args...>(std::forward<Task>(the_task))),"Tasks cannot throw (thread_pool_a has no exception handling mechanism); use async/promise if you need errors.");
 				return std::unique_ptr<job>(new job_impl<thread_pool_detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
