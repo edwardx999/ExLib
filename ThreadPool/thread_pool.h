@@ -129,10 +129,10 @@ namespace exlib {
 
 #if _EXLIB_THREAD_POOL_HAS_CPP_17
 		template<typename... Args>
-		using no_rvalue_references=std::bool_constant<(!std::is_rvalue_reference_v<Args>&&...)>;
+		using no_rvalue_references=std::bool_constant<(!std::is_rvalue_reference_v<Args>&& ...)>;
 
 		template<typename... Args>
-		using all_nothrow_copyable=std::bool_constant<(std::is_nothrow_copy_constructible_v<Args>&&...)>;
+		using all_nothrow_copyable=std::bool_constant<(std::is_nothrow_copy_constructible_v<Args>&& ...)>;
 #else
 		template<typename... Args>
 		struct no_rvalue_references;
@@ -141,7 +141,7 @@ namespace exlib {
 		struct no_rvalue_references<>:std::true_type {};
 
 		template<typename T,typename... Rest>
-		struct no_rvalue_references<T,Rest...>:std::integral_constant<bool,!std::is_rvalue_reference<T>::value&&no_rvalue_references<Rest...>::value> {};
+		struct no_rvalue_references<T,Rest...>:std::integral_constant<bool,!std::is_rvalue_reference<T>::value&& no_rvalue_references<Rest...>::value> {};
 
 		template<typename... Args>
 		struct all_nothrow_copyable;
@@ -149,8 +149,8 @@ namespace exlib {
 		template<>
 		struct all_nothrow_copyable<>:std::true_type {};
 
-		template<typename T, typename... Rest>
-		struct all_nothrow_copyable<T, Rest...>:std::integral_constant<bool,std::is_nothrow_copy_constructible<T>::value&&all_nothrow_copyable<Rest...>::value> {};
+		template<typename T,typename... Rest>
+		struct all_nothrow_copyable<T,Rest...>:std::integral_constant<bool,std::is_nothrow_copy_constructible<T>::value&& all_nothrow_copyable<Rest...>::value> {};
 #endif
 
 #if _EXLIB_THREAD_POOL_HAS_CPP_20
@@ -290,6 +290,7 @@ namespace exlib {
 			std::condition_variable _signal_start;
 			std::condition_variable _jobs_done;
 			std::vector<joining_thread> _workers;
+			std::size_t _active_thread_count;
 			//whether threads are running
 			std::atomic<bool> _running;
 			//whether threads are actively looking for jobs
@@ -301,7 +302,7 @@ namespace exlib {
 			T _val;
 		public:
 			template<typename... Args>
-			ptr_wrapper(Args&&... args):_val(std::forward<Args>(args)...)
+			ptr_wrapper(Args&& ... args):_val(std::forward<Args>(args)...)
 			{}
 			T& operator*() const
 			{
@@ -331,7 +332,7 @@ namespace exlib {
 			make_op_for_gi(-)
 				make_op_for_gi(+)
 #undef make_op_for_gi
-			Base base() const
+				Base base() const
 			{
 				return _base;
 			}
@@ -373,13 +374,13 @@ namespace exlib {
 
 #define make_comp_op_for_gi(op) template<typename Base,typename Functor> auto operator op(transform_iterator<Base,Functor> const& a,transform_iterator<Base,Functor> const& b) -> decltype(std::declval<Base const&>() op std::declval<Base const&>()) {return a.base() op b.base();}
 		make_comp_op_for_gi(==)
-		make_comp_op_for_gi(!=)
-		make_comp_op_for_gi(<)
-		make_comp_op_for_gi(>)
-		make_comp_op_for_gi(<=)
-		make_comp_op_for_gi(>=)
+			make_comp_op_for_gi(!=)
+			make_comp_op_for_gi(<)
+			make_comp_op_for_gi(>)
+			make_comp_op_for_gi(<=)
+			make_comp_op_for_gi(>=)
 #if _EXLIB_THREAD_POOL_HAS_CPP_20
-		template<typename Base,typename Functor>
+			template<typename Base,typename Functor>
 		auto operator<=>(transform_iterator<Base,Functor> const& a,transform_iterator<Base,Functor> const& b) -> decltype(std::declval<Base const&>()<=>std::declval<Base const&>())
 		{
 			return a.base()<=>b.base();
@@ -396,7 +397,7 @@ namespace exlib {
 		template<typename ReturnType>
 		struct set_promise_value {
 			template<typename Task,typename... Args>
-			static void set(std::promise<ReturnType>& promise,Task& task,Args&&... args)
+			static void set(std::promise<ReturnType>& promise,Task& task,Args&& ... args)
 			{
 				promise.set_value(task(std::forward<Args>(args)...));
 			}
@@ -404,7 +405,7 @@ namespace exlib {
 		template<>
 		struct set_promise_value<void> {
 			template<typename Task,typename... Args>
-			static void set(std::promise<void>& promise,Task& task,Args&&... args)
+			static void set(std::promise<void>& promise,Task& task,Args&& ... args)
 			{
 				task(std::forward<Args>(args)...);
 				promise.set_value();
@@ -414,7 +415,7 @@ namespace exlib {
 		template<bool no_throw>
 		struct TaskDoerImpl {
 			template<typename Task,typename ReturnType,typename... Args>
-			static void run(Task& task,std::promise<ReturnType>& promise,Args&&... args)
+			static void run(Task& task,std::promise<ReturnType>& promise,Args&& ... args)
 			{
 				try
 				{
@@ -430,7 +431,7 @@ namespace exlib {
 		template<>
 		struct TaskDoerImpl<true> {
 			template<typename Task,typename ReturnType,typename... Args>
-			static void run(Task& task,std::promise<ReturnType>& promise,Args&&... args)
+			static void run(Task& task,std::promise<ReturnType>& promise,Args&& ... args)
 			{
 				thread_pool_detail::set_promise_value<ReturnType>::set(promise,task,std::forward<Args>(args)...);
 			}
@@ -506,12 +507,12 @@ namespace exlib {
 					See thread_pool_a::push_back
 				*/
 				template<typename... Tasks>
-				void push_back(Tasks&&... tasks)
+				void push_back(Tasks&& ... tasks)
 				{
 					parent.push_back(std::forward<Tasks>(tasks)...);
 				}
 				template<typename... Tasks>
-				void push_back_no_sync(Tasks&&... tasks)
+				void push_back_no_sync(Tasks&& ... tasks)
 				{
 					parent.push_back_no_sync(std::forward<Tasks>(tasks)...);
 				}
@@ -519,12 +520,12 @@ namespace exlib {
 					See thread_pool_a::push_front
 				*/
 				template<typename... Tasks>
-				void push_front(Tasks&&... tasks)
+				void push_front(Tasks&& ... tasks)
 				{
 					parent.push_front(std::forward<Tasks>(tasks)...);
 				}
 				template<typename... Tasks>
-				void push_front_no_sync(Tasks&&... tasks)
+				void push_front_no_sync(Tasks&& ... tasks)
 				{
 					parent.push_front_no_sync(std::forward<Tasks>(tasks)...);
 				}
@@ -621,7 +622,7 @@ namespace exlib {
 				Starts the threadpool with a certain number of threads and arguments initialized to the given arguments.
 			*/
 			template<typename... T>
-			explicit thread_pool_a(size_t num_threads,T&&... args):thread_pool_base(num_threads,true),_input(std::forward<T>(args)...)
+			explicit thread_pool_a(size_t num_threads,T&& ... args):thread_pool_base(num_threads,true),_input(std::forward<T>(args)...)
 			{
 				create_threads();
 			}
@@ -631,7 +632,7 @@ namespace exlib {
 				Threads are not started.
 			*/
 			template<typename... T>
-			explicit thread_pool_a(size_t num_threads,delay_start_t,T&&... args):thread_pool_base(num_threads,false),_input(std::forward<T>(args)...)
+			explicit thread_pool_a(size_t num_threads,delay_start_t,T&& ... args):thread_pool_base(num_threads,false),_input(std::forward<T>(args)...)
 			{}
 
 			/*
@@ -651,7 +652,7 @@ namespace exlib {
 				Set the args passed to the threads. Unsynchronized as you should not be modifying args that are actively being read from.
 			*/
 			template<typename... TplArgs>
-			void set_args(TplArgs&&... args)
+			void set_args(TplArgs&& ... args)
 			{
 				_input=TaskInput(std::forward<TplArgs>(args)...);
 			}
@@ -674,7 +675,7 @@ namespace exlib {
 				Resets the args passed to the threads.
 			*/
 			template<typename... TupleArgs>
-			void reactivate(TupleArgs&&... args)
+			void reactivate(TupleArgs&& ... args)
 			{
 				set_args(std::forward<TupleArgs>(args)...);
 				this->reactivate();
@@ -688,9 +689,9 @@ namespace exlib {
 			{
 				std::unique_lock<std::mutex> lock(this->_mtx);
 				this->_jobs_done.wait(lock,[this]
-				{
-					return this->idle();
-				});
+					{
+						return this->idle();
+					});
 			}
 
 			enum wait_state:bool {
@@ -717,9 +718,9 @@ namespace exlib {
 			{
 				std::unique_lock<std::mutex> lock(this->_mtx);
 				return this->_jobs_done.wait_until(lock,rel_time,[this]
-				{
-					return this->idle();
-				});
+					{
+						return this->idle();
+					});
 			}
 
 			/*
@@ -776,7 +777,7 @@ namespace exlib {
 				or optionally parent_ref as a first argument and then Args...
 			*/
 			template<typename FirstTask,typename... Rest>
-			void push_back_no_sync(FirstTask&& first,Rest&&... rest)
+			void push_back_no_sync(FirstTask&& first,Rest&& ... rest)
 			{
 				push_back_no_sync(std::forward<FirstTask>(first));
 				push_back_no_sync(std::forward<Rest>(rest)...);
@@ -788,7 +789,7 @@ namespace exlib {
 				or optionally parent_ref as a first argument and then Args...
 			*/
 			template<typename FirstTask,typename... Rest>
-			void push_front_no_sync(FirstTask&& first,Rest&&... rest)
+			void push_front_no_sync(FirstTask&& first,Rest&& ... rest)
 			{
 				push_front_no_sync(std::forward<FirstTask>(first));
 				push_front_no_sync(std::forward<Rest>(rest)...);
@@ -800,7 +801,7 @@ namespace exlib {
 				or optionally parent_ref as a first argument and then Args...
 			*/
 			template<typename... Tasks>
-			void push_back(Tasks&&... tasks)
+			void push_back(Tasks&& ... tasks)
 			{
 				{
 					std::lock_guard<std::mutex> guard(this->_mtx);
@@ -815,7 +816,7 @@ namespace exlib {
 				or optionally parent_ref as a first argument and then Args...
 			*/
 			template<typename... Tasks>
-			void push_front(Tasks&&... tasks)
+			void push_front(Tasks&& ... tasks)
 			{
 				{
 					std::lock_guard<std::mutex> guard(this->_mtx);
@@ -1043,7 +1044,7 @@ namespace exlib {
 			}
 
 		private:
-			
+
 			void join_base()
 			{
 				wait();
@@ -1102,13 +1103,14 @@ namespace exlib {
 					});
 				return count;
 			}
-			bool idle() noexcept
+			bool idle() const noexcept
 			{
-				return !this->_active||this->_jobs.empty();
+				return !this->_active||this->_active_thread_count==0;
 			}
 			void create_threads()
 			{
 				assert(num_threads()!=0);
+				this->_active_thread_count=0;
 				for(auto& worker:this->_workers)
 				{
 					worker=thread_pool_detail::joining_thread(&thread_pool_a::task_loop,this);
@@ -1174,16 +1176,15 @@ namespace exlib {
 			template<typename Task>
 			static auto make_job2(Task&& the_task) -> decltype(thread_pool_detail::fake_invoke<Args...>(std::forward<Task>(the_task)),std::unique_ptr<job>())
 			{
-				static_assert(noexcept(thread_pool_detail::fake_invoke<Args...>(std::forward<Task>(the_task))), "Tasks cannot throw (thread_pool_a has no exception handling mechanism); use async/promise if you need errors.");
+				static_assert(noexcept(thread_pool_detail::fake_invoke<Args...>(std::forward<Task>(the_task))),"Tasks cannot throw (thread_pool_a has no exception handling mechanism); use async/promise if you need errors.");
 				return std::unique_ptr<job>(new job_impl<thread_pool_detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
 			}
 
 			void task_loop() noexcept
 			{
+				std::unique_ptr<job> task;
 				while(true)
 				{
-					std::unique_ptr<job> task;
-					size_t jobs_left;
 					{
 						if(!this->_running)
 						{
@@ -1196,17 +1197,19 @@ namespace exlib {
 							{
 								return;
 							}
-							if(this->_active&&(jobs_left=this->_jobs.size()))
+							if(this->_active&&!this->_jobs.empty())
 							{
 								task=std::move(this->_jobs.front());
 								this->_jobs.pop_front();
+								++this->_active_thread_count;
 								break;
 							}
 							this->_signal_start.wait(lock);
 						}
 					}
-					(*task)(parent_ref(*this),this->_input);
-					if(jobs_left==1)
+					(*task)(parent_ref{*this},this->_input);
+					auto const active=--this->_active_thread_count;
+					if(active==0)
 					{
 						this->_jobs_done.notify_all();
 					}
