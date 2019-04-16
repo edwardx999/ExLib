@@ -527,8 +527,10 @@ namespace exlib {
 		return {conv_error::none,end};
 	}
 
+#if _EXMATH_HAS_CPP_14
+
 	template<typename T>
-	EX_CONSTEXPR unsigned int num_digits(T num,unsigned int base=10)
+	constexpr unsigned int num_digits(T num,unsigned int base=10)
 	{
 		//static_assert(std::is_integral<T>::value,"Requires integral type");
 		unsigned int num_digits=1;
@@ -538,9 +540,14 @@ namespace exlib {
 		}
 		return num_digits;
 	}
-
-
-#if _EXMATH_HAS_CPP_17
+#else
+	template<typename T>
+	constexpr unsigned int num_digits(T num,unsigned int base=10)
+	{
+		return num<0?num_digits(-num):((num<base)?1:(1+num_digits(num/base)));
+	}
+#endif
+#if _EXMATH_HAS_CPP_14
 
 	namespace detail {
 		template<typename CharType>
@@ -548,11 +555,11 @@ namespace exlib {
 		{
 			std::array<CharType,'9'-'0'+1+'z'-'a'+1> arr{{}};
 			std::size_t pos=0;
-			for(CharType i='0'; i<='9'; ++pos,++i)
+			for(CharType i='0';i<='9';++pos,++i)
 			{
 				arr[pos]=i;
 			}
-			for(CharType i='a'; i<='z'; ++pos,++i)
+			for(CharType i='a';i<='z';++pos,++i)
 			{
 				arr[pos]=i;
 			}
@@ -567,13 +574,10 @@ namespace exlib {
 		template<typename Iter>
 		using iter_val_t=typename std::iterator_traits<Iter>::value_type;
 	}
-	
-	//fills in a range working backwards from end and returns the start iter written to
-	//unchecked, make sure your range can fit
-	template<typename Iter,typename Num,typename DigitTable=detail::iter_val_t<Iter> const*>
-	constexpr Iter fill_num_array_unchecked(Iter end,Num num,int base=10,DigitTable digits=detail::digit_array_holder<detail::iter_val_t<DigitTable>>::digits.data())
-	{
-		if constexpr(std::is_unsigned_v<Num>)
+
+	namespace detail {
+		template<typename Iter,typename Num,typename DigitsIter>
+		constexpr Iter fill_num_array_unchecked_positive(Iter end,Num num,int base,DigitsIter digits)
 		{
 			--end;
 			while(true)
@@ -587,62 +591,86 @@ namespace exlib {
 				--end;
 			};
 		}
-		else
-		{
-			auto const negative=num<0;
-			if(!negative)
-			{
-				return fill_num_array_unchecked(end,static_cast<std::make_unsigned_t<Num>>(num),base,digits);
-			}
-			else
-			{
-				auto it=fill_num_array_unchecked(end,static_cast<std::make_unsigned_t<Num>>(-num),base,digits);
-				*--it='-';
-				return it;
-			}
-		}
 	}
-
-	template<auto val,int base,typename CharType=char>
-	constexpr auto to_string()
+	
+	//fills in a range working backwards from end and returns the start iter written to
+	//unchecked, make sure your range can fit
+	template<typename Iter,typename Num,typename DigitsIter=detail::iter_val_t<Iter> const*>
+	constexpr Iter fill_num_array_unchecked(Iter end,Num num,int base=10,DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
 	{
-		using T=decltype(val);
-		static_assert(std::is_integral_v<T>,"Integer type required");
-		constexpr auto digits=detail::digit_array_holder<CharType>::digits.data();
-		if constexpr(std::is_unsigned_v<T>||val>=0)
+		if(num>=0)
 		{
-			std::array<CharType,num_digits(val,base)+1> number{{}};
-			number.back()='\0';
-			fill_num_array_unchecked(number.end()-1,val,base,digits);
-			return number;
+			return detail::fill_num_array_unchecked_positive(end,num,base,digits);
 		}
 		else
 		{
-			std::array<CharType,num_digits(val,base)+2> number{{}};
-			auto v=val;
-			number.back()='\0';
-			fill_num_array_unchecked(number.end()-1,val,base,digits);
-			return number;
+			auto it=detail::fill_num_array_unchecked_positive(end,-num,base,digits);
+			*--it='-';
+			return it;
 		}
 	}
+	namespace detail {
+		template<typename T,T val,int base,typename CharType,bool positive=(val>=0)>
+		struct to_string_helper {
+			template<typename DigitsIter>
+			constexpr static auto get(DigitsIter digits)
+			{
+				std::array<CharType,num_digits(val,base)+1> number{{}};
+				number.back()='\0';
+				fill_num_array_unchecked(number.end()-1,val,base,digits);
+				return number;
+			}
+		};
 
-	template<auto val,typename CharType,int base=10>
-	constexpr auto to_string()
+		template<typename T,T val,int base,typename CharType>
+		struct to_string_helper<T,val,base,CharType,false> {
+			template<typename DigitsIter>
+			constexpr static auto get(DigitsIter digits)
+			{
+				std::array<CharType,num_digits(val,base)+2> number{{}};
+				number.back()='\0';
+				fill_num_array_unchecked(number.end()-1,val,base,digits);
+				number.front()='-';
+				return number;
+			}
+		};
+
+		template<typename T,T val,int base,typename CharType,typename DigitsIter>
+		constexpr auto to_string(DigitsIter digits)
+		{
+			return to_string_helper<T,val,base,CharType>::get(digits);
+		}
+	}
+#endif
+#if _EXMATH_HAS_CPP_17
+	template<auto val,int base,typename CharType=char,typename DigitsIter=CharType const*>
+	constexpr auto to_string(DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
 	{
-		return to_string<val,base,CharType>();
+		return detail::to_string<decltype(val),val,base,CharType>(digits);
 	}
 
-	template<auto val>
-	constexpr auto to_string()
+	template<auto val,typename CharType,int base=10,typename DigitsIter=CharType const*>
+	constexpr auto to_string(DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
 	{
-		return to_string<val,10,char>();
+		return to_string<val,base,CharType>(digits);
 	}
 
-	template<unsigned long long val,typename CharType=char>
-	[[deprecated]] 
-	constexpr auto to_string_unsigned()
+	template<auto val,typename DigitsIter=char const*>
+	constexpr auto to_string(DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
 	{
-		return to_string<val,CharType>();
+		return to_string<val,10,char>(digits);
+	}
+#endif
+#if _EXMATH_HAS_CPP_14
+	template<long long val,int base=10,typename CharType=char,typename DigitsIter=CharType const*>
+	constexpr auto to_string_signed(DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
+	{
+		return detail::to_string<decltype(val),val,base,CharType>(digits);
+	}
+	template<unsigned long long val,int base=10,typename CharType=char,typename DigitsIter=CharType const*>
+	constexpr auto to_string_unsigned(DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
+	{
+		return detail::to_string<decltype(val),val,base,CharType>(digits);
 	}
 #endif
 
