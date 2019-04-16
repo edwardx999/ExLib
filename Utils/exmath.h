@@ -582,7 +582,7 @@ namespace exlib {
 				num/=base;
 				if(num==0)
 				{
-					break;
+					return end;
 				}
 				--end;
 			};
@@ -596,28 +596,11 @@ namespace exlib {
 			}
 			else
 			{
-				--end;
-				while(true)
-				{
-					if constexpr(-1%10==-1)
-					{
-						*end=digits[(-(num%base))];
-					}
-					else
-					{
-						*end=digits[base-(num%base)];
-					}
-					num/=base;
-					--end;
-					if(num==0)
-					{
-						*end='-';
-						break;
-					}
-				}
+				auto it=fill_num_array_unchecked(end,static_cast<std::make_unsigned_t<Num>>(-num),base,digits);
+				*--it='-';
+				return it;
 			}
 		}
-		return end;
 	}
 
 	template<auto val,int base,typename CharType=char>
@@ -656,11 +639,13 @@ namespace exlib {
 	}
 
 	template<unsigned long long val,typename CharType=char>
-	[[deprecated]] constexpr auto to_string_unsigned()
+	[[deprecated]] 
+	constexpr auto to_string_unsigned()
 	{
 		return to_string<val,CharType>();
 	}
 #endif
+
 	namespace detail {
 #ifdef NDEBUG
 		using std::min_element;
