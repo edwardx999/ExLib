@@ -608,11 +608,12 @@ namespace exlib {
 						*end=digits[base-(num%base)];
 					}
 					num/=base;
+					--end;
 					if(num==0)
 					{
+						*end='-';
 						break;
 					}
-					--end;
 				}
 			}
 		}

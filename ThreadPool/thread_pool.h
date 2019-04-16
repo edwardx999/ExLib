@@ -129,10 +129,10 @@ namespace exlib {
 
 #if _EXLIB_THREAD_POOL_HAS_CPP_17
 		template<typename... Args>
-		using no_rvalue_references=std::bool_constant<(!std::is_rvalue_reference_v<Args>&& ...)>;
+		using no_rvalue_references=std::bool_constant<(!std::is_rvalue_reference_v<Args>&&...)>;
 
 		template<typename... Args>
-		using all_nothrow_copyable=std::bool_constant<(std::is_nothrow_copy_constructible_v<Args>&& ...)>;
+		using all_nothrow_copyable=std::bool_constant<(std::is_nothrow_copy_constructible_v<Args>&&...)>;
 #else
 		template<typename... Args>
 		struct no_rvalue_references;
@@ -302,7 +302,7 @@ namespace exlib {
 			T _val;
 		public:
 			template<typename... Args>
-			ptr_wrapper(Args&& ... args):_val(std::forward<Args>(args)...)
+			ptr_wrapper(Args&&... args):_val(std::forward<Args>(args)...)
 			{}
 			T& operator*() const
 			{
@@ -397,7 +397,7 @@ namespace exlib {
 		template<typename ReturnType>
 		struct set_promise_value {
 			template<typename Task,typename... Args>
-			static void set(std::promise<ReturnType>& promise,Task& task,Args&& ... args)
+			static void set(std::promise<ReturnType>& promise,Task& task,Args&&... args)
 			{
 				promise.set_value(task(std::forward<Args>(args)...));
 			}
@@ -405,7 +405,7 @@ namespace exlib {
 		template<>
 		struct set_promise_value<void> {
 			template<typename Task,typename... Args>
-			static void set(std::promise<void>& promise,Task& task,Args&& ... args)
+			static void set(std::promise<void>& promise,Task& task,Args&&... args)
 			{
 				task(std::forward<Args>(args)...);
 				promise.set_value();
@@ -415,7 +415,7 @@ namespace exlib {
 		template<bool no_throw>
 		struct TaskDoerImpl {
 			template<typename Task,typename ReturnType,typename... Args>
-			static void run(Task& task,std::promise<ReturnType>& promise,Args&& ... args)
+			static void run(Task& task,std::promise<ReturnType>& promise,Args&&... args)
 			{
 				try
 				{
@@ -431,7 +431,7 @@ namespace exlib {
 		template<>
 		struct TaskDoerImpl<true> {
 			template<typename Task,typename ReturnType,typename... Args>
-			static void run(Task& task,std::promise<ReturnType>& promise,Args&& ... args)
+			static void run(Task& task,std::promise<ReturnType>& promise,Args&&... args)
 			{
 				thread_pool_detail::set_promise_value<ReturnType>::set(promise,task,std::forward<Args>(args)...);
 			}
@@ -507,12 +507,12 @@ namespace exlib {
 					See thread_pool_a::push_back
 				*/
 				template<typename... Tasks>
-				void push_back(Tasks&& ... tasks)
+				void push_back(Tasks&&... tasks)
 				{
 					parent.push_back(std::forward<Tasks>(tasks)...);
 				}
 				template<typename... Tasks>
-				void push_back_no_sync(Tasks&& ... tasks)
+				void push_back_no_sync(Tasks&&... tasks)
 				{
 					parent.push_back_no_sync(std::forward<Tasks>(tasks)...);
 				}
@@ -520,12 +520,12 @@ namespace exlib {
 					See thread_pool_a::push_front
 				*/
 				template<typename... Tasks>
-				void push_front(Tasks&& ... tasks)
+				void push_front(Tasks&&... tasks)
 				{
 					parent.push_front(std::forward<Tasks>(tasks)...);
 				}
 				template<typename... Tasks>
-				void push_front_no_sync(Tasks&& ... tasks)
+				void push_front_no_sync(Tasks&&... tasks)
 				{
 					parent.push_front_no_sync(std::forward<Tasks>(tasks)...);
 				}
@@ -622,7 +622,7 @@ namespace exlib {
 				Starts the threadpool with a certain number of threads and arguments initialized to the given arguments.
 			*/
 			template<typename... T>
-			explicit thread_pool_a(size_t num_threads,T&& ... args):thread_pool_base(num_threads,true),_input(std::forward<T>(args)...)
+			explicit thread_pool_a(size_t num_threads,T&&... args):thread_pool_base(num_threads,true),_input(std::forward<T>(args)...)
 			{
 				create_threads();
 			}
@@ -632,7 +632,7 @@ namespace exlib {
 				Threads are not started.
 			*/
 			template<typename... T>
-			explicit thread_pool_a(size_t num_threads,delay_start_t,T&& ... args):thread_pool_base(num_threads,false),_input(std::forward<T>(args)...)
+			explicit thread_pool_a(size_t num_threads,delay_start_t,T&&... args):thread_pool_base(num_threads,false),_input(std::forward<T>(args)...)
 			{}
 
 			/*
@@ -652,7 +652,7 @@ namespace exlib {
 				Set the args passed to the threads. Unsynchronized as you should not be modifying args that are actively being read from.
 			*/
 			template<typename... TplArgs>
-			void set_args(TplArgs&& ... args)
+			void set_args(TplArgs&&... args)
 			{
 				_input=TaskInput(std::forward<TplArgs>(args)...);
 			}
@@ -675,7 +675,7 @@ namespace exlib {
 				Resets the args passed to the threads.
 			*/
 			template<typename... TupleArgs>
-			void reactivate(TupleArgs&& ... args)
+			void reactivate(TupleArgs&&... args)
 			{
 				set_args(std::forward<TupleArgs>(args)...);
 				this->reactivate();
@@ -777,7 +777,7 @@ namespace exlib {
 				or optionally parent_ref as a first argument and then Args...
 			*/
 			template<typename FirstTask,typename... Rest>
-			void push_back_no_sync(FirstTask&& first,Rest&& ... rest)
+			void push_back_no_sync(FirstTask&& first,Rest&&... rest)
 			{
 				push_back_no_sync(std::forward<FirstTask>(first));
 				push_back_no_sync(std::forward<Rest>(rest)...);
@@ -789,7 +789,7 @@ namespace exlib {
 				or optionally parent_ref as a first argument and then Args...
 			*/
 			template<typename FirstTask,typename... Rest>
-			void push_front_no_sync(FirstTask&& first,Rest&& ... rest)
+			void push_front_no_sync(FirstTask&& first,Rest&&... rest)
 			{
 				push_front_no_sync(std::forward<FirstTask>(first));
 				push_front_no_sync(std::forward<Rest>(rest)...);
@@ -801,7 +801,7 @@ namespace exlib {
 				or optionally parent_ref as a first argument and then Args...
 			*/
 			template<typename... Tasks>
-			void push_back(Tasks&& ... tasks)
+			void push_back(Tasks&&... tasks)
 			{
 				{
 					std::lock_guard<std::mutex> guard(this->_mtx);
@@ -816,7 +816,7 @@ namespace exlib {
 				or optionally parent_ref as a first argument and then Args...
 			*/
 			template<typename... Tasks>
-			void push_front(Tasks&& ... tasks)
+			void push_front(Tasks&&... tasks)
 			{
 				{
 					std::lock_guard<std::mutex> guard(this->_mtx);
