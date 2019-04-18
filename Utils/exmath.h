@@ -573,9 +573,7 @@ namespace exlib {
 
 		template<typename Iter>
 		using iter_val_t=typename std::iterator_traits<Iter>::value_type;
-	}
 
-	namespace detail {
 		template<typename Iter,typename Num,typename DigitsIter>
 		constexpr Iter fill_num_array_unchecked_positive(Iter end,Num num,int base,DigitsIter digits)
 		{
@@ -643,18 +641,21 @@ namespace exlib {
 	}
 #endif
 #if _EXMATH_HAS_CPP_17
+	//converts to a compile-time const array of digits representing the number
 	template<auto val,int base,typename CharType=char,typename DigitsIter=CharType const*>
 	constexpr auto to_string(DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
 	{
 		return detail::to_string<decltype(val),val,base,CharType>(digits);
 	}
 
+	//converts to a compile-time const array of digits representing the number
 	template<auto val,typename CharType,int base=10,typename DigitsIter=CharType const*>
 	constexpr auto to_string(DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
 	{
 		return to_string<val,base,CharType>(digits);
 	}
 
+	//converts to a compile-time const array of digits representing the number
 	template<auto val,typename DigitsIter=char const*>
 	constexpr auto to_string(DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
 	{
@@ -662,11 +663,13 @@ namespace exlib {
 	}
 #endif
 #if _EXMATH_HAS_CPP_14
+	//converts to a compile-time const array of digits representing the number
 	template<long long val,int base=10,typename CharType=char,typename DigitsIter=CharType const*>
 	constexpr auto to_string_signed(DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
 	{
 		return detail::to_string<decltype(val),val,base,CharType>(digits);
 	}
+	//converts to a compile-time const array of digits representing the number
 	template<unsigned long long val,int base=10,typename CharType=char,typename DigitsIter=CharType const*>
 	constexpr auto to_string_unsigned(DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
 	{

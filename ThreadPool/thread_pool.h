@@ -242,6 +242,9 @@ namespace exlib {
 			void signal_stop()
 			{
 				this->_active=false;
+				{
+					std::lock_guard<std::mutex> lock{this->_mtx};
+				}
 				this->_jobs_done.notify_all();
 			}
 
@@ -280,8 +283,11 @@ namespace exlib {
 			void stop_running()
 			{
 				this->_running=false;
-				this->_signal_start.notify_all();
 				this->_active=false;
+				{
+					std::lock_guard<std::mutex> lock{this->_mtx};
+				}
+				this->_signal_start.notify_all();
 			}
 
 			thread_pool_base(size_t num_threads,bool start):_workers(num_threads),_running(start),_active(start)
