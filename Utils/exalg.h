@@ -503,6 +503,29 @@ namespace exlib {
 	template<typename T,size_t N>
 	struct array_size<T[N]>:std::integral_constant<size_t,N> {};
 
+	template<typename T>
+	struct array_type:array_type<typename std::remove_cv<typename std::remove_reference<T>::type>::type> {
+		using type=T;
+	};
+
+	template<typename T,size_t N>
+	struct array_type<std::array<T,N>> {
+		using type=T;
+	};
+
+	template<typename T,size_t N>
+	struct array_type<T[N]> {
+		using type=T;
+	};
+
+	template<typename T>
+	struct array_type<T[]> {
+		using type=T;
+	};
+
+	template<typename Arr>
+	using array_type_t=typename array_type<Arr>::type;
+
 #if _EXALG_HAS_CPP_17
 	template<typename T>
 	inline constexpr size_t array_size_v=array_size<T>::value;
@@ -553,7 +576,8 @@ namespace exlib {
 	template<typename A,typename B,typename... C>
 	constexpr auto str_concat(A const& a,B const& b,C const&... c)
 	{
-		return concat(detail::str_concat(a,b,c...),"");
+		constexpr std::array<typename std::decay<array_type<typename std::remove_reference<A>::type>::type>::type,1> terminator{{0}};
+		return concat(detail::str_concat(a,b,c...),terminator);
 	}
 
 	template<typename T=void>

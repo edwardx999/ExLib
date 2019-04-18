@@ -529,8 +529,20 @@ namespace exlib {
 
 #if _EXMATH_HAS_CPP_14
 
+	namespace detail {
+		template<typename Target,typename Base,bool is_unsigned=std::is_unsigned<Target>::value>
+		struct bring_unsignedness {
+			using type=Base;
+		};
+
+		template<typename Target,typename Base>
+		struct bring_unsignedness<Target,Base,true> {
+			using type=typename std::make_unsigned<Base>::type;
+		};
+	}
+
 	template<typename T>
-	constexpr unsigned int num_digits(T num,unsigned int base=10)
+	constexpr unsigned int num_digits(T num,typename detail::bring_unsignedness<T,int>::type base=10)
 	{
 		//static_assert(std::is_integral<T>::value,"Requires integral type");
 		unsigned int num_digits=1;
@@ -608,7 +620,7 @@ namespace exlib {
 		}
 	}
 	namespace detail {
-		template<typename T,T val,int base,typename CharType,bool positive=(val>=0)>
+		template<typename T,T val,unsigned int base,typename CharType,bool positive=(val>=0)>
 		struct to_string_helper {
 			template<typename DigitsIter>
 			constexpr static auto get(DigitsIter digits)
@@ -620,7 +632,7 @@ namespace exlib {
 			}
 		};
 
-		template<typename T,T val,int base,typename CharType>
+		template<typename T,T val,unsigned int base,typename CharType>
 		struct to_string_helper<T,val,base,CharType,false> {
 			template<typename DigitsIter>
 			constexpr static auto get(DigitsIter digits)
@@ -633,7 +645,7 @@ namespace exlib {
 			}
 		};
 
-		template<typename T,T val,int base,typename CharType,typename DigitsIter>
+		template<typename T,T val,unsigned int base,typename CharType,typename DigitsIter>
 		constexpr auto to_string(DigitsIter digits)
 		{
 			return to_string_helper<T,val,base,CharType>::get(digits);
@@ -642,14 +654,14 @@ namespace exlib {
 #endif
 #if _EXMATH_HAS_CPP_17
 	//converts to a compile-time const array of digits representing the number
-	template<auto val,int base,typename CharType=char,typename DigitsIter=CharType const*>
+	template<auto val,unsigned int base,typename CharType=char,typename DigitsIter=CharType const*>
 	constexpr auto to_string(DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
 	{
 		return detail::to_string<decltype(val),val,base,CharType>(digits);
 	}
 
 	//converts to a compile-time const array of digits representing the number
-	template<auto val,typename CharType,int base=10,typename DigitsIter=CharType const*>
+	template<auto val,typename CharType,unsigned int base=10,typename DigitsIter=CharType const*>
 	constexpr auto to_string(DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
 	{
 		return to_string<val,base,CharType>(digits);
@@ -664,13 +676,13 @@ namespace exlib {
 #endif
 #if _EXMATH_HAS_CPP_14
 	//converts to a compile-time const array of digits representing the number
-	template<long long val,int base=10,typename CharType=char,typename DigitsIter=CharType const*>
+	template<long long val,unsigned int base=10,typename CharType=char,typename DigitsIter=CharType const*>
 	constexpr auto to_string_signed(DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
 	{
 		return detail::to_string<decltype(val),val,base,CharType>(digits);
 	}
 	//converts to a compile-time const array of digits representing the number
-	template<unsigned long long val,int base=10,typename CharType=char,typename DigitsIter=CharType const*>
+	template<unsigned long long val,unsigned int base=10,typename CharType=char,typename DigitsIter=CharType const*>
 	constexpr auto to_string_unsigned(DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
 	{
 		return detail::to_string<decltype(val),val,base,CharType>(digits);
