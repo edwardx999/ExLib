@@ -27,6 +27,14 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #endif
 #include <type_traits>
 #include <cstdint>
+namespace std {
+	template<typename T,std::size_t N>
+	class array;
+#if _EXRETYPE_HAS_CPP_20
+	template<typename T,std::size_t N>
+	class span;
+#endif
+}
 namespace exlib {
 
 	template<typename... Bases>
@@ -405,70 +413,67 @@ namespace exlib {
 
 		template<std::size_t N>
 		struct match_float_size_h {
-			template<typename... Extra>
-			static auto try_long_double(int,Extra...) -> decltype(std::enable_if<sizeof(long double)==N,long double>::type());
-			template<typename... Extra>
-			static void try_long_double(char,Extra...);
+			template<size_t Candidate=sizeof(long double),typename... Extra>
+			static auto try_long_double(Extra...) -> typename std::enable_if<Candidate==N,long double>::type;
+			template<size_t=sizeof(long double),typename... Extra>
+			static void try_long_double(Extra...);
 
-			template<typename... Extra>
-			static auto try_double(int,Extra...) -> decltype(std::enable_if<sizeof(double)==N,double>::type());
-			template<typename... Extra>
-			static auto try_double(char,Extra...) -> decltype(try_long_double(0));
+			template<size_t Candidate=sizeof(double)>
+			static auto try_double() -> typename std::enable_if<Candidate==N,double>::type;
+			template<size_t=sizeof(float),typename... Extra>
+			static auto try_double(Extra...) -> decltype(try_long_double());
 
-			template<typename... Extra>
-			static auto try_float(int,Extra...) -> decltype(std::enable_if<sizeof(float)==N,float>::type());
-			template<typename... Extra>
-			static auto try_float(char,Extra...) -> decltype(try_double(0));
+			template<size_t Candidate=sizeof(float)>
+			static auto try_float() -> typename std::enable_if<Candidate==N,float>::type;
+			template<size_t=sizeof(float),typename... Extra>
+			static auto try_float(Extra...) -> decltype(try_double());
 
-			using type=decltype(try_float(0));
-			static_assert(!std::is_same<type,void>::value,"No floating-point type matching size");
+			using type=decltype(try_float());
 		};
 
 		template<std::size_t N>
 		struct least_float_size_h {
-			template<typename... Extra>
-			static auto try_long_double(int,Extra...) -> decltype(std::enable_if<sizeof(long double)>=N,long double>::type());
-			template<typename... Extra>
-			static void try_long_double(char,Extra...);
+			template<size_t Candidate=sizeof(long double),typename... Extra>
+			static auto try_long_double(Extra...) -> typename std::enable_if<Candidate>=N,long double>::type;
+			template<size_t=sizeof(long double),typename... Extra>
+			static void try_long_double(Extra...);
 
-			template<typename... Extra>
-			static auto try_double(int,Extra...) -> decltype(std::enable_if<sizeof(double)>=N,double>::type());
-			template<typename... Extra>
-			static auto try_double(char,Extra...) -> decltype(try_long_double(0));
+			template<size_t Candidate=sizeof(double)>
+			static auto try_double() -> typename std::enable_if<Candidate>=N,double>::type;
+			template<size_t=sizeof(float),typename... Extra>
+			static auto try_double(Extra...) -> decltype(try_long_double());
 
-			template<typename... Extra>
-			static auto try_float(int,Extra...) -> decltype(std::enable_if<sizeof(float)>=N,float>::type());
-			template<typename... Extra>
-			static auto try_float(char,Extra...) -> decltype(try_double(0));
+			template<size_t Candidate=sizeof(float)>
+			static auto try_float() -> typename std::enable_if<Candidate>=N,float>::type;
+			template<size_t=sizeof(float),typename... Extra>
+			static auto try_float(Extra...) -> decltype(try_double());
 
-			using type=decltype(try_float(0));
-			static_assert(!std::is_same<type,void>::value,"No floating-point type at least size");
+			using type=decltype(try_float());
 		};
 
 		template<std::size_t N>
 		struct least_size_h {
-			template<typename... Extra>
-			static auto try64(int,Extra...) -> decltype(std::enable_if<sizeof(uint64_t)>=N,uint64_t>::type());
-			template<typename... Extra>
-			static void try64(char,Extra...);
+			template<size_t Candidate=sizeof(uint64_t)>
+			static auto try64() -> typename std::enable_if<Candidate>=N,uint64_t>::type;
+			template<size_t=sizeof(uint64_t),typename... Extra>
+			static void try64(Extra...);
 
-			template<typename... Extra>
-			static auto try32(int,Extra...) -> decltype(std::enable_if<sizeof(uint32_t)>=N,uint32_t>::type());
-			template<typename... Extra>
-			static auto try32(char,Extra...) -> decltype(try64(0));
+			template<size_t Candidate=sizeof(uint32_t)>
+			static auto try32() -> typename std::enable_if<Candidate>=N,uint32_t>::type;
+			template<size_t=sizeof(uint32_t),typename... Extra>
+			static auto try32(Extra...) -> decltype(try64());
 
-			template<typename... Extra>
-			static auto try16(int,Extra...) -> decltype(std::enable_if<sizeof(uint16_t)>=N,uint16_t>::type());
-			template<typename... Extra>
-			static auto try16(char,Extra...) -> decltype(try32(0));
+			template<size_t Candidate=sizeof(uint16_t)>
+			static auto try16() -> typename std::enable_if<Candidate>=N,uint16_t>::type;
+			template<size_t=sizeof(uint16_t),typename... Extra>
+			static auto try16(Extra...) -> decltype(try32());
 
-			template<typename... Extra>
-			static auto try8(int,Extra...) -> decltype(std::enable_if<sizeof(uint8_t)>=N,uint8_t>::type());
-			template<typename... Extra>
-			static auto try8(char,Extra...) -> decltype(try16(0));
+			template<size_t Candidate=sizeof(uint8_t)>
+			static auto try8() -> typename std::enable_if<Candidate>=N,uint8_t>::type;
+			template<size_t Candidate=sizeof(uint8_t),typename... Extra>
+			static auto try8(Extra...) -> decltype(try16());
 
-			using type=decltype(try8(0));
-			static_assert(!std::is_same<type,void>::value,"No uint type at least size");
+			using type=decltype(try8());
 		};
 	}
 
@@ -631,5 +636,112 @@ namespace exlib {
 	overloaded(Funcs&& ... f)->overloaded<remove_cvref_t<decltype(wrap(f))>...>;
 #endif
 
+	struct empty_t{};
+
+	template<typename T>
+	struct is_sized_array:
+		std::conditional<
+			std::is_same<T,remove_cvref_t<T>>::value,
+			std::false_type,
+			is_sized_array<remove_cvref_t<T>>
+		>::type {};
+
+	template<typename T,std::size_t N>
+	struct is_sized_array<std::array<T,N>>:std::true_type {};
+
+	template<typename T, std::size_t N>
+	struct is_sized_array<T[N]>:std::true_type {};
+
+#if _EXRETYPE_HAS_CPP_20
+	template<typename T,std::size_t N>
+	struct is_sized_array<std::span<T,N>>:std::true_type {};
+
+	template<typename T>
+	struct is_sized_array<std::span<T,std::size_t(-1)>>:std::false_type {};
+#endif
+
+	template<typename T,size_t N>
+	struct is_sized_array<T[N]>:std::true_type {};
+
+	template<typename T>
+	struct array_size:std::conditional<std::is_same<T,remove_cvref_t<T>>::value,empty_t,array_size<remove_cvref_t<T>>>::type {};
+
+	template<typename T,size_t N>
+	struct array_size<std::array<T,N>>:std::integral_constant<size_t,N> {};
+
+	template<typename T,size_t N>
+	struct array_size<T[N]>:std::integral_constant<size_t,N> {};
+
+#if _EXRETYPE_HAS_CPP_20
+	template<typename T,std::size_t N>
+	struct array_size<std::span<T,N>>:std::integral_constant<size_t,N> {};
+
+	template<typename T>
+	struct array_size<std::span<T,std::size_t(-1)>> {};
+#endif
+
+#if _EXRETYPE_HAS_CPP_17
+	template<typename T>
+	inline constexpr size_t array_size_v=array_size<T>::value;
+#endif
+
+	template<typename T>
+	struct array_type:std::conditional<std::is_same<T,remove_cvref_t<T>>::value,empty_t,array_size<remove_cvref_t<T>>>::type {};
+
+	template<typename T,size_t N>
+	struct array_type<std::array<T,N>> {
+		using type=T;
+	};
+
+	template<typename T,size_t N>
+	struct array_type<T[N]> {
+		using type=T;
+	};
+
+	template<typename T>
+	struct array_type<T[]> {
+		using type=T;
+	};
+
+#if _EXRETYPE_HAS_CPP_20
+	template<typename T,size_t N>
+	struct array_type<std::span<T,N>> {
+		using type=T;
+	};
+#endif
+
+	template<typename Arr>
+	using array_type_t=typename array_type<Arr>::type;
+
+	template<typename SumType,typename... Constants>
+	struct sum_type_value;
+
+	template<typename SumType>
+	struct sum_type_value<SumType>:std::integral_constant<SumType,0> {
+	};
+
+	template<typename SumType,typename Type>
+	struct sum_type_value<SumType,Type>:std::integral_constant<SumType,Type::value> {
+	};
+
+	template<typename SumType,typename Type,typename... Rest>
+	struct sum_type_value<SumType,Type,Rest...>:std::integral_constant<SumType,Type::value+sum_type_value<Rest...>::value> {
+	};
+
+#if _EXRETYPE_HAS_CPP_17
+	using std::conjunction;
+#else
+	template<typename... Types>
+	struct conjunction;
+
+	template<>
+	struct conjunction<>:std::true_type{};
+
+	template<typename Type>
+	struct conjunction<Type>:std::integral_constant<bool,bool(Type::value)>{};
+
+	template<typename First,typename... Rest>
+	struct conjunction<Type>:std::integral_constant<bool,bool(First::value)&&conjunction<Rest...>::value> {};
+#endif
 }
 #endif
