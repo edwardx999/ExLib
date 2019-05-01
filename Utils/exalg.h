@@ -243,22 +243,22 @@ namespace exlib {
 	namespace detail {
 		struct for_each_in_tuple_h {
 			template<typename Tpl,typename Func>
-			constexpr static void apply(Tpl&& tpl,Func f,std::index_sequence<>)
+			constexpr static void apply(Tpl&& tpl,Func&& f,std::index_sequence<>)
 			{
 
 			}
 			template<typename Tpl,typename Func,size_t I>
-			constexpr static void apply(Tpl&& tpl,Func f,std::index_sequence<I>)
+			constexpr static void apply(Tpl&& tpl,Func& f,std::index_sequence<I>)
 			{
 				using std::get;
 				f(get<I>(std::forward<Tpl>(tpl)));
 			}
 			template<typename Tpl,typename Func,size_t I,size_t... Rest>
-			constexpr static void apply(Tpl&& tpl,Func f,std::index_sequence<I,Rest...>)
+			constexpr static void apply(Tpl&& tpl,Func& f,std::index_sequence<I,Rest...>)
 			{
 				using std::get;
 				f(get<I>(std::forward<Tpl>(tpl)));
-				apply(std::forward<Tpl>(tpl),f,std::index_sequence<Rest...>{});
+				for_each_in_tuple_h::apply(std::forward<Tpl>(tpl),f,std::index_sequence<Rest...>{});
 			}
 		};
 	}
@@ -266,7 +266,7 @@ namespace exlib {
 	template<typename Tpl,typename Func>
 	constexpr void for_each_in_tuple(Tpl&& tpl,Func&& f)
 	{
-		detail::for_each_in_tuple_h::apply(std::forward<Tpl>(tpl),std::forward<Func>(f),std::make_index_sequence<std::tuple_size<typename std::remove_reference<Tpl>::type>::value>{});
+		detail::for_each_in_tuple_h::apply(std::forward<Tpl>(tpl),f,std::make_index_sequence<std::tuple_size<typename std::remove_reference<Tpl>::type>::value>{});
 	}
 #endif
 
@@ -436,25 +436,29 @@ namespace exlib {
 
 	//inserts the element AT elem into the range [begin,elem] according to comp assuming the range is sorted
 	template<typename TwoWayIter,typename Comp>
-	constexpr void insert_back(TwoWayIter const begin,TwoWayIter elem,Comp comp)
+	constexpr TwoWayIter insert_back(TwoWayIter const begin,TwoWayIter elem,Comp comp)
 	{
-		auto j=elem;
-		while(j!=begin)
+		while(elem!=begin)
 		{
-			--j;
-			if(comp(*elem,*j))
+			auto before=std::prev(elem);
+			if(comp(*before,*elem))
 			{
-				swap(*elem,*j);
-				--elem;
+				return elem;
+			}
+			else
+			{
+				exlib::swap(*before,*elem);
+				elem=before;
 			}
 		}
+		return elem;
 	}
 
 	template<typename TwoWayIter>
-	constexpr void insert_back(TwoWayIter const begin,TwoWayIter elem)
+	constexpr TwoWayIter insert_back(TwoWayIter const begin,TwoWayIter elem)
 	{
 		using T=typename std::decay<decltype(*begin)>::type;
-		insert_back(begin,elem,less<T>());
+		return insert_back(begin,elem,less<T>());
 	}
 
 	//comp is two-way "less-than" operator
@@ -494,90 +498,121 @@ namespace exlib {
 		return sorted(arr,less<T>());
 	}
 
-	template<typename T>
-	struct array_size:array_size<typename std::remove_cv<typename std::remove_reference<T>::type>::type> {};
-
-	template<typename T,size_t N>
-	struct array_size<std::array<T,N>>:std::integral_constant<size_t,N> {};
-
-	template<typename T,size_t N>
-	struct array_size<T[N]>:std::integral_constant<size_t,N> {};
-
-	template<typename T>
-	struct array_type:array_type<typename std::remove_cv<typename std::remove_reference<T>::type>::type> {
-		using type=T;
-	};
-
-	template<typename T,size_t N>
-	struct array_type<std::array<T,N>> {
-		using type=T;
-	};
-
-	template<typename T,size_t N>
-	struct array_type<T[N]> {
-		using type=T;
-	};
-
-	template<typename T>
-	struct array_type<T[]> {
-		using type=T;
-	};
-
-	template<typename Arr>
-	using array_type_t=typename array_type<Arr>::type;
-
-#if _EXALG_HAS_CPP_17
-	template<typename T>
-	inline constexpr size_t array_size_v=array_size<T>::value;
-#endif
-
 	namespace detail {
-		template<typename Arr1,typename Arr2,size_t... I,size_t... J>
-		constexpr auto concat(Arr1 const& a,Arr2 const& b,std::index_sequence<I...>,std::index_sequence<J...>)
+		template<typename B,typename... R>
+		struct ma_ret {
+			using type=B;
+		};
+
+		template<typename... R>
+		struct ma_ret<void,R...> {
+			using type=typename std::common_type<R...>::type;
+		};
+
+		template<typename Type,typename... Arrays>
+		struct concat_value_type:ma_ret<Type,array_type_t<Arrays>...>{};
+
+		template<typename Type,typename... Arrays>
+		struct concat_type: 
+			std::enable_if<
+				exlib::conjunction<exlib::is_sized_array<Arrays>...>::value,
+				std::array<
+					typename concat_value_type<Type,Arrays...>::type,
+					exlib::sum_type_value<std::size_t,array_size<Arrays>...>::value>> {};
+
+		template<typename Array>
+		struct string_array_size:
+			std::conditional<
+				array_size<Array>::value==0,
+				std::integral_constant<std::size_t,0>,
+				std::integral_constant<std::size_t,array_size<Array>::value-1>>::type{};
+
+		template<typename Type,typename... Arrays>
+		struct str_concat_type: 
+			std::enable_if<
+				conjunction<is_sized_array<Arrays>...>::value,
+				std::array<
+					typename concat_value_type<Type, Arrays...>::type,
+					sum_type_value<std::size_t,string_array_size<Arrays>...>::value+1>> {};
+
+		template<typename Ret,typename Arr1,size_t... I>
+		constexpr Ret fill_copy(Arr1 const& a,std::index_sequence<I...>)
 		{
-			using T=std::remove_cv_t<std::remove_reference_t<decltype(a[0])>>;
-			using U=std::remove_cv_t<std::remove_reference_t<decltype(b[0])>>;
-			std::array<typename std::common_type<T,U>::type,sizeof...(I)+sizeof...(J)> ret{{a[I]...,b[J]...}};
+			Ret ret{{a[I]...}};
 			return ret;
 		}
-		template<typename A,typename B>
-		constexpr auto str_concat(A const& a,B const& b)
+
+		template<typename Ret,typename Arr1,typename Arr2,size_t... I,size_t... J>
+		constexpr Ret concat(Arr1 const& a,Arr2 const& b,std::index_sequence<I...>,std::index_sequence<J...>)
+		{
+			Ret ret{{a[I]...,b[J]...}};
+			return ret;
+		}
+
+		template<typename Ret,typename A,typename B>
+		constexpr Ret str_concat(A const& a,B const& b)
 		{
 			constexpr size_t N=array_size<A>::value;
 			constexpr size_t M=array_size<B>::value;
 			constexpr size_t Nf=N==0?0:N-1;
-			constexpr size_t Mf=M==0?0:M-1;
-			return concat(a,b,std::make_index_sequence<Nf>(),std::make_index_sequence<Mf>());
+			return concat<Ret>(a,b,std::make_index_sequence<Nf>(),std::make_index_sequence<M>());
 		}
-		template<typename A,typename B,typename... C>
-		constexpr auto str_concat(A const& a,B const& b,C const&... c)
-		{
-			return str_concat(str_concat(a,b),c...);
-		}
+	}
+
+	template<typename ValueType>
+	constexpr std::array<ValueType,0> concat()
+	{
+		return std::array<ValueType,0>{};
+	}
+
+	template<typename ValueType=void,typename A>
+	constexpr auto concat(A const& a) -> typename detail::concat_type<ValueType,A>::type
+	{
+		return detail::fill_copy<typename detail::concat_type<ValueType,A>::type>(a,std::make_index_sequence<array_size<A>::value>{});
 	}
 
 	//concatenate arrays (std::array<T,N> or T[N]) and returns an std::array<T,CombinedLen> of the two
-	template<typename A,typename B>
-	constexpr auto concat(A const& a,B const& b)
+	template<typename ValueType=void,typename A,typename B>
+	constexpr auto concat(A const& a,B const& b) -> typename detail::concat_type<ValueType,A,B>::type
 	{
 		constexpr size_t N=array_size<A>::value;
 		constexpr size_t M=array_size<B>::value;
-		return detail::concat(a,b,std::make_index_sequence<N>(),std::make_index_sequence<M>());
+		return detail::concat<typename detail::concat_type<ValueType,A,B>::type>(a,b,std::make_index_sequence<N>(),std::make_index_sequence<M>());
 	}
 
 	//concatenate arrays (std::array<T,N> or T[N]) and returns an std::array<T,CombinedLen> of the arrays
-	template<typename A,typename B,typename... C>
-	constexpr auto concat(A const& a,B const& b,C const&... c)
+	template<typename ValueType=void,typename A,typename B,typename... C>
+	constexpr auto concat(A const& a,B const& b,C const&... c)  -> decltype(concat<ValueType>(concat<ValueType>(a,b),c...))
 	{
-		return concat(concat(a,b),c...);
+		return concat<ValueType>(concat<ValueType>(a,b),c...);
+	}
+
+	template<typename ValueType>
+	constexpr std::array<ValueType,1> str_concat()
+	{
+		return {{0}};
+	}
+
+	template<typename ValueType=void,typename A>
+	constexpr auto str_concat(A const& a) -> decltype(concat<ValueType>(a))
+	{
+		return concat<ValueType>(a);
 	}
 
 	//concatenate str arrays (std::array<T,N> or T[N]) and returns an std::array<T,CombinedLen> of the arrays
-	template<typename A,typename B,typename... C>
-	constexpr auto str_concat(A const& a,B const& b,C const&... c)
+	//(just takes off null-terminator of arrays)
+	template<typename ValueType=void,typename A,typename C>
+	constexpr auto str_concat(A const& a,C const& c) -> typename detail::str_concat_type<ValueType,A,C>::type
 	{
-		constexpr std::array<typename std::decay<array_type<typename std::remove_reference<A>::type>::type>::type,1> terminator{{0}};
-		return concat(detail::str_concat(a,b,c...),terminator);
+		return detail::str_concat<typename detail::str_concat_type<ValueType,A,C>::type>(a,c);
+	}
+
+	//concatenate str arrays (std::array<T,N> or T[N]) and returns an std::array<T,CombinedLen> of the arrays
+	//(just takes off null-terminator of arrays)
+	template<typename ValueType=void,typename A,typename B,typename... C>
+	constexpr auto str_concat(A const& a,B const& b,C const&... c) -> decltype(str_concat<ValueType>(str_concat<ValueType>(a,b), c...))
+	{
+		return str_concat<ValueType>(str_concat<ValueType>(a,b),c...);
 	}
 
 	template<typename T=void>
@@ -873,18 +908,6 @@ namespace exlib {
 	constexpr auto make_ct_map(std::array<T,N> const& in)
 	{
 		return make_ct_map<compare<typename T::key_type>>(in);
-	}
-
-	namespace detail {
-		template<typename B,typename... R>
-		struct ma_ret {
-			using type=B;
-		};
-
-		template<typename... R>
-		struct ma_ret<void,R...> {
-			using type=typename std::common_type<R...>::type;
-		};
 	}
 
 	template<typename Type=void,typename... Args>

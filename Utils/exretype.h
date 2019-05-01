@@ -660,9 +660,6 @@ namespace exlib {
 	struct is_sized_array<std::span<T,std::size_t(-1)>>:std::false_type {};
 #endif
 
-	template<typename T,size_t N>
-	struct is_sized_array<T[N]>:std::true_type {};
-
 	template<typename T>
 	struct array_size:std::conditional<std::is_same<T,remove_cvref_t<T>>::value,empty_t,array_size<remove_cvref_t<T>>>::type {};
 
@@ -714,18 +711,14 @@ namespace exlib {
 	using array_type_t=typename array_type<Arr>::type;
 
 	template<typename SumType,typename... Constants>
-	struct sum_type_value;
-
-	template<typename SumType>
-	struct sum_type_value<SumType>:std::integral_constant<SumType,0> {
-	};
+	struct sum_type_value:std::integral_constant<SumType,0>{};
 
 	template<typename SumType,typename Type>
 	struct sum_type_value<SumType,Type>:std::integral_constant<SumType,Type::value> {
 	};
 
 	template<typename SumType,typename Type,typename... Rest>
-	struct sum_type_value<SumType,Type,Rest...>:std::integral_constant<SumType,Type::value+sum_type_value<Rest...>::value> {
+	struct sum_type_value<SumType,Type,Rest...>:std::integral_constant<SumType,Type::value+sum_type_value<SumType,Rest...>::value> {
 	};
 
 #if _EXRETYPE_HAS_CPP_17
