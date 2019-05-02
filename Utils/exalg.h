@@ -582,7 +582,7 @@ namespace exlib {
 
 	//concatenate arrays (std::array<T,N> or T[N]) and returns an std::array<T,CombinedLen> of the arrays
 	template<typename ValueType=void,typename A,typename B,typename... C>
-	constexpr auto concat(A const& a,B const& b,C const&... c)  -> decltype(concat<ValueType>(concat<ValueType>(a,b),c...))
+	constexpr auto concat(A const& a,B const& b,C const&... c)  -> typename detail::concat_type<ValueType,A,B,C...>::type
 	{
 		return concat<ValueType>(concat<ValueType>(a,b),c...);
 	}
@@ -610,7 +610,7 @@ namespace exlib {
 	//concatenate str arrays (std::array<T,N> or T[N]) and returns an std::array<T,CombinedLen> of the arrays
 	//(just takes off null-terminator of arrays)
 	template<typename ValueType=void,typename A,typename B,typename... C>
-	constexpr auto str_concat(A const& a,B const& b,C const&... c) -> decltype(str_concat<ValueType>(str_concat<ValueType>(a,b), c...))
+	constexpr auto str_concat(A const& a,B const& b,C const&... c) -> typename detail::str_concat_type<ValueType,A,B,C...>::type
 	{
 		return str_concat<ValueType>(str_concat<ValueType>(a,b),c...);
 	}
