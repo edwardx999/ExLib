@@ -389,7 +389,7 @@ namespace exlib {
 			template<typename Path>
 			static auto get(Path const& path)
 			{
-				return path.string();
+				return path.generic_string();
 			}
 		};
 		template<>
@@ -397,7 +397,7 @@ namespace exlib {
 			template<typename Path>
 			static auto get(Path const& path)
 			{
-				return path.wstring();
+				return path.generic_wstring();
 			}
 		};
 		template<>
@@ -405,7 +405,7 @@ namespace exlib {
 			template<typename Path>
 			static auto get(Path const& path)
 			{
-				return path.u16string();
+				return path.generic_u16string();
 			}
 		};
 		template<>
@@ -413,7 +413,7 @@ namespace exlib {
 			template<typename Path>
 			static auto get(Path const& path)
 			{
-				return path.u32string();
+				return path.generic_u32string();
 			}
 		};
 #if _EXFILES_HAS_CPP_20
@@ -422,18 +422,18 @@ namespace exlib {
 			template<typename Path>
 			static auto get(Path const& path)
 			{
-				return path.u8string();
+				return path.generic_u8string();
 			}
 		};
 #endif
 	}
-	template<typename StringType,typename Path>
+	template<typename StringType=std::string,typename Path>
 	decltype(auto) get_path_string(Path const& path) noexcept(std::is_same_v<typename Path::string_type,StringType>)
 	{
 		return get_string_detail::get_string_help<StringType>::get(path);
 	}
 
-	template<typename StringType,typename Path>
+	template<typename StringType=std::string,typename Path>
 	StringType get_generic_path_string(Path const& path)
 	{
 		return get_string_detail::get_gen_help<StringType>::get(path);
