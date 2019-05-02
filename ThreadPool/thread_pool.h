@@ -499,7 +499,7 @@ namespace exlib {
 			class parent_ref {
 				friend class thread_pool_a;
 				thread_pool_a& parent;
-				parent_ref(thread_pool_a& p):parent(p)
+				parent_ref(thread_pool_a& p) noexcept:parent(p)
 				{}
 			public:
 				/*
@@ -1169,7 +1169,8 @@ namespace exlib {
 			template<typename Task>
 			static auto make_job(Task&&the_task) -> decltype(thread_pool_detail::fake_invoke<parent_ref,Args...>(std::forward<Task>(the_task)),std::unique_ptr<job>())
 			{
-				static_assert(noexcept(thread_pool_detail::fake_invoke<parent_ref,Args...>(std::forward<Task>(the_task))),"Tasks cannot throw (thread_pool_a has no exception handling mechanism); use async/promise if you need errors.");
+				using decayed=typename std::decay<Task>::type;
+				static_assert(noexcept(std::declval<decayed&>()(std::declval<parent_ref>(),std::declval<Args>()...)),"Tasks cannot throw (thread_pool_a has no exception handling mechanism); use async/promise if you need errors.");
 				return std::unique_ptr<job>(new job_impl_accept_parent<thread_pool_detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
 			}
 
@@ -1182,7 +1183,8 @@ namespace exlib {
 			template<typename Task>
 			static auto make_job2(Task&&the_task) -> decltype(thread_pool_detail::fake_invoke<Args...>(std::forward<Task>(the_task)),std::unique_ptr<job>())
 			{
-				static_assert(noexcept(thread_pool_detail::fake_invoke<Args...>(std::forward<Task>(the_task))),"Tasks cannot throw (thread_pool_a has no exception handling mechanism); use async/promise if you need errors.");
+				using decayed=typename std::decay<Task>::type;
+				static_assert(noexcept(std::declval<decayed&>()(std::declval<Args>()...)),"Tasks cannot throw (thread_pool_a has no exception handling mechanism); use async/promise if you need errors.");
 				return std::unique_ptr<job>(new job_impl<thread_pool_detail::remove_cvref_t<Task>>(std::forward<Task>(the_task)));
 			}
 
@@ -1196,7 +1198,7 @@ namespace exlib {
 						{
 							return; //don't bother locking if not running
 						}
-						std::unique_lock<std::mutex> lock(this->_mtx);
+						std::unique_lock<std::mutex> lock{this->_mtx};
 						while(true)
 						{
 							if(!this->_running)
@@ -1217,6 +1219,9 @@ namespace exlib {
 					auto const active=--this->_active_thread_count;
 					if(active==0)
 					{
+						{
+							std::lock_guard<std::mutex> lock{this->_mtx};
+						}
 						this->_jobs_done.notify_all();
 					}
 				}
