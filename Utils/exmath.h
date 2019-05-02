@@ -554,7 +554,7 @@ namespace exlib {
 	}
 #else
 	template<typename T>
-	constexpr unsigned int num_digits(T num,unsigned int base=10)
+	constexpr unsigned int num_digits(T num,typename detail::bring_unsignedness<T,int>::type base=10)
 	{
 		return num<0?num_digits(-num):((num<base)?1:(1+num_digits(num/base)));
 	}
@@ -654,7 +654,7 @@ namespace exlib {
 #endif
 #if _EXMATH_HAS_CPP_17
 	//converts to a compile-time const array of digits representing the number
-	template<auto val,unsigned int base,typename CharType=char,typename DigitsIter=CharType const*>
+	template<auto val,unsigned int base=10,typename CharType=char,typename DigitsIter=CharType const*>
 	constexpr auto to_string(DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
 	{
 		return detail::to_string<decltype(val),val,base,CharType>(digits);
