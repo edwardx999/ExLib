@@ -24,20 +24,24 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #else
 #define EXFINALLY_NODISCARD
 #endif
+#include "exretype.h"
 #include <type_traits>
 #include <cstring>
 namespace exlib {
 
 	template<typename Finally>
-	struct EXFINALLY_NODISCARD finally:Finally {
+	struct EXFINALLY_NODISCARD finally:exlib::empty_store<Finally> {
+		using Base=exlib::empty_store<Finally>;
 	public:
 		template<typename F>
-		finally(F&& f):Finally(std::forward<F>(f)){
+		finally(F&& f): Base{std::forward<F>(f)}
+		{
 		}
-
+		finally(finally const&) = delete;
+		finally& operator=(finally const&) = delete;
 		~finally()
 		{
-			Finally::operator()();
+			this->get()();
 		}
 	};
 
