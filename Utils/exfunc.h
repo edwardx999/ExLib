@@ -26,6 +26,9 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #else
 #define _EXFUNC_HAS_CPP_17 (__cplusplus>=201700L)
 #endif
+#ifndef EX_UNIQUE_FUNCTION_USE_CPP_17_OPTIMIZATIONS
+#define EX_UNIQUE_FUNCTION_USE_CPP_17_OPTIMIZATIONS _EXFUNC_HAS_CPP_17
+#endif
 namespace exlib {
 
 	class bad_function_call:public std::exception {
@@ -214,7 +217,7 @@ namespace exlib {
 		struct has_nothrow_tag<nothrow_destructor_tag,Rest...>:std::true_type {};
 
 		template<typename SigTuple,bool in_place=(
-#if _EXFUNC_HAS_CPP_17
+#if EX_UNIQUE_FUNCTION_USE_CPP_17_OPTIMIZATIONS
 			SigTuple::size==1
 #else
 			true
