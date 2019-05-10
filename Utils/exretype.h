@@ -25,6 +25,11 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #define _EXRETYPE_HAS_CPP_17 (__cplusplus>=201700L)
 #define _EXRETYPE_HAS_CPP_14 (__cplusplus>=201400L)
 #endif
+#if _EXRETYPE_HAS_CPP_14
+#define _EX_CONSTEXPR_OVERLOAD constexpr
+#else
+#define _EX_CONSTEXPR_OVERLOAD
+#endif
 #include <type_traits>
 #include <cstdint>
 namespace std {
@@ -53,11 +58,11 @@ namespace exlib {
 		class empty_store_base {
 			Type _value;
 		public:
-			constexpr Type& get()
+			_EX_CONSTEXPR_OVERLOAD Type& get()
 			{
 				return _value;
 			}
-			constexpr Type const& get() const
+			_EX_CONSTEXPR_OVERLOAD Type const& get() const
 			{
 				return _value;
 			}
@@ -70,11 +75,11 @@ namespace exlib {
 		template<typename Type>
 		class empty_store_base<Type,true>:Type {
 		public:
-			constexpr Type& get()
+			_EX_CONSTEXPR_OVERLOAD Type& get()
 			{
 				return *this;
 			}
-			constexpr Type const& get() const
+			_EX_CONSTEXPR_OVERLOAD Type const& get() const
 			{
 				return *this;
 			}
@@ -137,8 +142,8 @@ namespace exlib {
 	//courtesy https://vittorioromeo.info/Misc/fwdlike.html
 	template<typename Model,typename Orig>
 	struct apply_value_category:std::conditional<std::is_lvalue_reference<Model>::value,
-		std::remove_reference_t<Orig>&,
-		std::remove_reference_t<Orig>&&> {};
+		typename std::remove_reference<Orig>::type&,
+		typename std::remove_reference<Orig>::type&&> {};
 
 	template<typename T,typename U>
 	using apply_value_category_t=typename apply_value_category<T,U>::type;
@@ -616,16 +621,32 @@ namespace exlib {
 
 #else
 	template<typename... Funcs>
-	struct overloaded:public Funcs...
-	{
-		template<typename... F>
-		overloaded(F&& ... f):Funcs(wrap(std::forward<F>(f)))...{
-		}
+	struct overloaded;
+
+	template<>
+	struct overloaded<> {};
+
+	template<typename First>
+	struct overloaded<First>:private First{
+		using First::operator();
+		template<typename F>
+		overloaded(F&& f):First{wrap(std::forward<F>(f))}{}
+	};
+
+	template<typename First,typename... Rest>
+	struct overloaded<First,Rest...>:private First,private overloaded<Rest...> {
+	private:
+		using ORest=overloaded<Rest...>;
+	public:
+		using First::operator();
+		using ORest::operator();
+		template<typename F,typename... R>
+		overloaded(F&& f,R&&... r):First{wrap(std::forward<F>(f))},ORest{std::forward<R>(r)...}{}
 	};
 #endif
 
 	template<typename... Funcs>
-	constexpr auto make_overloaded(Funcs&& ... f) -> decltype(overloaded<remove_cvref_t<decltype(wrap(f))>...>(std::forward<Funcs>(f)...))
+	constexpr auto make_overloaded(Funcs&&... f) -> decltype(overloaded<remove_cvref_t<decltype(wrap(f))>...>(std::forward<Funcs>(f)...))
 	{
 		return overloaded<remove_cvref_t<decltype(wrap(f))>...>(std::forward<Funcs>(f)...);
 	}

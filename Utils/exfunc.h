@@ -213,15 +213,24 @@ namespace exlib {
 		template<typename... Rest>
 		struct has_nothrow_tag<nothrow_destructor_tag,Rest...>:std::true_type {};
 
-		template<typename SigTuple,bool in_place=(SigTuple::size>1)>
+		template<typename SigTuple,bool in_place=(
+#if _EXFUNC_HAS_CPP_17
+			SigTuple::size==1
+#else
+			true
+#endif
+			)>
 		struct func_table_from_tup;
 
 		template<typename Func,typename SigTuple,typename IndexSeq=make_index_sequence<SigTuple::size>>
 		struct func_table_holder_help;
 
+		void placeholder_function();
+		using vpfunc=decltype(&placeholder_function);
+
 		template<typename Func,typename SigTuple,size_t... Is>
 		struct func_table_holder_help<Func,SigTuple,index_sequence<Is...>>{
-			constexpr static void* func_table[]={&indirect_call<Func,typename func_element<Is,SigTuple>::type>::call_me...};
+			constexpr static vpfunc const func_table[SigTuple::size?SigTuple::size:1]={reinterpret_cast<vpfunc>(&indirect_call<Func,typename func_element<Is,SigTuple>::type>::call_me)...};
 		};
 
 		template<typename Func,typename SigTuple>
@@ -230,13 +239,15 @@ namespace exlib {
 
 		template<typename SigTuple>
 		struct func_table_from_tup<SigTuple,false> {
-			void* const* _func_table;
+		private:
+			vpfunc const* _func_table;
+		public:
 			func_table_from_tup():_func_table{}{}
 			template<typename Func>
 			func_table_from_tup(Func const&):_func_table{func_table_holder<Func,SigTuple>::func_table}
 			{}
 
-			void* const* get_table() const noexcept 
+			vpfunc const* get_table() const noexcept
 			{
 				return _func_table;
 			}
@@ -258,14 +269,16 @@ namespace exlib {
 		template<typename SigTuple,size_t... Is>
 		struct func_table_from_tup_inplace_help<SigTuple,index_sequence<Is...>>
 		{
-			void* _func_table[SigTuple::size];
+		private:
+			vpfunc _func_table[SigTuple::size?SigTuple::size:1];
+		public:
 			func_table_from_tup_inplace_help():_func_table{}{}
 
 			template<typename Func>
-			func_table_from_tup_inplace_help(Func const&):_func_table{&indirect_call<Func,typename func_element<Is,SigTuple>::type>::call_me...}
+			func_table_from_tup_inplace_help(Func const&):_func_table{reinterpret_cast<vpfunc>(&indirect_call<Func,typename func_element<Is,SigTuple>::type>::call_me)...}
 			{}
 
-			void* const* get_table() const noexcept
+			vpfunc const* get_table() const noexcept
 			{
 				return _func_table;
 			}
@@ -324,7 +337,7 @@ namespace exlib {
 		{
 			if(func)
 			{
-				return (*static_cast<Ret(*)(PVoid,Args...)>(func.get_table()[I]))(&func._data,std::forward<Args>(args)...);
+				return (*reinterpret_cast<Ret(*)(PVoid,Args...)>(func.get_table()[I]))(&func._data,std::forward<Args>(args)...);
 			}
 			throw exlib::bad_function_call{};
 		}
@@ -369,8 +382,15 @@ namespace exlib {
 		template<size_t I,typename Derived,typename... Sigs>
 		struct get_call_op_table_help;
 
+		template<size_t I,typename Derived,typename Sig>
+		struct get_call_op_table_help<I,Derived,Sig>:get_call_op<I,Derived,Sig> {
+			using get_call_op<I,Derived,Sig>::operator();
+		};
+
 		template<size_t I,typename Derived,typename Sig,typename... Rest>
 		struct get_call_op_table_help<I,Derived,Sig,Rest...>:get_call_op<I,Derived,Sig>,get_call_op_table_help<I+1,Derived,Rest...> {
+			using get_call_op<I,Derived,Sig>::operator();
+			using get_call_op_table_help<I+1,Derived,Rest...>::operator();
 		};
 
 		template<size_t I,typename Derived>
@@ -453,8 +473,11 @@ namespace exlib {
 			unique_func_det::func_constructor<Func>::construct(&_data,std::move(func));
 		}
 
-		unique_function(unique_function&& o) noexcept:func_table{std::exchange(static_cast<func_table&>(o),func_table{})},_deleter{std::exchange(o._deleter,nullptr)},_data{o._data}
-		{}
+		unique_function(unique_function&& o) noexcept:func_table{static_cast<func_table&>(o)},_deleter{o._deleter},_data{o._data}
+		{
+			static_cast<func_table&>(o)=func_table{};
+			o._deleter=nullptr;
+		}
 
 		using func_table::operator bool;
 
@@ -474,7 +497,7 @@ namespace exlib {
 		void swap(unique_function& other) noexcept
 		{
 			std::swap(_deleter,other._deleter);
-			std::swap(static_cast<func_table&>(*this),static_cast<func_table&>(other));
+			static_cast<func_table&>(*this).swap(static_cast<func_table&>(other));
 			std::swap(_data,other._data);
 		}
 
