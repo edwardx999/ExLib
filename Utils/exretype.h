@@ -53,35 +53,35 @@ namespace exlib {
 		class empty_store_base {
 			Type _value;
 		public:
-			Type& get()
+			constexpr Type& get()
 			{
 				return _value;
 			}
-			Type const& get() const
+			constexpr Type const& get() const
 			{
 				return _value;
 			}
 			template<typename... Args>
-			empty_store_base(Args&& ... args):_value(std::forward<Args>(args)...)
+			constexpr empty_store_base(Args&& ... args):_value(std::forward<Args>(args)...)
 			{}
-			empty_store_base()
+			constexpr empty_store_base()
 			{}
 		};
 		template<typename Type>
 		class empty_store_base<Type,true>:Type {
 		public:
-			Type& get()
+			constexpr Type& get()
 			{
 				return *this;
 			}
-			Type const& get() const
+			constexpr Type const& get() const
 			{
 				return *this;
 			}
 			template<typename... Args>
-			empty_store_base(Args&& ... args):Type(std::forward<Args>(args)...)
+			constexpr empty_store_base(Args&& ... args):Type(std::forward<Args>(args)...)
 			{}
-			empty_store_base(){}
+			constexpr empty_store_base(){}
 		};
 	}
 
@@ -90,9 +90,9 @@ namespace exlib {
 		using Base=empty_store_impl::empty_store_base<Type>;
 	public:
 		template<typename... Args>
-		empty_store(Args&& ... args) noexcept(noexcept(Type(std::forward<Args>(args)...))):Base(std::forward<Args>(args)...)
+		constexpr empty_store(Args&& ... args) noexcept(noexcept(Type(std::forward<Args>(args)...))):Base(std::forward<Args>(args)...)
 		{}
-		empty_store() noexcept(std::is_nothrow_default_constructible<Type>::value)
+		constexpr empty_store() noexcept(std::is_nothrow_default_constructible<Type>::value)
 		{}
 	};
 
@@ -359,7 +359,6 @@ namespace exlib {
 			return _base;
 		}
 	};
-
 
 	namespace detail {
 
@@ -735,6 +734,48 @@ namespace exlib {
 
 	template<typename First,typename... Rest>
 	struct conjunction<Type>:std::integral_constant<bool,bool(First::value)&&conjunction<Rest...>::value> {};
+#endif
+
+	
+#if _EXRETYPE_HAS_CPP_14
+	using std::index_sequence;
+
+	using std::make_index_sequence;
+#else
+	template<size_t... Is>
+	struct index_sequence {};
+
+	namespace detail{
+		template<typename T,typename U>
+		struct concat_index_sequence;
+
+		template<size_t... I,size_t... J>
+		struct concat_index_sequence<index_sequence<I...>,index_sequence<J...>> {
+			using type=index_sequence<I...,J...>;
+		};
+
+		template<typename T,typename U>
+		using concat_index_sequence_t=typename concat_index_sequence<T,U>::type;
+
+		template<size_t I,size_t J,bool adjacent=I+1==J>
+		struct make_index_sequence_h {
+			static constexpr size_t H=I+(J-I)/2;
+			using type=concat_index_sequence_t<typename make_index_sequence_h<I,H>::type,typename make_index_sequence_h<H,J>::type>;
+		};
+
+		template<size_t I>
+		struct make_index_sequence_h<I,I,false> {
+			using type=index_sequence<>;
+		};
+
+		template<size_t I,size_t J>
+		struct make_index_sequence_h<I,J,true> {
+			using type=index_sequence<I>;
+		};
+	}
+
+	template<size_t N>
+	using make_index_sequence=typename detail::make_index_sequence_h<0,N>::type;
 #endif
 }
 #endif

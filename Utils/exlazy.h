@@ -288,5 +288,34 @@ namespace exlib {
 	{
 		return {std::forward<F>(f)};
 	}
+
+	template<typename Func>
+	class lazy_construct {
+		Func _func;
+	public:
+		template<typename F>
+		lazy_construct(F&& func) noexcept(noexcept(Func{std::forward<F>(func))):_func{std::forward<F>(func)} {}
+		template<typename T>
+		operator T() const noexcept(noexcept(_func()))
+		{
+			return _func();
+		}
+		template<typename T>
+		operator T() noexcept(noexcept(_func()))
+		{
+			return _func();
+		}
+	};
+
+	template<typename Func>
+	lazy_construct<typename std::decay<Func>::type> make_lazy_construct(Func&& func)
+	{
+		return lazy_construct<typename std::decay<Func>::type>(std::forward<Func>(func));
+	}
+
+#if _EXLAZY_HAS_CPP_17
+	template<typename F>
+	lazy_construct(F&&) -> lazy_construct<std::decay_t<F>>;
+#endif
 }
 #endif

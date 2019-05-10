@@ -238,27 +238,26 @@ namespace exlib {
 		}
 	};
 
-#if _EXALG_HAS_CPP_14
 
 	namespace detail {
 		struct for_each_in_tuple_h {
 			template<typename Tpl,typename Func>
-			constexpr static void apply(Tpl&& tpl,Func&& f,std::index_sequence<>)
+			constexpr static void apply(Tpl&& tpl,Func&& f,index_sequence<>)
 			{
 
 			}
 			template<typename Tpl,typename Func,size_t I>
-			constexpr static void apply(Tpl&& tpl,Func& f,std::index_sequence<I>)
+			constexpr static void apply(Tpl&& tpl,Func& f,index_sequence<I>)
 			{
 				using std::get;
 				f(get<I>(std::forward<Tpl>(tpl)));
 			}
 			template<typename Tpl,typename Func,size_t I,size_t... Rest>
-			constexpr static void apply(Tpl&& tpl,Func& f,std::index_sequence<I,Rest...>)
+			constexpr static void apply(Tpl&& tpl,Func& f,index_sequence<I,Rest...>)
 			{
 				using std::get;
 				f(get<I>(std::forward<Tpl>(tpl)));
-				for_each_in_tuple_h::apply(std::forward<Tpl>(tpl),f,std::index_sequence<Rest...>{});
+				for_each_in_tuple_h::apply(std::forward<Tpl>(tpl),f,index_sequence<Rest...>{});
 			}
 		};
 	}
@@ -266,9 +265,8 @@ namespace exlib {
 	template<typename Tpl,typename Func>
 	constexpr void for_each_in_tuple(Tpl&& tpl,Func&& f)
 	{
-		detail::for_each_in_tuple_h::apply(std::forward<Tpl>(tpl),f,std::make_index_sequence<std::tuple_size<typename std::remove_reference<Tpl>::type>::value>{});
+		detail::for_each_in_tuple_h::apply(std::forward<Tpl>(tpl),f,make_index_sequence<std::tuple_size<typename std::remove_reference<Tpl>::type>::value>{});
 	}
-#endif
 
 	template<>
 	struct less<char const*> {
@@ -318,10 +316,10 @@ namespace exlib {
 			{
 				if(comp(*it,*begin))
 				{
-					swap(*it,*(++pivot));
+					exlib::swap(*it,*(++pivot));
 				}
 			}
-			swap(*begin,*pivot);
+			exlib::swap(*begin,*pivot);
 			qsort(begin,pivot,comp);
 			qsort(pivot+1,end,comp);
 		}
@@ -776,6 +774,7 @@ namespace exlib {
 	template<typename T=void>
 	using greater=inv_comp<less<T>>;
 
+#if _EXALG_HAS_CPP_17
 	//use this to initialize ct_map
 	template<typename Key,typename Value>
 	struct map_pair {
@@ -804,15 +803,15 @@ namespace exlib {
 
 	namespace detail {
 		template<typename Comp,typename Key,typename Value>
-		struct map_compare:protected Comp {
+		struct map_compare:protected empty_store<Comp> {
 			template<typename Conv>
 			constexpr int operator()(Conv const& target,map_pair<Key,Value> const& b) const
 			{
-				return Comp::operator()(target,b.key());
+				return this->get()(target,b.key());
 			}
 			constexpr int operator()(map_pair<Key,Value> const& a,map_pair<Key,Value> const& b) const
 			{
-				return Comp::operator()(a.key(),b.key());
+				return this->get()(a.key(),b.key());
 			}
 		};
 	}
@@ -862,7 +861,7 @@ namespace exlib {
 		constexpr ct_map(Args&&... rest):Data{{std::forward<Args>(rest)...}}
 		{
 			static_assert(sizeof...(Args)==entries,"Wrong number of entries");
-			qsort(begin(),end(),lt_comp<key_compare>());
+			qsort(data(),data()+size(),lt_comp<key_compare>());
 		}
 
 	private:
@@ -875,12 +874,12 @@ namespace exlib {
 		template<typename T>
 		constexpr iterator find(T const& k)
 		{
-			return binary_find(begin(),end(),k,static_cast<key_compare>(*this));
+			return iterator{binary_find(data(),data()+size(),k,static_cast<key_compare const&>(*this))};
 		}
 		template<typename T>
 		constexpr const_iterator find(T const& k) const
 		{
-			return binary_find(begin(),end(),k,static_cast<key_compare>(*this));
+			return const_iterator{binary_find(data(),data()+size(),k,static_cast<key_compare const&>(*this))};
 		}
 	};
 
@@ -888,14 +887,16 @@ namespace exlib {
 	template<typename Comp,typename First,typename... Rest>
 	constexpr auto make_ct_map(First&& f,Rest&&... r)
 	{
-		return ct_map<typename First::key_type,typename First::mapped_type,1+sizeof...(r),Comp>(std::forward<First>(f),std::forward<Rest>(r)...);
+		using Decayed=typename std::decay<First>::type;
+		return ct_map<typename Decayed::key_type,typename Decayed::mapped_type,1+sizeof...(r),Comp>(std::forward<First>(f),std::forward<Rest>(r)...);
 	}
 
 	//inputs should be of type map_pair<Key,Value>
 	template<typename First,typename... T>
 	constexpr auto make_ct_map(First&& k,T&&... rest)
 	{
-		return make_ct_map<compare<typename First::key_type>>(std::forward<First>(k),std::forward<T>(rest)...);
+		using Decayed=typename std::decay<First>::type;
+		return make_ct_map<compare<typename Decayed::key_type>>(std::forward<First>(k),std::forward<T>(rest)...);
 	}
 
 	template<typename Comp,typename T,size_t N>
@@ -910,12 +911,14 @@ namespace exlib {
 		return make_ct_map<compare<typename T::key_type>>(in);
 	}
 
+#endif
 	template<typename Type=void,typename... Args>
 	constexpr std::array<typename detail::ma_ret<Type,Args...>::type,sizeof...(Args)> make_array(Args&&... args)
 	{
+		using Type=typename detail::ma_ret<Type, Args...>::type;
 		return
 		{{
-			std::forward<Args>(args)...
+			Type(std::forward<Args>(args))...
 		}};
 	}
 
