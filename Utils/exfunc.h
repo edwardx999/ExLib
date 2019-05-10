@@ -26,9 +26,6 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #else
 #define _EXFUNC_HAS_CPP_17 (__cplusplus>=201700L)
 #endif
-#ifndef EX_UNIQUE_FUNCTION_USE_CPP_17_OPTIMIZATIONS
-#define EX_UNIQUE_FUNCTION_USE_CPP_17_OPTIMIZATIONS _EXFUNC_HAS_CPP_17
-#endif
 namespace exlib {
 
 	class bad_function_call:public std::exception {
@@ -216,12 +213,11 @@ namespace exlib {
 		template<typename... Rest>
 		struct has_nothrow_tag<nothrow_destructor_tag,Rest...>:std::true_type {};
 
-		template<typename SigTuple,bool in_place=(
-#if EX_UNIQUE_FUNCTION_USE_CPP_17_OPTIMIZATIONS
-			SigTuple::size==1
-#else
-			true
+#ifndef EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT
+#define EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT 1
 #endif
+		template<typename SigTuple,bool in_place=(
+			SigTuple::size<=EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT
 			)>
 		struct func_table_from_tup;
 
@@ -233,7 +229,19 @@ namespace exlib {
 
 		template<typename Func,typename SigTuple,size_t... Is>
 		struct func_table_holder_help<Func,SigTuple,index_sequence<Is...>>{
+#if !_EXFUNC_HAS_CPP_17
+			static vpfunc const* get_func_table()
+			{
+				constexpr static vpfunc const func_table[SigTuple::size?SigTuple::size:1]={reinterpret_cast<vpfunc>(&indirect_call<Func,typename func_element<Is,SigTuple>::type>::call_me)...};
+				return func_table;
+			}
+#else
 			constexpr static vpfunc const func_table[SigTuple::size?SigTuple::size:1]={reinterpret_cast<vpfunc>(&indirect_call<Func,typename func_element<Is,SigTuple>::type>::call_me)...};
+			constexpr static auto get_func_table()
+			{
+				return func_table;
+			}
+#endif
 		};
 
 		template<typename Func,typename SigTuple>
@@ -247,7 +255,7 @@ namespace exlib {
 		public:
 			func_table_from_tup():_func_table{}{}
 			template<typename Func>
-			func_table_from_tup(Func const&):_func_table{func_table_holder<Func,SigTuple>::func_table}
+			func_table_from_tup(Func const&):_func_table{func_table_holder<Func,SigTuple>::get_func_table()}
 			{}
 
 			vpfunc const* get_table() const noexcept
