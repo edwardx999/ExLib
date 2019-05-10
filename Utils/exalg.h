@@ -534,14 +534,14 @@ namespace exlib {
 					sum_type_value<std::size_t,string_array_size<Arrays>...>::value+1>> {};
 
 		template<typename Ret,typename Arr1,size_t... I>
-		constexpr Ret fill_copy(Arr1 const& a,std::index_sequence<I...>)
+		constexpr Ret fill_copy(Arr1 const& a,index_sequence<I...>)
 		{
 			Ret ret{{a[I]...}};
 			return ret;
 		}
 
 		template<typename Ret,typename Arr1,typename Arr2,size_t... I,size_t... J>
-		constexpr Ret concat(Arr1 const& a,Arr2 const& b,std::index_sequence<I...>,std::index_sequence<J...>)
+		constexpr Ret concat(Arr1 const& a,Arr2 const& b,index_sequence<I...>,index_sequence<J...>)
 		{
 			Ret ret{{a[I]...,b[J]...}};
 			return ret;
@@ -553,7 +553,7 @@ namespace exlib {
 			constexpr size_t N=array_size<A>::value;
 			constexpr size_t M=array_size<B>::value;
 			constexpr size_t Nf=N==0?0:N-1;
-			return concat<Ret>(a,b,std::make_index_sequence<Nf>(),std::make_index_sequence<M>());
+			return concat<Ret>(a,b,make_index_sequence<Nf>(),make_index_sequence<M>());
 		}
 	}
 
@@ -566,7 +566,7 @@ namespace exlib {
 	template<typename ValueType=void,typename A>
 	constexpr auto concat(A const& a) -> typename detail::concat_type<ValueType,A>::type
 	{
-		return detail::fill_copy<typename detail::concat_type<ValueType,A>::type>(a,std::make_index_sequence<array_size<A>::value>{});
+		return detail::fill_copy<typename detail::concat_type<ValueType,A>::type>(a,make_index_sequence<array_size<A>::value>{});
 	}
 
 	//concatenate arrays (std::array<T,N> or T[N]) and returns an std::array<T,CombinedLen> of the two
@@ -575,7 +575,7 @@ namespace exlib {
 	{
 		constexpr size_t N=array_size<A>::value;
 		constexpr size_t M=array_size<B>::value;
-		return detail::concat<typename detail::concat_type<ValueType,A,B>::type>(a,b,std::make_index_sequence<N>(),std::make_index_sequence<M>());
+		return detail::concat<typename detail::concat_type<ValueType,A,B>::type>(a,b,make_index_sequence<N>(),make_index_sequence<M>());
 	}
 
 	//concatenate arrays (std::array<T,N> or T[N]) and returns an std::array<T,CombinedLen> of the arrays
@@ -866,10 +866,10 @@ namespace exlib {
 
 	private:
 		template<size_t... Is>
-		constexpr ct_map(std::array<value_type,entries> const& in,std::index_sequence<Is...>):Data{{in[Is]...}}
+		constexpr ct_map(std::array<value_type,entries> const& in,index_sequence<Is...>):Data{{in[Is]...}}
 		{}
 	public:
-		constexpr ct_map(std::array<value_type,entries> const& in):ct_map(in,std::make_index_sequence<entries>())
+		constexpr ct_map(std::array<value_type,entries> const& in):ct_map(in,make_index_sequence<entries>())
 		{}
 		template<typename T>
 		constexpr iterator find(T const& k)
@@ -915,10 +915,10 @@ namespace exlib {
 	template<typename Type=void,typename... Args>
 	constexpr std::array<typename detail::ma_ret<Type,Args...>::type,sizeof...(Args)> make_array(Args&&... args)
 	{
-		using Type=typename detail::ma_ret<Type, Args...>::type;
+		using RetType=typename detail::ma_ret<Type, Args...>::type;
 		return
 		{{
-			Type(std::forward<Args>(args))...
+			RetType(std::forward<Args>(args))...
 		}};
 	}
 
@@ -926,18 +926,18 @@ namespace exlib {
 		template<typename Type,typename Tuple,typename Ix>
 		struct ca_type_h;
 		template<typename Type,typename Tuple,size_t... Ix>
-		struct ca_type_h<Type,Tuple,std::index_sequence<Ix...>> {
+		struct ca_type_h<Type,Tuple,index_sequence<Ix...>> {
 			using type=std::array<typename ma_ret<Type,typename std::tuple_element<Ix,Tuple>::type...>::type,sizeof...(Ix)>;
 		};
 		template<typename Type,typename Tuple>
 		struct ca_type:ca_type_h<Type,
 			typename std::remove_reference<Tuple>::type,
-			std::make_index_sequence<std::tuple_size<typename std::remove_reference<Tuple>::type>::value>>{
+			make_index_sequence<std::tuple_size<typename std::remove_reference<Tuple>::type>::value>>{
 
 		};
 
 		template<typename Type,typename Tuple,size_t... I>
-		constexpr typename ca_type<Type,Tuple>::type conv_array(Tuple&& tup,std::index_sequence<I...>)
+		constexpr typename ca_type<Type,Tuple>::type conv_array(Tuple&& tup,index_sequence<I...>)
 		{
 			return {{  std::get<I>(std::forward<Tuple>(tup))... }};
 		}
@@ -947,7 +947,7 @@ namespace exlib {
 	constexpr typename detail::ca_type<Type,Tuple>::type conv_array(Tuple&& args)
 	{
 		constexpr auto TS=std::tuple_size_v<typename std::remove_reference<Tuple>::type>;
-		return detail::conv_array<Type>(std::forward<Tuple>(args),std::make_index_sequence<TS>());
+		return detail::conv_array<Type>(std::forward<Tuple>(args),make_index_sequence<TS>());
 	}
 
 	//the number of elements accessible by std::get
@@ -997,21 +997,21 @@ namespace exlib {
 		struct get_jump_table;
 
 		template<typename Ret,size_t... Is,typename Funcs,typename... Args>
-		struct get_jump_table<Ret,std::index_sequence<Is...>,Funcs,Args...> {
+		struct get_jump_table<Ret,index_sequence<Is...>,Funcs,Args...> {
 			using Func=Ret(Funcs&&,Args&&...);
 			static constexpr Func* jtable[]={&apply_single<Ret,Is,Funcs,Args...>...};
 		};
 
 		template<typename Ret,size_t... Is,typename Funcs,typename... Args>
-		constexpr Ret apply_ind_jump_h(size_t i,std::index_sequence<Is...>,Funcs&& funcs,Args&&... args)
+		constexpr Ret apply_ind_jump_h(size_t i,index_sequence<Is...>,Funcs&& funcs,Args&&... args)
 		{
-			return get_jump_table<Ret,std::index_sequence<Is...>,Funcs,Args...>::jtable[i](std::forward<Funcs>(funcs),std::forward<Args>(args)...);
+			return get_jump_table<Ret,index_sequence<Is...>,Funcs,Args...>::jtable[i](std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 		}
 
 		template<typename Ret,size_t N,typename Funcs,typename... Args>
 		constexpr Ret apply_ind_jump(size_t i,Funcs&& funcs,Args&&... args)
 		{
-			return apply_ind_jump_h<Ret>(i,std::make_index_sequence<N>(),std::forward<Funcs>(funcs),std::forward<Args>(args)...);
+			return apply_ind_jump_h<Ret>(i,make_index_sequence<N>(),std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 		}
 
 		template<typename Ret,size_t I,size_t Max,typename Tuple,typename... Args>
