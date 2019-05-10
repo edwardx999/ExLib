@@ -135,6 +135,7 @@ namespace exlib {
 			}
 		};
 
+#if _EXFUNC_HAS_CPP_17
 		template<typename Func,typename Ret,typename... Args>
 		struct indirect_call<Func,Ret(Args...) noexcept,true> {
 			static Ret call_me(void* obj,Args... args) noexcept
@@ -164,6 +165,7 @@ namespace exlib {
 				return (**static_cast<Func const* const*>(obj))(std::forward<Args>(args)...);
 			}
 		};
+#endif
 
 #pragma warning(push)
 #pragma warning(disable:4789) //MSVC complains about initializing overaligned types even when the other specialization is used
@@ -342,6 +344,7 @@ namespace exlib {
 			}
 		};
 
+#if _EXFUNC_HAS_CPP_17
 		template<size_t I,typename Derived,typename Ret,typename... Args>
 		struct get_call_op<I,Derived,Ret(Args...) const noexcept> {
 			using result_type=Ret;
@@ -358,6 +361,7 @@ namespace exlib {
 				return call_op<I,void*,Ret>(static_cast<Derived&>(*this),std::forward<Args>(args)...);
 			}
 		};
+#endif
 
 		template<typename Derived,typename SigTuple>
 		struct get_call_op_table;
@@ -390,6 +394,7 @@ namespace exlib {
 			using result_type=Ret;
 		};
 
+#if _EXFUNC_HAS_CPP_17
 		template<typename Ret,typename... Args>
 		struct get_result_type<func_pack<Ret(Args...) noexcept>> {
 			using result_type=Ret;
@@ -399,8 +404,14 @@ namespace exlib {
 		struct get_result_type<func_pack<Ret(Args...) const noexcept>> {
 			using result_type=Ret;
 		};
+#endif
 	}
-
+	/*
+		Template arguments are function signatures that may be additionally const and noexcept (C++17+) qualified.
+		If nothrow_destructor_tag is found anywhere in the argument list, the desctructor is non throwing.
+		Small object optimization enabled for types that are nothrow move constructible/assignable and less than
+		unique_func_det::max_size, which can be customized with EX_UNIQUE_FUNCTION_MAX_SIZE (breaks ABI compatibility).
+	*/
 	template<typename... Signatures>
 	class unique_function:
 		unique_func_det::func_table<Signatures...>,
@@ -416,7 +427,7 @@ namespace exlib {
 		using func_table=unique_func_det::func_table<Signatures...>;
 
 		template<size_t I,typename PVoid,typename Ret,typename UniqueFunc,typename... Args>
-		friend Ret unique_func_det::call_op<I,PVoid,Ret,UniqueFunc,Args...>(UniqueFunc&,Args&&...);
+		friend Ret unique_func_det::call_op(UniqueFunc&,Args&&...);
 
 		unique_func_det::DeleterFunc _deleter;
 

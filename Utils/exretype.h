@@ -136,7 +136,7 @@ namespace exlib {
 
 	//courtesy https://vittorioromeo.info/Misc/fwdlike.html
 	template<typename Model,typename Orig>
-	struct apply_value_category:std::conditional<std::is_lvalue_reference_v<Model>,
+	struct apply_value_category:std::conditional<std::is_lvalue_reference<Model>::value,
 		std::remove_reference_t<Orig>&,
 		std::remove_reference_t<Orig>&&> {};
 
@@ -733,7 +733,7 @@ namespace exlib {
 	struct conjunction<Type>:std::integral_constant<bool,bool(Type::value)>{};
 
 	template<typename First,typename... Rest>
-	struct conjunction<Type>:std::integral_constant<bool,bool(First::value)&&conjunction<Rest...>::value> {};
+	struct conjunction<First,Rest...>:std::integral_constant<bool,bool(First::value)&&conjunction<Rest...>::value> {};
 #endif
 
 	
