@@ -26,6 +26,11 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #else
 #define _EXFUNC_HAS_CPP_17 (__cplusplus>=201700L)
 #endif
+#if	_EXFUNC_HAS_CPP_17
+#define _EXFUNC_CONSTEXPRIF constexpr
+#else
+#define _EXFUNC_CONSTEXPRIF
+#endif
 namespace exlib {
 
 	class bad_function_call:public std::exception {
@@ -337,11 +342,7 @@ namespace exlib {
 
 			explicit operator bool() const noexcept
 			{
-				if
-#if _EXFUNC_HAS_CPP_17
-					constexpr
-#endif
-					(SigTuple::size<1)
+				if _EXFUNC_CONSTEXPRIF(SigTuple::size<1)
 				{
 					return false;
 				}
@@ -387,10 +388,10 @@ namespace exlib {
 		template<size_t I,typename Derived,typename Sig>
 		struct get_call_op;
 
-		template<size_t I,typename PVoid,typename Ret,typename UniqueFunction,typename... Args>
+		template<size_t I,typename PVoid,typename Ret,bool nothrow,typename UniqueFunction,typename... Args>
 		Ret call_op(UniqueFunction& func,Args&&... args)
 		{
-			if(func)
+			if(nothrow||func)
 			{
 				return (*reinterpret_cast<Ret(*)(PVoid,Args...)>(func.get_table()[I]))(&func._data,std::forward<Args>(args)...);
 			}
@@ -401,14 +402,14 @@ namespace exlib {
 		struct get_call_op<I,Derived,Ret(Args...) const> {
 			Ret operator()(Args... args) const
 			{
-				return call_op<I,void const*,Ret>(static_cast<Derived const&>(*this),std::forward<Args>(args)...);
+				return call_op<I,void const*,Ret,false>(static_cast<Derived const&>(*this),std::forward<Args>(args)...);
 			}
 		};
 		template<size_t I,typename Derived,typename Ret,typename... Args>
 		struct get_call_op<I,Derived,Ret(Args...)> {
 			Ret operator()(Args... args)
 			{
-				return call_op<I,void*,Ret>(static_cast<Derived&>(*this),std::forward<Args>(args)...);
+				return call_op<I,void*,Ret,false>(static_cast<Derived&>(*this),std::forward<Args>(args)...);
 			}
 		};
 
@@ -418,7 +419,7 @@ namespace exlib {
 			using result_type=Ret;
 			Ret operator()(Args... args) const noexcept
 			{
-				return call_op<I,void const*,Ret>(static_cast<Derived const&>(*this),std::forward<Args>(args)...);
+				return call_op<I,void const*,Ret,true>(static_cast<Derived const&>(*this),std::forward<Args>(args)...);
 			}
 		};
 		template<size_t I,typename Derived,typename Ret,typename... Args>
@@ -426,7 +427,7 @@ namespace exlib {
 			using result_type=Ret;
 			Ret operator()(Args... args) noexcept
 			{
-				return call_op<I,void*,Ret>(static_cast<Derived&>(*this),std::forward<Args>(args)...);
+				return call_op<I,void*,Ret,true>(static_cast<Derived&>(*this),std::forward<Args>(args)...);
 			}
 		};
 #endif
@@ -509,7 +510,7 @@ namespace exlib {
 
 		using func_table=unique_func_det::func_table<Signatures...>;
 
-		template<size_t I,typename PVoid,typename Ret,typename UniqueFunc,typename... Args>
+		template<size_t I,typename PVoid,typename Ret,bool nothrow,typename UniqueFunc,typename... Args>
 		friend Ret unique_func_det::call_op(UniqueFunc&,Args&&...);
 
 		using Data=typename std::aligned_storage<unique_func_det::max_size(),unique_func_det::alignment()>::type;
@@ -517,11 +518,7 @@ namespace exlib {
 
 		void cleanup()
 		{
-			if
-#if	_EXFUNC_HAS_CPP_17
-				constexpr
-#endif
-				(!func_table::is_inplace)
+			if _EXFUNC_CONSTEXPRIF(!func_table::is_inplace)
 			{
 				if(!this->get_table())
 				{
