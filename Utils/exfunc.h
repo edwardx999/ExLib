@@ -30,6 +30,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #define _EXFUNC_CONSTEXPRIF constexpr
 #ifdef __cpp_lib_hardware_interference_size
 #define _EXFUNC_HAS_HARDWARE_INTERFERENCE_SIZE
+#include <new>
 #endif
 #else
 #define _EXFUNC_CONSTEXPRIF
