@@ -68,13 +68,25 @@ namespace exlib {
 #ifdef EX_UNIQUE_FUNCTION_MAX_SIZE
 		constexpr std::size_t max_size=EX_UNIQUE_FUNCTION_MAX_SIZE;
 #else
-		constexpr std::size_t max_size=6*sizeof(std::size_t);
+		constexpr std::size_t max(std::ptrdiff_t a,std::ptrdiff_t b)
+		{
+			return a<b?b:a;
+		}
+		constexpr std::size_t max_size() noexcept
+		{
+			return max(std::ptrdiff_t{64}-3*sizeof(std::size_t),sizeof(void*));
+		}
+#define EX_UNIQUE_FUNCTION_MAX_SIZE exlib::unique_func_det::max_size()
 #endif
-		static_assert(max_size>=sizeof(void*),"Unique function must be able to fit at least a pointer.");
-		constexpr std::size_t alignment=alignof(std::max_align_t);
+		static_assert(max_size()>=sizeof(void*),"Unique function must be able to fit at least a pointer.");
+
+		constexpr std::size_t alignment() noexcept
+		{
+			return alignof(std::max_align_t);
+		}
 
 		template<typename T>
-		struct type_fits:std::integral_constant<bool,(alignof(T)<=alignment)&&(sizeof(T)<=max_size)&&std::is_nothrow_move_constructible<T>::value&&std::is_nothrow_move_assignable<T>::value>{};
+		struct type_fits:std::integral_constant<bool,(alignof(T)<=alignment())&&(sizeof(T)<=max_size())&&std::is_nothrow_move_constructible<T>::value&&std::is_nothrow_move_assignable<T>::value>{};
 
 		using DeleterFunc=void(*)(void*);
 
@@ -198,7 +210,7 @@ namespace exlib {
 		template<typename Func>
 		struct func_constructor<Func,false> {
 #if !_EXFUNC_HAS_CPP_17
-				static_assert(alignof(Func)<=alignment,"Overaligned functions not supported");
+				static_assert(alignof(Func)<=alignment(),"Overaligned functions not supported");
 #endif
 			template<typename U,typename... Args>
 			static void construct(void* location,std::initializer_list<U> il,Args&&... args)
@@ -477,6 +489,7 @@ namespace exlib {
 		If nothrow_destructor_tag is found anywhere in the argument list, the desctructor is non throwing.
 		Small object optimization enabled for types that are nothrow move constructible/assignable and less than
 		unique_func_det::max_size, which can be customized with EX_UNIQUE_FUNCTION_MAX_SIZE (breaks ABI compatibility).
+		The vtable may be stored in place depending on the number of signatures as given by EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT (default 1).
 	*/
 	template<typename... Signatures>
 	class unique_function:
@@ -495,7 +508,7 @@ namespace exlib {
 		template<size_t I,typename PVoid,typename Ret,typename UniqueFunc,typename... Args>
 		friend Ret unique_func_det::call_op(UniqueFunc&,Args&&...);
 
-		using Data=typename std::aligned_storage<unique_func_det::max_size,unique_func_det::alignment>::type;
+		using Data=typename std::aligned_storage<unique_func_det::max_size(),unique_func_det::alignment()>::type;
 		Data _data;
 
 		void cleanup()
