@@ -76,11 +76,17 @@ namespace exlib {
 		template<typename T>
 		struct type_fits:std::integral_constant<bool,(alignof(T)<=alignment)&&(sizeof(T)<=max_size)&&std::is_nothrow_move_constructible<T>::value&&std::is_nothrow_move_assignable<T>::value>{};
 
+		using DeleterFunc=void(*)(void*);
+
 		template<typename T,bool trivial=std::is_trivially_destructible<T>::value,bool fits=type_fits<T>::value>
 		struct indirect_deleter {
 			static void do_delete(void* data) noexcept
 			{
 				static_cast<T*>(data)->~T();
+			}
+			static constexpr DeleterFunc get_deleter() noexcept
+			{
+				return &do_delete;
 			}
 		};
 		template<typename Func,bool trivial>
@@ -90,13 +96,18 @@ namespace exlib {
 				auto const real_data=*static_cast<Func**>(data);
 				delete real_data;
 			}
+			static constexpr DeleterFunc get_deleter() noexcept
+			{
+				return &do_delete;
+			}
 		};
 
 		struct trivial_deleter {
-			static constexpr void (*do_delete)(void*)=nullptr;
+			static constexpr DeleterFunc get_deleter() noexcept
+			{
+				return nullptr;
+			}
 		};
-
-		using DeleterFunc=typename std::remove_const<decltype(trivial_deleter::do_delete)>::type;
 
 		template<typename Func>
 		struct indirect_deleter<Func,true,true>:trivial_deleter {
@@ -171,21 +182,33 @@ namespace exlib {
 #pragma warning(disable:4789) //MSVC complains about initializing overaligned types even when the other specialization is used
 		template<typename Func,bool fits=type_fits<Func>::value>
 		struct func_constructor {
-			static void construct(void* location,Func func)
+			template<typename U,typename... Args>
+			static void construct(void* location,std::initializer_list<U> il,Args&&... args)
 			{
-				new (location) Func{std::move(func)};
+				new (location) Func(il,std::forward<Args>(args)...);
+			}
+			template<typename... Args>
+			static void construct(void* location,Args&&... args)
+			{
+				new (location) Func(std::forward<Args>(args)...);
 			}
 		};
 #pragma warning(pop)
 
 		template<typename Func>
 		struct func_constructor<Func,false> {
-			static void construct(void* location,Func func)
-			{
 #if !_EXFUNC_HAS_CPP_17
 				static_assert(alignof(Func)<=alignment,"Overaligned functions not supported");
 #endif
-				*static_cast<Func**>(location)=new Func{std::move(func)};
+			template<typename U,typename... Args>
+			static void construct(void* location,std::initializer_list<U> il,Args&&... args)
+			{
+				*static_cast<Func**>(location)=new Func(il,std::forward<Args>(args)...);
+			}
+			template<typename... Args>
+			static void construct(void* location,Args&&... args)
+			{
+				*static_cast<Func**>(location)=new Func(std::forward<Args>(args)...);
 			}
 		};
 
@@ -227,17 +250,18 @@ namespace exlib {
 		void placeholder_function();
 		using vpfunc=decltype(&placeholder_function);
 
+#define _EXFUNC_FUNC_TABLE_DEFINITION(Func) {reinterpret_cast<vpfunc>(indirect_deleter<Func>::get_deleter()),reinterpret_cast<vpfunc>(&indirect_call<Func,typename func_element<Is,SigTuple>::type>::call_me)...}
 		template<typename Func,typename SigTuple,size_t... Is>
 		struct func_table_holder_help<Func,SigTuple,index_sequence<Is...>>{
 #if !_EXFUNC_HAS_CPP_17
-			static vpfunc const* get_func_table()
+			static vpfunc const* get_func_table() noexcept
 			{
-				constexpr static vpfunc const func_table[SigTuple::size?SigTuple::size:1]={reinterpret_cast<vpfunc>(&indirect_call<Func,typename func_element<Is,SigTuple>::type>::call_me)...};
+				static vpfunc const func_table[]=_EXFUNC_FUNC_TABLE_DEFINITION(Func);
 				return func_table;
 			}
 #else
-			constexpr static vpfunc const func_table[SigTuple::size?SigTuple::size:1]={reinterpret_cast<vpfunc>(&indirect_call<Func,typename func_element<Is,SigTuple>::type>::call_me)...};
-			constexpr static auto get_func_table()
+			inline static vpfunc const func_table[]=_EXFUNC_FUNC_TABLE_DEFINITION(Func);
+			constexpr static auto get_func_table() noexcept
 			{
 				return func_table;
 			}
@@ -253,9 +277,10 @@ namespace exlib {
 		private:
 			vpfunc const* _func_table;
 		public:
+			constexpr static bool is_inplace=false;
 			func_table_from_tup():_func_table{}{}
-			template<typename Func>
-			func_table_from_tup(Func const&):_func_table{func_table_holder<Func,SigTuple>::get_func_table()}
+			template<typename FuncHolder>
+			func_table_from_tup(FuncHolder) noexcept:_func_table{func_table_holder<typename FuncHolder::type,SigTuple>::get_func_table()}
 			{}
 
 			vpfunc const* get_table() const noexcept
@@ -281,12 +306,12 @@ namespace exlib {
 		struct func_table_from_tup_inplace_help<SigTuple,index_sequence<Is...>>
 		{
 		private:
-			vpfunc _func_table[SigTuple::size?SigTuple::size:1];
+			vpfunc _func_table[SigTuple::size+1];
 		public:
 			func_table_from_tup_inplace_help():_func_table{}{}
 
-			template<typename Func>
-			func_table_from_tup_inplace_help(Func const&):_func_table{reinterpret_cast<vpfunc>(&indirect_call<Func,typename func_element<Is,SigTuple>::type>::call_me)...}
+			template<typename FuncHolder>
+			func_table_from_tup_inplace_help(FuncHolder) noexcept: _func_table _EXFUNC_FUNC_TABLE_DEFINITION(typename FuncHolder::type)
 			{}
 
 			vpfunc const* get_table() const noexcept
@@ -313,8 +338,11 @@ namespace exlib {
 			}
 		};
 
+#undef _EXFUNC_FUNC_TABLE_DEFINITION
+
 		template<typename SigTuple>
 		struct func_table_from_tup<SigTuple,true>:func_table_from_tup_inplace_help<SigTuple> {
+			constexpr static bool is_inplace=true;
 			using func_table_from_tup_inplace_help<SigTuple>::func_table_from_tup_inplace_help;
 		};
 
@@ -409,7 +437,7 @@ namespace exlib {
 		};
 
 		template<typename Derived,typename... Sigs>
-		struct get_call_op_table<Derived,func_pack<Sigs...>>:get_call_op_table_help<0,Derived,Sigs...> {
+		struct get_call_op_table<Derived,func_pack<Sigs...>>:get_call_op_table_help<1,Derived,Sigs...> {
 		};
 
 		template<typename SigTuple>
@@ -437,6 +465,13 @@ namespace exlib {
 		};
 #endif
 	}
+
+	template<typename T>
+	struct in_place_type {
+		explicit in_place_type() noexcept=default;
+		using type=T;
+	};
+
 	/*
 		Template arguments are function signatures that may be additionally const and noexcept (C++17+) qualified.
 		If nothrow_destructor_tag is found anywhere in the argument list, the desctructor is non throwing.
@@ -460,34 +495,83 @@ namespace exlib {
 		template<size_t I,typename PVoid,typename Ret,typename UniqueFunc,typename... Args>
 		friend Ret unique_func_det::call_op(UniqueFunc&,Args&&...);
 
-		unique_func_det::DeleterFunc _deleter;
-
 		using Data=typename std::aligned_storage<unique_func_det::max_size,unique_func_det::alignment>::type;
 		Data _data;
 
 		void cleanup()
 		{
-			if(_deleter)
+			if
+#if	_EXFUNC_HAS_CPP_17
+				constexpr
+#endif
+				(!func_table::is_inplace)
 			{
-				_deleter(&_data);
+				if(!this->get_table())
+				{
+					return;
+				}
+			}
+			auto deleter=reinterpret_cast<void(*)(void*)>(this->get_table()[0]);
+			if(deleter)
+			{
+				deleter(&_data);
 			}
 		}
+
+		static constexpr bool noexcept_destructor=unique_func_det::has_nothrow_tag<Signatures...>::value;
 	public:
 
-		unique_function() noexcept:_deleter{nullptr},func_table{}{}
+		unique_function() noexcept:func_table{}{}
 
 		template<typename Func>
-		unique_function(Func func):
-			_deleter{unique_func_det::indirect_deleter<Func>::do_delete},
-			func_table{func}
+		unique_function(Func&& func):func_table{std::decay<Func>{}}
 		{
-			unique_func_det::func_constructor<Func>::construct(&_data,std::move(func));
+			unique_func_det::func_constructor<typename std::decay<Func>::type>::construct(&_data,std::move(func));
 		}
 
-		unique_function(unique_function&& o) noexcept:func_table{static_cast<func_table&>(o)},_deleter{o._deleter},_data{o._data}
+		template<typename Func,typename... Args>
+		unique_function(in_place_type<Func> a,Args&&... args):func_table{a}
+		{
+			unique_func_det::func_constructor<Func>::construct(&_data,std::forward<Args>(args)...);
+		}
+
+		template<typename Func,typename U,typename... Args>
+		unique_function(in_place_type<Func> a,std::initializer_list<U> il,Args&&... args):func_table{a}
+		{
+			unique_func_det::func_constructor<Func>::construct(&_data,il,std::forward<Args>(args)...);
+		}
+
+		template<typename Func,typename... Args>
+		unique_function& emplace(Args&&... args) &
+		{
+			unique_function(in_place_type<Func>{},std::forward<Args>(args)...).swap(*this);
+			return *this;
+		}
+
+		template<typename Func,typename U,typename... Args>
+		unique_function& emplace(std::initializer_list<U> il,Args&&... args) &
+		{
+			unique_function(in_place_type<Func>{},il,std::forward<Args>(args)...).swap(*this);
+			return *this;
+		}
+
+		template<typename Func,typename... Args>
+		unique_function&& emplace(Args&&... args) &&
+		{
+			unique_function(in_place_type<Func>{},std::forward<Args>(args)...).swap(*this);
+			return std::move(*this);
+		}
+
+		template<typename Func,typename U,typename... Args>
+		unique_function&& emplace(std::initializer_list<U> il,Args&&... args) &&
+		{
+			unique_function(in_place_type<Func>{},il,std::forward<Args>(args)...).swap(*this);
+			return std::move(*this);
+		}
+
+		unique_function(unique_function&& o) noexcept:func_table{static_cast<func_table&>(o)},_data{o._data}
 		{
 			static_cast<func_table&>(o)=func_table{};
-			o._deleter=nullptr;
 		}
 
 		using func_table::operator bool;
@@ -507,12 +591,16 @@ namespace exlib {
 
 		void swap(unique_function& other) noexcept
 		{
-			std::swap(_deleter,other._deleter);
 			static_cast<func_table&>(*this).swap(static_cast<func_table&>(other));
 			std::swap(_data,other._data);
 		}
 
-		~unique_function() noexcept(unique_func_det::has_nothrow_tag<Signatures...>::value)
+		void reset() noexcept(noexcept_destructor)
+		{
+			unique_function{}.swap(*this);
+		}
+
+		~unique_function() noexcept(noexcept_destructor)
 		{
 			cleanup();
 		}
