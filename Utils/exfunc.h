@@ -29,10 +29,11 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #if	_EXFUNC_HAS_CPP_17
 #define _EXFUNC_CONSTEXPRIF constexpr
 #ifdef __cpp_lib_hardware_interference_size
-#define _EXFUNC_HAS_HARDWARE_INTERFERENCE_SIZE
+#define _EXFUNC_HAS_HARDWARE_INTERFERENCE_SIZE 1
 #include <new>
 #endif
 #else
+#define _EXFUNC_HAS_HARDWARE_INTERFERENCE_SIZE 0
 #define _EXFUNC_CONSTEXPRIF
 #endif
 namespace exlib {
