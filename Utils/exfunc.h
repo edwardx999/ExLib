@@ -633,5 +633,26 @@ namespace exlib {
 
 		using get_call_op::operator();
 	};
+
+	template<typename... Signatures>
+	bool operator==(std::nullptr_t,unique_function<Signatures...> const& f) noexcept
+	{
+		return !f;
+	}
+	template<typename... Signatures>
+	bool operator!=(std::nullptr_t,unique_function<Signatures...> const& f) noexcept
+	{
+		return bool{f};
+	}
+	template<typename... Signatures>
+	bool operator==(unique_function<Signatures...> const& f,std::nullptr_t) noexcept
+	{
+		return !f;
+	}
+	template<typename... Signatures>
+	bool operator!=(unique_function<Signatures...> const& f,std::nullptr_t) noexcept
+	{
+		return bool{f};
+	}
 }
 #endif
