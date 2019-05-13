@@ -236,18 +236,6 @@ namespace exlib {
 			}
 		};
 
-		template<typename Sig>
-		struct get_pfunc;
-
-		template<typename Ret,typename... Args>
-		struct get_pfunc<Ret(Args...)> {
-			using type=Ret(*)(void*,Args...);
-		};
-		template<typename Ret,typename... Args>
-		struct get_pfunc<Ret(Args...) const> {
-			using type=Ret(*)(void const*,Args...);
-		};
-
 		template<typename... Types>
 		struct has_nothrow_tag;
 
