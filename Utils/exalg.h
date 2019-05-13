@@ -28,8 +28,10 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #endif
 #if _EXALG_HAS_CPP_17
 #define _EXALG_NODISCARD [[nodiscard]]
+#define _EXALG_CONSTEXPRIF constexpr
 #else
 #define _EXALG_NODISCARD
+#define _EXALG_CONSTEXPRIF
 #endif
 #include <exception>
 #include <stddef.h>
@@ -485,7 +487,7 @@ namespace exlib {
 	constexpr std::array<T,N> sorted(std::array<T,N> const& arr,Comp c)
 	{
 		auto sorted=arr;
-		if constexpr(N<10) isort(sorted.begin(),sorted.end(),c);
+		if _EXALG_CONSTEXPRIF(N<10) isort(sorted.begin(),sorted.end(),c);
 		else qsort(sorted.begin(),sorted.end(),c);
 		return sorted;
 	}
@@ -612,6 +614,89 @@ namespace exlib {
 	{
 		return str_concat<ValueType>(str_concat<ValueType>(a,b),c...);
 	}
+
+	namespace detail {
+		template<typename Container,typename SizeT>
+		auto reserve_if_able(Container& a,SizeT s) -> decltype(a.reserve(s))
+		{
+			return a.reserve(s);
+		}
+		template<typename Container,typename SizeT,typename... Extra>
+		void reserve_if_able(Container& a,SizeT s,Extra...)
+		{}
+	}
+
+#if !_EXALG_HAS_CPP_17
+
+	namespace detail {
+		template<typename Container>
+		void container_concat_help(Container& c)
+		{}
+		template<typename Container,typename First,typename... Rest>
+		void container_concat_help(Container& c,First const& f,Rest const&... rest)
+		{
+			c.insert(c.end(),f.begin(),f.end());
+			container_concat_help(c,rest...);
+		}
+		template<typename Container>
+		std::size_t container_total_size(Container const& a)
+		{
+			return a.size();
+		}
+		template<typename Container,typename... Rest>
+		std::size_t container_total_size(Container const& a,Rest const&... r)
+		{
+			return a.size()+container_total_size(r...);
+		}
+	}
+	template<typename Container,typename... Rest>
+	Container container_concat(Container&& c,Rest const&... rest)
+	{
+		detail::reserve_if_able(c,detail::container_total_size(c,rest...));
+		detail::container_concat_help(c,rest...);
+		return std::move(c);
+	}
+	template<typename Container,typename... Rest>
+	Container container_concat(Container const& c,Rest const&... rest)
+	{
+		Container copy;
+		detail::reserve_if_able(copy,detail::container_total_size(c,rest...));
+		detail::container_concat_help(copy,c,rest...);
+		return c;
+	}
+#endif
+
+#if _EXALG_HAS_CPP_17
+	template<typename Container>
+	Container container_concat(Container&& cont)
+	{
+		return std::move(cont);
+	}
+
+	template<typename Container>
+	Container container_concat(Container const& cont)
+	{
+		return cont;
+	}
+
+	template<typename Container,typename... Rest>
+	Container container_concat(Container&& cont,Rest... rest)
+	{
+		detail::reserve_if_able(cont,cont.size()+(...+rest.size()));
+		(cont.insert(cont.end(),rest.begin(),rest.end()),...);
+		return std::move(cont);
+	}
+
+	template<typename Container,typename... Rest>
+	Container container_concat(Container const& cont,Rest... rest)
+	{
+		Container copy;
+		detail::reserve_if_able(copy,cont.size()+(...+rest.size()));
+		copy.insert(cont.begin(),cont.end());
+		(copy.insert(copy.end(),rest.begin(),rest.end()),...);
+		return copy;
+	}
+#endif
 
 	template<typename T=void>
 	struct compare {
