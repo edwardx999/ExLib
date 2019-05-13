@@ -66,7 +66,10 @@ namespace exlib {
 		};
 
 #ifdef EX_UNIQUE_FUNCTION_MAX_SIZE
-		constexpr std::size_t max_size=EX_UNIQUE_FUNCTION_MAX_SIZE;
+		constexpr std::size_t max_size() noexcept
+		{
+			return EX_UNIQUE_FUNCTION_MAX_SIZE;
+		}
 #else
 		constexpr std::size_t max(std::ptrdiff_t a,std::ptrdiff_t b)
 		{
@@ -76,7 +79,7 @@ namespace exlib {
 		{
 			return max(std::ptrdiff_t{64}-3*sizeof(std::size_t),sizeof(void*));
 		}
-#define EX_UNIQUE_FUNCTION_MAX_SIZE exlib::unique_func_det::max_size()
+#define EX_UNIQUE_FUNCTION_MAX_SIZE ::exlib::unique_func_det::max_size()
 #endif
 		static_assert(max_size()>=sizeof(void*),"Unique function must be able to fit at least a pointer.");
 
