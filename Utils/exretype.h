@@ -128,16 +128,31 @@ namespace exlib {
 
 	template<typename T>
 	struct const_param_type<T[]> {
-		using type=T*const;
+		using type=T* const;
 	};
 
 	template<typename T,std::size_t N>
 	struct const_param_type<T[N]> {
-		using type=T*const;
+		using type=T* const;
 	};
 
 	template<typename T>
 	using const_param_type_t=typename const_param_type<T>::type;
+
+	/*
+		Get the optimal param type for moved values (based on x64 calling convention)
+		Suggested Usage: for simple non-virtual functions don't bother as it will be inlined anyway,
+			for complex functions take in by T const& and forward to a helper that takes in const_param_type<T>::type
+	*/
+	template<typename T>
+	struct move_param_type
+		:std::conditional<
+		std::is_trivially_copyable<T>::value&&sizeof(T)<=sizeof(std::size_t),
+		T,
+		T&&> {};
+
+	template<typename T>
+	using move_param_type_t=typename move_param_type<T>::type;
 
 	//courtesy https://vittorioromeo.info/Misc/fwdlike.html
 	template<typename Model,typename Orig>

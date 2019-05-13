@@ -152,14 +152,14 @@ namespace exlib {
 
 		template<typename Func,typename Ret,typename... Args>
 		struct indirect_call<Func,Ret(Args...),true> {
-			static Ret call_me(void* obj,Args... args)
+			static Ret call_me(void* obj,move_param_type_t<Args>... args)
 			{
 				return (*static_cast<Func*>(obj))(std::forward<Args>(args)...);
 			}
 		};
 		template<typename Func,typename Ret,typename... Args>
 		struct indirect_call<Func,Ret(Args...),false> {
-			static Ret call_me(void* obj,Args... args)
+			static Ret call_me(void* obj,move_param_type_t<Args>... args)
 			{
 				return (**static_cast<Func**>(obj))(std::forward<Args>(args)...);
 			}
@@ -167,14 +167,14 @@ namespace exlib {
 
 		template<typename Func,typename Ret,typename... Args>
 		struct indirect_call<Func,Ret(Args...) const,true> {
-			static Ret call_me(void const* obj,Args... args)
+			static Ret call_me(void const* obj,move_param_type_t<Args>... args)
 			{
 				return (*static_cast<Func const*>(obj))(std::forward<Args>(args)...);
 			}
 		};
 		template<typename Func,typename Ret,typename... Args>
 		struct indirect_call<Func,Ret(Args...) const,false> {
-			static Ret call_me(void const* obj,Args... args)
+			static Ret call_me(void const* obj,move_param_type_t<Args>... args)
 			{
 				return (**static_cast<Func const* const*>(obj))(std::forward<Args>(args)...);
 			}
@@ -183,14 +183,14 @@ namespace exlib {
 #if _EXFUNC_HAS_CPP_17
 		template<typename Func,typename Ret,typename... Args>
 		struct indirect_call<Func,Ret(Args...) noexcept,true> {
-			static Ret call_me(void* obj,Args... args) noexcept
+			static Ret call_me(void* obj,move_param_type_t<Args>... args) noexcept
 			{
 				return (*static_cast<Func*>(obj))(std::forward<Args>(args)...);
 			}
 		};
 		template<typename Func,typename Ret,typename... Args>
 		struct indirect_call<Func,Ret(Args...) noexcept,false> {
-			static Ret call_me(void* obj,Args... args) noexcept
+			static Ret call_me(void* obj,move_param_type_t<Args>... args) noexcept
 			{
 				return (**static_cast<Func**>(obj))(std::forward<Args>(args)...);
 			}
@@ -198,14 +198,14 @@ namespace exlib {
 
 		template<typename Func,typename Ret,typename... Args>
 		struct indirect_call<Func,Ret(Args...) const noexcept,true> {
-			static Ret call_me(void const* obj,Args... args) noexcept
+			static Ret call_me(void const* obj,move_param_type_t<Args>... args) noexcept
 			{
 				return (*static_cast<Func const*>(obj))(std::forward<Args>(args)...);
 			}
 		};
 		template<typename Func,typename Ret,typename... Args>
 		struct indirect_call<Func,Ret(Args...) const noexcept,false> {
-			static Ret call_me(void const* obj,Args... args) noexcept
+			static Ret call_me(void const* obj,move_param_type_t<Args>... args) noexcept
 			{
 				return (**static_cast<Func const* const*>(obj))(std::forward<Args>(args)...);
 			}
@@ -392,7 +392,7 @@ namespace exlib {
 		{
 			if(nothrow||func)
 			{
-				return (*reinterpret_cast<Ret(*)(PVoid,Args...)>(func.get_table()[I]))(&func._data,std::forward<Args>(args)...);
+				return (*reinterpret_cast<Ret(*)(PVoid,move_param_type_t<Args>...)>(func.get_table()[I]))(&func._data,std::forward<Args>(args)...);
 			}
 			throw exlib::bad_function_call{};
 		}

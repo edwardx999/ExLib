@@ -1031,7 +1031,7 @@ namespace exlib {
 	template<typename Type=void,typename Tuple>
 	constexpr typename detail::ca_type<Type,Tuple>::type conv_array(Tuple&& args)
 	{
-		constexpr auto TS=std::tuple_size_v<typename std::remove_reference<Tuple>::type>;
+		constexpr auto TS=std::tuple_size<typename std::remove_reference<Tuple>::type>::value;
 		return detail::conv_array<Type>(std::forward<Tuple>(args),make_index_sequence<TS>());
 	}
 
