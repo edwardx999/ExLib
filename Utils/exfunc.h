@@ -585,16 +585,14 @@ namespace exlib {
 		template<typename Func,typename... Args>
 		unique_function&& emplace(Args&&... args) &&
 		{
-			unique_function(in_place_type<Func>{},std::forward<Args>(args)...).swap(*this);
-			return std::move(*this);
+			return std::move(emplace<Func>(std::forward<Args>(args)...));
 		}
 
 		//constructs the function given by in_place_type in place using the given arguments
 		template<typename Func,typename U,typename... Args>
 		unique_function&& emplace(std::initializer_list<U> il,Args&&... args) &&
 		{
-			unique_function(in_place_type<Func>{},il,std::forward<Args>(args)...).swap(*this);
-			return std::move(*this);
+			return std::move(emplace<Func>(il,std::forward<Args>(args)...));
 		}
 
 		unique_function(unique_function&& o) noexcept:func_table{static_cast<func_table&>(o)},_data{o._data}
