@@ -595,7 +595,7 @@ namespace exlib {
 			return std::move(emplace<Func>(il,std::forward<Args>(args)...));
 		}
 
-		unique_function(unique_function&& o) noexcept(noexcept_destructor):func_table{static_cast<func_table&>(o)},_data{o._data}
+		unique_function(unique_function&& o) noexcept:func_table{static_cast<func_table&>(o)},_data{o._data}
 		{
 			static_cast<func_table&>(o)=func_table{};
 		}
