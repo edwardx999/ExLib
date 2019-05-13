@@ -544,6 +544,9 @@ namespace exlib {
 		//default constructor, no held function
 		unique_function() noexcept:func_table{}{}
 
+		//nullptr constructor, no held function
+		unique_function(std::nullptr_t) noexcept:unique_function{}{}
+
 		//copies or moves a function from an existing function-like object
 		template<typename Func>
 		unique_function(Func&& func):func_table{std::decay<Func>{}}
