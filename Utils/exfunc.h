@@ -309,6 +309,7 @@ namespace exlib {
 				return _func_table;
 			}
 
+			//whether this holds a function
 			explicit operator bool() const noexcept
 			{
 				return _func_table;
@@ -340,6 +341,7 @@ namespace exlib {
 				return _func_table;
 			}
 
+			//whether this holds a function
 			explicit operator bool() const noexcept
 			{
 				if _EXFUNC_CONSTEXPRIF(SigTuple::size<1)
@@ -400,6 +402,7 @@ namespace exlib {
 
 		template<size_t I,typename Derived,typename Ret,typename... Args>
 		struct get_call_op<I,Derived,Ret(Args...) const> {
+			//Calls held function, throws bad_function_call if no function held
 			Ret operator()(Args... args) const
 			{
 				return call_op<I,void const*,Ret,false>(static_cast<Derived const&>(*this),std::forward<Args>(args)...);
@@ -407,6 +410,7 @@ namespace exlib {
 		};
 		template<size_t I,typename Derived,typename Ret,typename... Args>
 		struct get_call_op<I,Derived,Ret(Args...)> {
+			//Calls held function, throws bad_function_call if no function held
 			Ret operator()(Args... args)
 			{
 				return call_op<I,void*,Ret,false>(static_cast<Derived&>(*this),std::forward<Args>(args)...);
@@ -417,6 +421,7 @@ namespace exlib {
 		template<size_t I,typename Derived,typename Ret,typename... Args>
 		struct get_call_op<I,Derived,Ret(Args...) const noexcept> {
 			using result_type=Ret;
+			//Calls held function, undefined behavior if no function held
 			Ret operator()(Args... args) const noexcept
 			{
 				return call_op<I,void const*,Ret,true>(static_cast<Derived const&>(*this),std::forward<Args>(args)...);
@@ -425,6 +430,7 @@ namespace exlib {
 		template<size_t I,typename Derived,typename Ret,typename... Args>
 		struct get_call_op<I,Derived,Ret(Args...) noexcept> {
 			using result_type=Ret;
+			//Calls held function, undefined behavior if no function held
 			Ret operator()(Args... args) noexcept
 			{
 				return call_op<I,void*,Ret,true>(static_cast<Derived&>(*this),std::forward<Args>(args)...);
@@ -535,26 +541,31 @@ namespace exlib {
 		static constexpr bool noexcept_destructor=unique_func_det::has_nothrow_tag<Signatures...>::value;
 	public:
 
+		//default constructor, no held function
 		unique_function() noexcept:func_table{}{}
 
+		//copies or moves a function from an existing function-like object
 		template<typename Func>
 		unique_function(Func&& func):func_table{std::decay<Func>{}}
 		{
-			unique_func_det::func_constructor<typename std::decay<Func>::type>::construct(&_data,std::move(func));
+			unique_func_det::func_constructor<typename std::decay<Func>::type>::construct(&_data,std::forward<Func>(func));
 		}
 
+		//constructs the function given by in_place_type in place using the given arguments
 		template<typename Func,typename... Args>
 		unique_function(in_place_type<Func> a,Args&&... args):func_table{a}
 		{
 			unique_func_det::func_constructor<Func>::construct(&_data,std::forward<Args>(args)...);
 		}
 
+		//constructs the function given by in_place_type in place using the given arguments
 		template<typename Func,typename U,typename... Args>
 		unique_function(in_place_type<Func> a,std::initializer_list<U> il,Args&&... args):func_table{a}
 		{
 			unique_func_det::func_constructor<Func>::construct(&_data,il,std::forward<Args>(args)...);
 		}
 
+		//constructs the function given by in_place_type in place using the given arguments
 		template<typename Func,typename... Args>
 		unique_function& emplace(Args&&... args) &
 		{
@@ -562,6 +573,7 @@ namespace exlib {
 			return *this;
 		}
 
+		//constructs the function given by in_place_type in place using the given arguments
 		template<typename Func,typename U,typename... Args>
 		unique_function& emplace(std::initializer_list<U> il,Args&&... args) &
 		{
@@ -569,6 +581,7 @@ namespace exlib {
 			return *this;
 		}
 
+		//constructs the function given by in_place_type in place using the given arguments
 		template<typename Func,typename... Args>
 		unique_function&& emplace(Args&&... args) &&
 		{
@@ -576,6 +589,7 @@ namespace exlib {
 			return std::move(*this);
 		}
 
+		//constructs the function given by in_place_type in place using the given arguments
 		template<typename Func,typename U,typename... Args>
 		unique_function&& emplace(std::initializer_list<U> il,Args&&... args) &&
 		{
