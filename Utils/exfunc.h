@@ -362,8 +362,7 @@ namespace exlib {
 		};
 
 		template<typename... Rest>
-		struct strip_nothrow_tags<nothrow_destructor_tag,Rest...> {
-			using type=typename strip_nothrow_tags<Rest...>::type;
+		struct strip_nothrow_tags<nothrow_destructor_tag,Rest...>:strip_nothrow_tags<Rest...> {
 		};
 
 		template<typename First,typename... Rest>
