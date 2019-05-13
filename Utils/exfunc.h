@@ -481,7 +481,7 @@ namespace exlib {
 	template<typename... Signatures>
 	class unique_function:
 		unique_func_det::func_table<Signatures...>,
-		public unique_func_det::get_call_op_table<unique_function<Signatures...>,typename unique_func_det::strip_nothrow_tags<Signatures...>::type>,
+		unique_func_det::get_call_op_table<unique_function<Signatures...>,typename unique_func_det::strip_nothrow_tags<Signatures...>::type>,
 		public unique_func_det::get_result_type<typename unique_func_det::strip_nothrow_tags<Signatures...>::type> {
 
 		using get_call_op=unique_func_det::get_call_op_table<unique_function<Signatures...>,typename unique_func_det::strip_nothrow_tags<Signatures...>::type>;
@@ -604,6 +604,8 @@ namespace exlib {
 		{
 			cleanup();
 		}
+
+		using get_call_op::operator();
 	};
 }
 #endif
