@@ -99,7 +99,6 @@ namespace exlib {
 		}
 #define EX_UNIQUE_FUNCTION_MAX_SIZE ::exlib::unique_func_det::max_size()
 #endif
-		static_assert(max_size()>=sizeof(void*),"Unique function must be able to fit at least a pointer.");
 
 		constexpr std::size_t alignment() noexcept
 		{
