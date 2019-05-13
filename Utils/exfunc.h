@@ -65,6 +65,10 @@ namespace exlib {
 			using type=func_pack<First,Types...>;
 		};
 
+#ifndef EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT
+#define EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT 1
+#endif
+
 #ifdef EX_UNIQUE_FUNCTION_MAX_SIZE
 		constexpr std::size_t max_size() noexcept
 		{
@@ -77,7 +81,7 @@ namespace exlib {
 		}
 		constexpr std::size_t max_size() noexcept
 		{
-			return max(std::ptrdiff_t{64}-3*sizeof(std::size_t),sizeof(void*));
+			return max(std::ptrdiff_t{64}-(1+EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT)*sizeof(std::size_t),sizeof(void*));
 		}
 #define EX_UNIQUE_FUNCTION_MAX_SIZE ::exlib::unique_func_det::max_size()
 #endif
@@ -251,9 +255,6 @@ namespace exlib {
 		template<typename... Rest>
 		struct has_nothrow_tag<nothrow_destructor_tag,Rest...>:std::true_type {};
 
-#ifndef EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT
-#define EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT 1
-#endif
 		template<typename SigTuple,bool in_place=(
 			SigTuple::size<=EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT
 			)>
