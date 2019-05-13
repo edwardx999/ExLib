@@ -28,7 +28,9 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #endif
 #if	_EXFUNC_HAS_CPP_17
 #define _EXFUNC_CONSTEXPRIF constexpr
-#include <new>
+#ifdef __cpp_lib_hardware_interference_size
+#define _EXFUNC_HAS_HARDWARE_INTERFERENCE_SIZE
+#endif
 #else
 #define _EXFUNC_CONSTEXPRIF
 #endif
@@ -88,12 +90,12 @@ namespace exlib {
 		constexpr std::size_t max_size() noexcept
 		{
 			return max(
-#if _EXFUNC_HAS_CPP_17
-				std::ptrdiff_t{std::hardware_constructive_interference_size}
+#if _EXFUNC_HAS_HARDWARE_INTERFERENCE_SIZE
+				std::hardware_constructive_interference_size
 #else 
-				std::ptrdiff_t{64}
+				64
 #endif
-			-(1+EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT)*sizeof(std::size_t),sizeof(void*));
+			,sizeof(void*));
 		}
 #define EX_UNIQUE_FUNCTION_MAX_SIZE ::exlib::unique_func_det::max_size()
 #endif
@@ -492,8 +494,8 @@ namespace exlib {
 	/*
 		Template arguments are function signatures that may be additionally const and noexcept (C++17+) qualified.
 		If nothrow_destructor_tag is found anywhere in the argument list, the desctructor is non throwing.
-		Small object optimization enabled for types that are nothrow move constructible/assignable and less than
-		unique_func_det::max_size, which can be customized with EX_UNIQUE_FUNCTION_MAX_SIZE (breaks ABI compatibility).
+		Small object optimization enabled for types that are nothrow move constructible/assignable and will
+		fit in this object (total size - vtable space), which can be customized with EX_UNIQUE_FUNCTION_MAX_SIZE (breaks ABI compatibility).
 		The vtable may be stored in place depending on the number of signatures as given by EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT (default 1).
 	*/
 	template<typename... Signatures>
@@ -513,7 +515,7 @@ namespace exlib {
 		template<size_t I,typename PVoid,typename Ret,bool nothrow,typename UniqueFunc,typename... Args>
 		friend Ret unique_func_det::call_op(UniqueFunc&,Args&&...);
 
-		using Data=typename std::aligned_storage<unique_func_det::max_size(),unique_func_det::alignment()>::type;
+		using Data=typename std::aligned_storage<unique_func_det::max(unique_func_det::max_size()-sizeof(func_table),sizeof(void*)),unique_func_det::alignment()>::type;
 		Data _data;
 
 		void cleanup()
