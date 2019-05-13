@@ -28,6 +28,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #endif
 #if	_EXFUNC_HAS_CPP_17
 #define _EXFUNC_CONSTEXPRIF constexpr
+#include <new>
 #else
 #define _EXFUNC_CONSTEXPRIF
 #endif
@@ -86,7 +87,13 @@ namespace exlib {
 		}
 		constexpr std::size_t max_size() noexcept
 		{
-			return max(std::ptrdiff_t{64}-(1+EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT)*sizeof(std::size_t),sizeof(void*));
+			return max(
+#if _EXFUNC_HAS_CPP_17
+				std::ptrdiff_t{std::hardware_constructive_interference_size}
+#else 
+				std::ptrdiff_t{64}
+#endif
+			-(1+EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT)*sizeof(std::size_t),sizeof(void*));
 		}
 #define EX_UNIQUE_FUNCTION_MAX_SIZE ::exlib::unique_func_det::max_size()
 #endif
@@ -623,6 +630,12 @@ namespace exlib {
 
 		using get_call_op::operator();
 	};
+
+	template<typename... Signatures>
+	void swap(unique_function<Signatures...>& a,unique_function<Signatures...>& b) noexcept
+	{
+		a.swap(b);
+	}
 
 	template<typename... Signatures>
 	bool operator==(std::nullptr_t,unique_function<Signatures...> const& f) noexcept
