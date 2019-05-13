@@ -141,8 +141,6 @@ namespace exlib {
 
 	/*
 		Get the optimal param type for moved values (based on x64 calling convention)
-		Suggested Usage: for simple non-virtual functions don't bother as it will be inlined anyway,
-			for complex functions take in by T const& and forward to a helper that takes in const_param_type<T>::type
 	*/
 	template<typename T>
 	struct move_param_type
