@@ -494,7 +494,7 @@ namespace exlib {
 
 	/*
 		Template arguments are function signatures that may be additionally const and noexcept (C++17+) qualified.
-		If nothrow_destructor_tag is found anywhere in the argument list, the desctructor is non throwing.
+		If nothrow_destructor_tag is found anywhere in the argument list, the destructor and move operations are non-throwing.
 		Small object optimization enabled for types that are nothrow move constructible/assignable and will
 		fit in this object (total size - vtable space), which can be customized with EX_UNIQUE_FUNCTION_MAX_SIZE (breaks ABI compatibility).
 		The vtable may be stored in place depending on the number of signatures as given by EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT (default 1).
