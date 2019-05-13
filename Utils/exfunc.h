@@ -341,11 +341,11 @@ namespace exlib {
 #if _EXFUNC_HAS_CPP_17
 					constexpr
 #endif
-					(SigTuple::size == 0)
+					(SigTuple::size<1)
 				{
 					return false;
 				}
-				return _func_table[0];
+				return _func_table[1];
 			}
 
 			void swap(func_table_from_tup_inplace_help& o) noexcept
