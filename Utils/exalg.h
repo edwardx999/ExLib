@@ -680,7 +680,7 @@ namespace exlib {
 	}
 
 	template<typename Container,typename... Rest>
-	Container container_concat(Container&& cont,Rest... rest)
+	Container container_concat(Container&& cont,Rest const&... rest)
 	{
 		detail::reserve_if_able(cont,cont.size()+(...+rest.size()));
 		(cont.insert(cont.end(),rest.begin(),rest.end()),...);
@@ -688,7 +688,7 @@ namespace exlib {
 	}
 
 	template<typename Container,typename... Rest>
-	Container container_concat(Container const& cont,Rest... rest)
+	Container container_concat(Container const& cont,Rest const&... rest)
 	{
 		Container copy;
 		detail::reserve_if_able(copy,cont.size()+(...+rest.size()));
