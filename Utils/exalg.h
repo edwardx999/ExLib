@@ -33,6 +33,11 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #define _EXALG_NODISCARD
 #define _EXALG_CONSTEXPRIF
 #endif
+#if _EXALG_HAS_CPP_14
+#define _EXALG_SIMPLE_CONSTEXPR constexpr
+#else
+#define _EXALG_SIMPLE_CONSTEXPR
+#endif
 #include <exception>
 #include <stddef.h>
 #include <tuple>
@@ -272,7 +277,7 @@ namespace exlib {
 
 	template<>
 	struct less<char const*> {
-		constexpr bool operator()(char const* a,char const* b) const
+		_EXALG_SIMPLE_CONSTEXPR bool operator()(char const* a,char const* b) const
 		{
 			for(size_t i=0;;++i)
 			{
@@ -716,7 +721,7 @@ namespace exlib {
 
 	template<>
 	struct compare<char const*> {
-		constexpr int operator()(char const* a,char const* b) const
+		_EXALG_SIMPLE_CONSTEXPR int operator()(char const* a,char const* b) const
 		{
 			for(size_t i=0;;++i)
 			{
@@ -788,71 +793,71 @@ namespace exlib {
 
 	//converts three way comparison into a less than comparison
 	template<typename ThreeWayComp=compare<void>>
-	struct lt_comp:private ThreeWayComp {
+	struct lt_comp:private empty_store<ThreeWayComp> {
 		template<typename A,typename B>
 		constexpr bool operator()(A const& a,B const& b) const
 		{
-			return ThreeWayComp::operator()(a,b)<0;
+			return this->get()(a,b)<0;
 		}
 	};
 
 	//converts three way comparison into a greater than comparison
 	template<typename ThreeWayComp=compare<void>>
-	struct gt_comp:private ThreeWayComp {
+	struct gt_comp:private empty_store<ThreeWayComp> {
 		template<typename A,typename B>
 		constexpr bool operator()(A const& a,B const& b) const
 		{
-			return ThreeWayComp::operator()(a,b)>0;
+			return this->get()(a,b)>0;
 		}
 	};
 
 	//converts three way comparison into a less than or equal to comparison
 	template<typename ThreeWayComp=compare<void>>
-	struct le_comp:private ThreeWayComp {
+	struct le_comp:private empty_store<ThreeWayComp> {
 		template<typename A,typename B>
 		constexpr bool operator()(A const& a,B const& b) const
 		{
-			return ThreeWayComp::operator()(a,b)<=0;
+			return this->get()(a,b)<=0;
 		}
 	};
 
 	//converts three way comparison into a greater than or equal to comparison
 	template<typename ThreeWayComp=compare<void>>
-	struct ge_comp:private ThreeWayComp {
+	struct ge_comp:private empty_store<ThreeWayComp> {
 		template<typename A,typename B>
 		constexpr bool operator()(A const& a,B const& b) const
 		{
-			return ThreeWayComp::operator()(a,b)>=0;
+			return this->get()(a,b)>=0;
 		}
 	};
 
 	//converts three way comparison into equality comparison
 	template<typename ThreeWayComp=compare<void>>
-	struct eq_comp:private ThreeWayComp {
+	struct eq_comp:private empty_store<ThreeWayComp> {
 		template<typename A,typename B>
 		constexpr bool operator()(A const& a,B const& b) const
 		{
-			return ThreeWayComp::operator()(a,b)==0;
+			return this->get()(a,b)==0;
 		}
 	};
 
 	//converts three way comparison into inequality comparison
 	template<typename ThreeWayComp=compare<void>>
-	struct ne_comp:private ThreeWayComp {
+	struct ne_comp:private empty_store<ThreeWayComp> {
 		template<typename A,typename B>
 		constexpr bool operator()(A const& a,B const& b) const
 		{
-			return ThreeWayComp::operator()(a,b)!=0;
+			return this->get()(a,b)!=0;
 		}
 	};
 
 	//inverts comparison
 	template<typename Comp=compare<void>>
-	struct inv_comp:private Comp {
+	struct inv_comp:private empty_store<Comp> {
 		template<typename A,typename B>
-		constexpr auto operator()(A const& a,B const& b) const
+		constexpr auto operator()(A const& a,B const& b) const -> decltype(this->get()(b,a))
 		{
-			return Comp::operator()(b,a);
+			return this->get()(b,a);
 		}
 	};
 
@@ -1062,7 +1067,7 @@ namespace exlib {
 #endif
 
 	public:
-		constexpr static size_t const value=gm<std::remove_cv_t<std::remove_reference_t<T>>>::value;
+		constexpr static size_t const value=gm<typename std::remove_cv<typename std::remove_reference<T>::type>::type>::value;
 	};
 
 #if _EXALG_HAS_CPP_17
