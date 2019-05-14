@@ -602,7 +602,7 @@ namespace exlib {
 			};
 		}
 	}
-	
+
 	//fills in a range working backwards from end and returns the start iter written to
 	//unchecked, make sure your range can fit
 	template<typename Iter,typename Num,typename DigitsIter=detail::iter_val_t<Iter> const*>

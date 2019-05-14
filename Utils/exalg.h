@@ -1249,7 +1249,7 @@ namespace exlib {
 			}
 		};
 	}
-	
+
 #endif
 }
 #endif

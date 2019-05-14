@@ -490,7 +490,7 @@ namespace exlib {
 		};
 #endif
 
-		template<typename Derived,typename SigTuple>
+		template<typename Derived,typename SigTuple,size_t start>
 		struct get_call_op_table;
 
 		template<size_t I,typename Derived,typename... Sigs>
@@ -511,8 +511,8 @@ namespace exlib {
 		struct get_call_op_table_help<I,Derived> {
 		};
 
-		template<typename Derived,typename... Sigs>
-		struct get_call_op_table<Derived,func_pack<Sigs...>>:get_call_op_table_help<1,Derived,Sigs...> {
+		template<typename Derived,typename... Sigs,size_t start>
+		struct get_call_op_table<Derived,func_pack<Sigs...>,start>:get_call_op_table_help<start,Derived,Sigs...> {
 		};
 
 		template<typename SigTuple>
@@ -576,10 +576,10 @@ namespace exlib {
 	template<typename... Signatures>
 	class unique_function:
 		unique_func_det::func_table_from_tup<typename unique_func_det::strip_tags<Signatures...>::type>,
-		unique_func_det::get_call_op_table<unique_function<Signatures...>,typename unique_func_det::strip_tags<Signatures...>::type>,
+		unique_func_det::get_call_op_table<unique_function<Signatures...>,typename unique_func_det::strip_tags<Signatures...>::type,1>,
 		public unique_func_det::get_result_type<typename unique_func_det::strip_tags<Signatures...>::type> {
 
-		using get_call_op=unique_func_det::get_call_op_table<unique_function<Signatures...>,typename unique_func_det::strip_tags<Signatures...>::type>;
+		using get_call_op=unique_func_det::get_call_op_table<unique_function<Signatures...>,typename unique_func_det::strip_tags<Signatures...>::type,1>;
 		friend get_call_op;
 
 		template<size_t I,typename Derived,typename Sig>
@@ -698,6 +698,12 @@ namespace exlib {
 
 		using func_table::operator bool;
 
+		unique_function& operator=(std::nullptr_t) noexcept(noexcept_destructor)
+		{
+			reset();
+			return *this;
+		}
+
 		template<typename Func>
 		unique_function& operator=(Func&& func)
 		{
@@ -762,6 +768,376 @@ namespace exlib {
 	}
 	template<typename... Signatures>
 	bool operator!=(unique_function<Signatures...> const& f,std::nullptr_t) noexcept
+	{
+		return bool{f};
+	}
+
+	namespace func_det {
+
+		using namespace unique_func_det;
+
+		template<typename Func,bool fits>
+		struct indirect_copier_help;
+
+		template<typename Func>
+		struct indirect_copier_help<Func,true> {
+			static void do_copy(void* dst,void const* src)
+			{
+				new (dst) Func(*static_cast<Func const*>(src));
+			}
+		};
+
+		template<typename Func>
+		struct indirect_copier_help<Func,false> {
+			static void do_copy(void* dst,void const* src)
+			{
+				*static_cast<Func**>(dst)=new Func(**static_cast<Func const* const*>(src));
+			}
+		};
+
+		template<typename Func,std::size_t BufferSize>
+		struct indirect_copier:indirect_copier_help<Func,type_fits<Func,BufferSize>::value> {};
+
+		using CopyFunc=void(*)(void*,void const*);
+
+		template<typename SigTuple>
+		struct func_tuple_type_with_copier {
+			using type=typename cons_pack<CopyFunc,typename unique_func_det::func_table_type_with_destructor<SigTuple>::type>::type;
+		};
+
+		template<typename Func,typename SigTuple,std::size_t BufferSize,typename IndexSeq=make_index_sequence<SigTuple::size>>
+		struct func_table_holder_help;
+
+#define _EXFUNC_FUNC_TABLE_DEFINITION(Func) &indirect_copier<Func,BufferSize>::do_copy,indirect_deleter<Func,BufferSize>::get_deleter(),&indirect_call<Func,typename func_element<Is,SigTuple>::type,BufferSize>::call_me...
+		template<typename Func,typename SigTuple,std::size_t BufferSize,size_t... Is>
+		struct func_table_holder_help<Func,SigTuple,BufferSize,index_sequence<Is...>> {
+			using table_type=typename func_tuple_type_with_copier<SigTuple>::type;
+#ifndef __cpp_inline_variables
+			static table_type const* get_func_table() noexcept
+			{
+				static table_type const func_table{_EXFUNC_FUNC_TABLE_DEFINITION(Func)};
+				return &func_table;
+			}
+#else
+		private:
+			static constexpr table_type func_table{_EXFUNC_FUNC_TABLE_DEFINITION(Func)};
+		public:
+			constexpr static auto const* get_func_table() noexcept
+			{
+				return &func_table;
+			}
+#endif
+		};
+
+		template<typename SigTuple,bool in_place=(
+			SigTuple::size<=EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT
+			)>
+		struct func_table_from_tup;
+
+		template<typename Func,typename SigTuple,std::size_t BufferSize>
+		struct func_table_holder:func_table_holder_help<Func,SigTuple,BufferSize> {
+		};
+
+		template<typename SigTuple>
+		struct func_table_from_tup<SigTuple,false> {
+		private:
+			using table_type=typename func_tuple_type_with_copier<SigTuple>::type;
+			table_type const* _func_table;
+		public:
+			constexpr static bool is_inplace=false;
+			func_table_from_tup():_func_table{}{}
+			func_table_from_tup(func_table_from_tup const& o) noexcept=default;
+			func_table_from_tup(func_table_from_tup&& o) noexcept:_func_table{o._func_table}
+			{
+				o._func_table=nullptr;
+			}
+			template<typename FuncHolder,size_t I>
+			func_table_from_tup(FuncHolder,object_size_tag<I>) noexcept:_func_table{func_table_holder<typename FuncHolder::type,SigTuple,I>::get_func_table()}
+			{}
+
+			table_type const* get_table() const noexcept
+			{
+				return _func_table;
+			}
+
+			//whether this holds a function
+			explicit operator bool() const noexcept
+			{
+				return _func_table;
+			}
+
+			void swap(func_table_from_tup& o) noexcept
+			{
+				std::swap(_func_table,o._func_table);
+			}
+		};
+
+		template<typename SigTuple,typename IndexSeq=make_index_sequence<SigTuple::size>>
+		struct func_table_from_tup_inplace_help;
+
+		template<typename SigTuple,size_t... Is>
+		struct func_table_from_tup_inplace_help<SigTuple,index_sequence<Is...>>
+		{
+		private:
+			using table_type=typename func_tuple_type_with_copier<SigTuple>::type;
+			table_type _func_table;
+		public:
+			func_table_from_tup_inplace_help():_func_table{}{}
+			func_table_from_tup_inplace_help(func_table_from_tup_inplace_help const& o) noexcept=default;
+			func_table_from_tup_inplace_help(func_table_from_tup_inplace_help&& o):_func_table{o._func_table} 
+			{
+				o._func_table=table_type{};
+			}
+
+			template<typename FuncHolder,size_t BufferSize>
+			func_table_from_tup_inplace_help(FuncHolder,object_size_tag<BufferSize>) noexcept: _func_table{_EXFUNC_FUNC_TABLE_DEFINITION(typename FuncHolder::type)}
+			{}
+
+			table_type const* get_table() const noexcept
+			{
+				return &_func_table;
+			}
+
+			//whether this holds a function
+			explicit operator bool() const noexcept
+			{
+				if _EXFUNC_CONSTEXPRIF(SigTuple::size<1)
+				{
+					return false;
+				}
+				return std::get<2>(_func_table);
+			}
+
+			void swap(func_table_from_tup_inplace_help& o) noexcept
+			{
+				std::swap(_func_table,o._func_table);
+			}
+		};
+
+#undef _EXFUNC_FUNC_TABLE_DEFINITION
+
+		template<typename SigTuple>
+		struct func_table_from_tup<SigTuple,true>:func_table_from_tup_inplace_help<SigTuple> {
+			constexpr static bool is_inplace=true;
+			using func_table_from_tup_inplace_help<SigTuple>::func_table_from_tup_inplace_help;
+		};
+	}
+	/*
+		Template arguments are function signatures that may be additionally const and noexcept (C++17+) qualified.
+		If nothrow_destructor_tag is found anywhere in the argument list, the destructor and move operations are non-throwing.
+		Small object optimization enabled for types that are nothrow move constructible/assignable and will
+		fit in this object (total size - vtable space), which can be customized with an object_size_tag (breaks ABI compatibility).
+		The vtable may be stored in place depending on the number of signatures as given by EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT (default 0).
+	*/
+	template<typename... Signatures>
+	class function:
+		func_det::func_table_from_tup<typename unique_func_det::strip_tags<Signatures...>::type>,
+		unique_func_det::get_call_op_table<function<Signatures...>,typename unique_func_det::strip_tags<Signatures...>::type,2>,
+		public unique_func_det::get_result_type<typename unique_func_det::strip_tags<Signatures...>::type> {
+
+		using get_call_op=unique_func_det::get_call_op_table<function<Signatures...>,typename unique_func_det::strip_tags<Signatures...>::type,2>;
+		friend get_call_op;
+
+		template<size_t I,typename Derived,typename Sig>
+		friend struct unique_func_det::get_call_op;
+
+		using func_table=func_det::func_table_from_tup<typename unique_func_det::strip_tags<Signatures...>::type>;
+
+		template<size_t I,typename Ret,bool nothrow,typename UniqueFunc,typename... Args>
+		friend Ret unique_func_det::call_op(UniqueFunc&,Args&&...);
+
+		static constexpr auto buffer_size=unique_func_det::max(unique_func_det::get_max_size<Signatures...>::value-sizeof(func_table),sizeof(void*));
+		using Data=typename std::aligned_storage<buffer_size,unique_func_det::alignment()>::type;
+		Data _data;
+
+		void cleanup()
+		{
+			if _EXFUNC_CONSTEXPRIF(!func_table::is_inplace)
+			{
+				if(!this->get_table())
+				{
+					return;
+				}
+			}
+			auto deleter=std::get<1>(*this->get_table());
+			if(deleter)
+			{
+				deleter(&_data);
+			}
+		}
+
+		static constexpr bool noexcept_destructor=unique_func_det::has_nothrow_tag<Signatures...>::value;
+	public:
+
+		//default constructor, no held function
+		function() noexcept:func_table{}{}
+
+		//nullptr constructor, no held function
+		function(std::nullptr_t) noexcept:function{}{}
+
+		function(function const& o):func_table{o}
+		{
+			if(o)
+			{
+				auto copier=std::get<0>(*this->get_table());
+				copier(&this->_data,&o._data);
+			}
+		}
+
+		function(function& o):function{static_cast<function const&>(o)}
+		{}
+
+		function(function const&& o):function{static_cast<function const&>(o)}
+		{}
+
+		function(function&& o) noexcept:func_table{static_cast<func_table&&>(o)},_data{o._data}
+		{}
+
+		//copies or moves a function from an existing function-like object
+		template<typename Func,typename... Misc>
+		function(Func&& func,Misc...):func_table{std::decay<Func>{},object_size_tag<buffer_size>{}}
+		{
+			static_assert(sizeof...(Misc)==0,"Only for SFINAE");
+			unique_func_det::func_constructor<typename std::decay<Func>::type,buffer_size>::construct(&_data,std::forward<Func>(func));
+		}
+
+		//constructs the function given by in_place_type in place using the given arguments
+		template<typename Func,typename... Args>
+		function(in_place_type<Func> a,Args&&... args):func_table{a,object_size_tag<buffer_size>{}}
+		{
+			unique_func_det::func_constructor<Func,buffer_size>::construct(&_data,std::forward<Args>(args)...);
+		}
+
+		//constructs the function given by in_place_type in place using the given arguments
+		template<typename Func,typename U,typename... Args>
+		function(in_place_type<Func> a,std::initializer_list<U> il,Args&&... args):func_table{a,object_size_tag<buffer_size>{}}
+		{
+			unique_func_det::func_constructor<Func,buffer_size>::construct(&_data,il,std::forward<Args>(args)...);
+		}
+
+		template<typename... OSignatures>
+		friend class function;
+
+		template<typename... OSignatures>
+		function(function<OSignatures...>&& o,
+			typename std::enable_if<
+				std::is_same<typename function<OSignatures...>::func_table,func_table>::value&&
+				(sizeof(typename function<OSignatures...>::Data)<=sizeof(Data)),int>::type=0) noexcept:func_table{static_cast<func_table&&>(o)}
+		{
+			using other=function<OSignatures...>;
+			static_assert(std::is_same<typename other::func_table,func_table>::value,"Incompatible function signature");
+			static_assert(sizeof(o._data)<=sizeof(_data),"Other function must fit");
+			std::memcpy(&_data,&o._data,sizeof(o._data));
+		}
+
+		//constructs the function given by in_place_type in place using the given arguments
+		template<typename Func,typename... Args>
+		function& emplace(Args&&... args) &
+		{
+			function(in_place_type<Func>{},std::forward<Args>(args)...).swap(*this);
+			return *this;
+		}
+
+		//constructs the function given by in_place_type in place using the given arguments
+		template<typename Func,typename U,typename... Args>
+		function& emplace(std::initializer_list<U> il,Args&&... args) &
+		{
+			function(in_place_type<Func>{},il,std::forward<Args>(args)...).swap(*this);
+			return *this;
+		}
+
+		//constructs the function given by in_place_type in place using the given arguments
+		template<typename Func,typename... Args>
+		function&& emplace(Args&&... args) &&
+		{
+			return std::move(emplace<Func>(std::forward<Args>(args)...));
+		}
+
+		//constructs the function given by in_place_type in place using the given arguments
+		template<typename Func,typename U,typename... Args>
+		function&& emplace(std::initializer_list<U> il,Args&&... args) &&
+		{
+			return std::move(emplace<Func>(il,std::forward<Args>(args)...));
+		}
+
+		using func_table::operator bool;
+
+		function& operator=(std::nullptr_t) noexcept(noexcept_destructor)
+		{
+			reset();
+			return *this;
+		}
+
+		template<typename Func>
+		function& operator=(Func&& func)
+		{
+			unique_function{std::forward<Func>(func)}.swap(*this);
+			return *this;
+		}
+
+		function& operator=(function&& func) noexcept(noexcept_destructor)
+		{
+			function{std::move(func)}.swap(*this);
+			return *this;
+		}
+
+		function& operator=(function const& func)
+		{
+			function{func}.swap(*this);
+			return *this;
+		}
+
+		void swap(function& other) noexcept
+		{
+			static_cast<func_table&>(*this).swap(static_cast<func_table&>(other));
+			std::swap(_data,other._data);
+		}
+
+		void reset() noexcept(noexcept_destructor)
+		{
+			function{}.swap(*this);
+		}
+
+		~function() noexcept(noexcept_destructor)
+		{
+			cleanup();
+		}
+
+		using get_call_op::operator();
+	};
+
+#ifdef __cpp_deduction_guides
+	template<typename Ret,typename... Args>
+	function(Ret(*)(Args...)) -> function<Ret(Args...) const,nothrow_destructor_tag>;
+#ifdef __cpp_noexcept_function_type
+	template<typename Ret,typename... Args>
+	function(Ret(*)(Args...) noexcept) -> function<Ret(Args...) const noexcept,nothrow_destructor_tag>;
+#endif
+#endif
+
+	template<typename... Signatures>
+	void swap(function<Signatures...>& a,function<Signatures...>& b) noexcept
+	{
+		a.swap(b);
+	}
+
+	template<typename... Signatures>
+	bool operator==(std::nullptr_t,function<Signatures...> const& f) noexcept
+	{
+		return !f;
+	}
+	template<typename... Signatures>
+	bool operator!=(std::nullptr_t,function<Signatures...> const& f) noexcept
+	{
+		return bool{f};
+	}
+	template<typename... Signatures>
+	bool operator==(function<Signatures...> const& f,std::nullptr_t) noexcept
+	{
+		return !f;
+	}
+	template<typename... Signatures>
+	bool operator!=(function<Signatures...> const& f,std::nullptr_t) noexcept
 	{
 		return bool{f};
 	}
