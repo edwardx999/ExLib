@@ -829,8 +829,11 @@ namespace exlib {
 #endif
 		};
 
+#ifndef EX_FUNCTION_INPLACE_TABLE_COUNT
+#define EX_FUNCTION_INPLACE_TABLE_COUNT 0
+#endif
 		template<typename SigTuple,bool in_place=(
-			SigTuple::size<=EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT
+			SigTuple::size<=EX_FUNCTION_INPLACE_TABLE_COUNT
 			)>
 		struct func_table_from_tup;
 
@@ -927,7 +930,7 @@ namespace exlib {
 		If nothrow_destructor_tag is found anywhere in the argument list, the destructor and move operations are non-throwing.
 		Small object optimization enabled for types that are nothrow move constructible/assignable and will
 		fit in this object (total size - vtable space), which can be customized with an object_size_tag (breaks ABI compatibility).
-		The vtable may be stored in place depending on the number of signatures as given by EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT (default 0).
+		The vtable may be stored in place depending on the number of signatures as given by EX_FUNCTION_INPLACE_TABLE_COUNT (default 0).
 	*/
 	template<typename... Signatures>
 	class function:
