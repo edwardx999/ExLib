@@ -90,7 +90,7 @@ namespace exlib {
 		};
 
 #ifndef EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT
-#define EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT 1
+#define EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT 0
 #endif
 
 		constexpr std::size_t max(std::ptrdiff_t a,std::ptrdiff_t b)
@@ -562,8 +562,8 @@ namespace exlib {
 		Template arguments are function signatures that may be additionally const and noexcept (C++17+) qualified.
 		If nothrow_destructor_tag is found anywhere in the argument list, the destructor and move operations are non-throwing.
 		Small object optimization enabled for types that are nothrow move constructible/assignable and will
-		fit in this object (total size - vtable space), which can be customized with EX_UNIQUE_FUNCTION_MAX_SIZE (breaks ABI compatibility).
-		The vtable may be stored in place depending on the number of signatures as given by EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT (default 1).
+		fit in this object (total size - vtable space), which can be customized with a object_size_tag (breaks ABI compatibility).
+		The vtable may be stored in place depending on the number of signatures as given by EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT (default 0).
 	*/
 	template<typename... Signatures>
 	class unique_function:
