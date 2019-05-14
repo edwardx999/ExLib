@@ -18,6 +18,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #define EXFUNC_H
 #include <utility>
 #include <type_traits>
+#include <tuple>
 #include <cstddef>
 #include <exception>
 #include "exretype.h"
@@ -51,8 +52,18 @@ namespace exlib {
 	namespace unique_func_det {
 
 		template<typename... Signatures>
-		struct func_pack {
-			static constexpr auto size=sizeof...(Signatures);
+		struct func_pack;
+
+		template<typename First,typename... Rest>
+		struct func_pack<First,Rest...> {
+			static constexpr auto size=sizeof...(Rest)+1;
+			using first=First;
+			using rest=func_pack<Rest...>;
+		};
+
+		template<>
+		struct func_pack<> {
+			static constexpr auto size=0;
 		};
 
 		template<size_t I,typename FuncPack>
@@ -73,6 +84,11 @@ namespace exlib {
 		template<typename First,typename... Types>
 		struct cons_pack<First,func_pack<Types...>> {
 			using type=func_pack<First,Types...>;
+		};
+
+		template<typename First,typename... Types>
+		struct cons_pack<First,std::tuple<Types...>> {
+			using type=std::tuple<First,Types...>;
 		};
 
 #ifndef EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT
@@ -263,26 +279,64 @@ namespace exlib {
 			)>
 		struct func_table_from_tup;
 
+		template<typename Sig>
+		struct get_pfunc;
+
+		template<typename Ret,typename... Args>
+		struct get_pfunc<Ret(Args...)> {
+			using type=Ret(*)(void*,move_param_type_t<Args>...);
+		};
+		template<typename Ret,typename... Args>
+		struct get_pfunc<Ret(Args...) const> {
+			using type=Ret(*)(void const*,move_param_type_t<Args>...);
+		};
+
+#if _EXFUNC_HAS_CPP_17
+		template<typename Ret,typename... Args>
+		struct get_pfunc<Ret(Args...) noexcept> {
+			using type=Ret(*)(void*,move_param_type_t<Args>...);
+		};
+		template<typename Ret,typename... Args>
+		struct get_pfunc<Ret(Args...) const noexcept> {
+			using type=Ret(*)(void const*,move_param_type_t<Args>...);
+		};
+#endif
+
+		template<typename SigTuple>
+		struct func_table_type {
+			using type=typename cons_pack<typename get_pfunc<typename SigTuple::first>::type,typename func_table_type<typename SigTuple::rest>::type>::type;
+		};
+
+		template<>
+		struct func_table_type<func_pack<>> {
+			using type=std::tuple<>;
+		};
+
+		template<typename SigTuple>
+		struct func_table_type_with_destructor {
+			using type=typename cons_pack<DeleterFunc,typename func_table_type<SigTuple>::type>::type;
+		};
+
 		template<typename Func,typename SigTuple,typename IndexSeq=make_index_sequence<SigTuple::size>>
 		struct func_table_holder_help;
 
-		void placeholder_function();
-		using vpfunc=decltype(&placeholder_function);
-
-#define _EXFUNC_FUNC_TABLE_DEFINITION(Func) {reinterpret_cast<vpfunc>(indirect_deleter<Func>::get_deleter()),reinterpret_cast<vpfunc>(&indirect_call<Func,typename func_element<Is,SigTuple>::type>::call_me)...}
+#define _EXFUNC_FUNC_TABLE_DEFINITION(Func) indirect_deleter<Func>::get_deleter(),&indirect_call<Func,typename func_element<Is,SigTuple>::type>::call_me...
 		template<typename Func,typename SigTuple,size_t... Is>
 		struct func_table_holder_help<Func,SigTuple,index_sequence<Is...>>{
+			using table_type=typename func_table_type_with_destructor<SigTuple>::type;
 #if !_EXFUNC_HAS_CPP_17
-			static vpfunc const* get_func_table() noexcept
+			static table_type const* get_func_table() noexcept
 			{
-				static vpfunc const func_table[]=_EXFUNC_FUNC_TABLE_DEFINITION(Func);
-				return func_table;
+				static table_type const func_table{_EXFUNC_FUNC_TABLE_DEFINITION(Func)};
+				return &func_table;
 			}
 #else
-			inline static vpfunc const func_table[]=_EXFUNC_FUNC_TABLE_DEFINITION(Func);
-			constexpr static auto get_func_table() noexcept
+		private:
+			static constexpr table_type func_table{_EXFUNC_FUNC_TABLE_DEFINITION(Func)};
+		public:
+			constexpr static auto const* get_func_table() noexcept
 			{
-				return func_table;
+				return &func_table;
 			}
 #endif
 		};
@@ -294,7 +348,8 @@ namespace exlib {
 		template<typename SigTuple>
 		struct func_table_from_tup<SigTuple,false> {
 		private:
-			vpfunc const* _func_table;
+			using table_type=typename func_table_type_with_destructor<SigTuple>::type;
+			table_type const* _func_table;
 		public:
 			constexpr static bool is_inplace=false;
 			func_table_from_tup():_func_table{}{}
@@ -302,7 +357,7 @@ namespace exlib {
 			func_table_from_tup(FuncHolder) noexcept:_func_table{func_table_holder<typename FuncHolder::type,SigTuple>::get_func_table()}
 			{}
 
-			vpfunc const* get_table() const noexcept
+			table_type const* get_table() const noexcept
 			{
 				return _func_table;
 			}
@@ -326,17 +381,18 @@ namespace exlib {
 		struct func_table_from_tup_inplace_help<SigTuple,index_sequence<Is...>>
 		{
 		private:
-			vpfunc _func_table[SigTuple::size+1];
+			using table_type=typename func_table_type_with_destructor<SigTuple>::type;
+			table_type _func_table;
 		public:
 			func_table_from_tup_inplace_help():_func_table{}{}
 
 			template<typename FuncHolder>
-			func_table_from_tup_inplace_help(FuncHolder) noexcept: _func_table _EXFUNC_FUNC_TABLE_DEFINITION(typename FuncHolder::type)
+			func_table_from_tup_inplace_help(FuncHolder) noexcept: _func_table{_EXFUNC_FUNC_TABLE_DEFINITION(typename FuncHolder::type)}
 			{}
 
-			vpfunc const* get_table() const noexcept
+			table_type const* get_table() const noexcept
 			{
-				return _func_table;
+				return &_func_table;
 			}
 
 			//whether this holds a function
@@ -346,7 +402,7 @@ namespace exlib {
 				{
 					return false;
 				}
-				return _func_table[1];
+				return std::get<1>(_func_table);
 			}
 
 			void swap(func_table_from_tup_inplace_help& o) noexcept
@@ -387,12 +443,12 @@ namespace exlib {
 		template<size_t I,typename Derived,typename Sig>
 		struct get_call_op;
 
-		template<size_t I,typename PVoid,typename Ret,bool nothrow,typename UniqueFunction,typename... Args>
+		template<size_t I,typename Ret,bool nothrow,typename UniqueFunction,typename... Args>
 		Ret call_op(UniqueFunction& func,Args&&... args)
 		{
 			if(nothrow||func)
 			{
-				return (*reinterpret_cast<Ret(*)(PVoid,move_param_type_t<Args>...)>(func.get_table()[I]))(&func._data,std::forward<Args>(args)...);
+				return std::get<I>(*func.get_table())(&func._data,std::forward<Args>(args)...);
 			}
 			throw exlib::bad_function_call{};
 		}
@@ -402,7 +458,7 @@ namespace exlib {
 			//Calls held function, throws bad_function_call if no function held
 			Ret operator()(Args... args) const
 			{
-				return call_op<I,void const*,Ret,false>(static_cast<Derived const&>(*this),std::forward<Args>(args)...);
+				return call_op<I,Ret,false>(static_cast<Derived const&>(*this),std::forward<Args>(args)...);
 			}
 		};
 		template<size_t I,typename Derived,typename Ret,typename... Args>
@@ -410,7 +466,7 @@ namespace exlib {
 			//Calls held function, throws bad_function_call if no function held
 			Ret operator()(Args... args)
 			{
-				return call_op<I,void*,Ret,false>(static_cast<Derived&>(*this),std::forward<Args>(args)...);
+				return call_op<I,Ret,false>(static_cast<Derived&>(*this),std::forward<Args>(args)...);
 			}
 		};
 
@@ -421,7 +477,7 @@ namespace exlib {
 			//Calls held function, undefined behavior if no function held
 			Ret operator()(Args... args) const noexcept
 			{
-				return call_op<I,void const*,Ret,true>(static_cast<Derived const&>(*this),std::forward<Args>(args)...);
+				return call_op<I,Ret,true>(static_cast<Derived const&>(*this),std::forward<Args>(args)...);
 			}
 		};
 		template<size_t I,typename Derived,typename Ret,typename... Args>
@@ -430,7 +486,7 @@ namespace exlib {
 			//Calls held function, undefined behavior if no function held
 			Ret operator()(Args... args) noexcept
 			{
-				return call_op<I,void*,Ret,true>(static_cast<Derived&>(*this),std::forward<Args>(args)...);
+				return call_op<I,Ret,true>(static_cast<Derived&>(*this),std::forward<Args>(args)...);
 			}
 		};
 #endif
@@ -513,7 +569,7 @@ namespace exlib {
 
 		using func_table=unique_func_det::func_table<Signatures...>;
 
-		template<size_t I,typename PVoid,typename Ret,bool nothrow,typename UniqueFunc,typename... Args>
+		template<size_t I,typename Ret,bool nothrow,typename UniqueFunc,typename... Args>
 		friend Ret unique_func_det::call_op(UniqueFunc&,Args&&...);
 
 		using Data=typename std::aligned_storage<unique_func_det::max(unique_func_det::max_size()-sizeof(func_table),sizeof(void*)),unique_func_det::alignment()>::type;
@@ -528,7 +584,7 @@ namespace exlib {
 					return;
 				}
 			}
-			auto deleter=reinterpret_cast<void(*)(void*)>(this->get_table()[0]);
+			auto deleter=std::get<0>(*this->get_table());
 			if(deleter)
 			{
 				deleter(&_data);
