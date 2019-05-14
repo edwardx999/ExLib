@@ -21,6 +21,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <tuple>
 #include <cstddef>
 #include <exception>
+#include <cstring>
 #include "exretype.h"
 #ifdef _MSVC_LANG
 #define _EXFUNC_HAS_CPP_17 (_MSVC_LANG>=201700L)
@@ -154,14 +155,14 @@ namespace exlib {
 		struct indirect_call_help<Func,Ret(Args...),true> {
 			static Ret call_me(void* obj,move_param_type_t<Args>... args)
 			{
-				return (*static_cast<Func*>(obj))(std::forward<Args>(args)...);
+				return static_cast<Ret>((*static_cast<Func*>(obj))(std::forward<Args>(args)...));
 			}
 		};
 		template<typename Func,typename Ret,typename... Args>
 		struct indirect_call_help<Func,Ret(Args...),false> {
 			static Ret call_me(void* obj,move_param_type_t<Args>... args)
 			{
-				return (**static_cast<Func**>(obj))(std::forward<Args>(args)...);
+				return static_cast<Ret>((**static_cast<Func**>(obj))(std::forward<Args>(args)...));
 			}
 		};
 
@@ -169,14 +170,14 @@ namespace exlib {
 		struct indirect_call_help<Func,Ret(Args...) const,true> {
 			static Ret call_me(void const* obj,move_param_type_t<Args>... args)
 			{
-				return (*static_cast<Func const*>(obj))(std::forward<Args>(args)...);
+				return static_cast<Ret>((*static_cast<Func const*>(obj))(std::forward<Args>(args)...));
 			}
 		};
 		template<typename Func,typename Ret,typename... Args>
 		struct indirect_call_help<Func,Ret(Args...) const,false> {
 			static Ret call_me(void const* obj,move_param_type_t<Args>... args)
 			{
-				return (**static_cast<Func const* const*>(obj))(std::forward<Args>(args)...);
+				return static_cast<Ret>((**static_cast<Func const* const*>(obj))(std::forward<Args>(args)...));
 			}
 		};
 
@@ -185,14 +186,14 @@ namespace exlib {
 		struct indirect_call_help<Func,Ret(Args...) noexcept,true> {
 			static Ret call_me(void* obj,move_param_type_t<Args>... args) noexcept
 			{
-				return (*static_cast<Func*>(obj))(std::forward<Args>(args)...);
+				return static_cast<Ret>((*static_cast<Func*>(obj))(std::forward<Args>(args)...));
 			}
 		};
 		template<typename Func,typename Ret,typename... Args>
 		struct indirect_call_help<Func,Ret(Args...) noexcept,false> {
 			static Ret call_me(void* obj,move_param_type_t<Args>... args) noexcept
 			{
-				return (**static_cast<Func**>(obj))(std::forward<Args>(args)...);
+				return static_cast<Ret>((**static_cast<Func**>(obj))(std::forward<Args>(args)...));
 			}
 		};
 
@@ -200,14 +201,14 @@ namespace exlib {
 		struct indirect_call_help<Func,Ret(Args...) const noexcept,true> {
 			static Ret call_me(void const* obj,move_param_type_t<Args>... args) noexcept
 			{
-				return (*static_cast<Func const*>(obj))(std::forward<Args>(args)...);
+				return static_cast<Ret>((*static_cast<Func const*>(obj))(std::forward<Args>(args)...));
 			}
 		};
 		template<typename Func,typename Ret,typename... Args>
 		struct indirect_call_help<Func,Ret(Args...) const noexcept,false> {
 			static Ret call_me(void const* obj,move_param_type_t<Args>... args) noexcept
 			{
-				return (**static_cast<Func const* const*>(obj))(std::forward<Args>(args)...);
+				return static_cast<Ret>((**static_cast<Func const* const*>(obj))(std::forward<Args>(args)...));
 			}
 		};
 #endif
@@ -217,8 +218,8 @@ namespace exlib {
 
 #pragma warning(push)
 #pragma warning(disable:4789) //MSVC complains about initializing overaligned types even when the other specialization is used
-		template<typename Func,std::size_t BufferSize,bool fits=type_fits<Func,BufferSize>::value>
-		struct func_constructor {
+		template<typename Func,bool fits>
+		struct func_constructor_help {
 			template<typename U,typename... Args>
 			static void construct(void* location,std::initializer_list<U> il,Args&&... args)
 			{
@@ -232,8 +233,8 @@ namespace exlib {
 		};
 #pragma warning(pop)
 
-		template<typename Func,std::size_t BufferSize>
-		struct func_constructor<Func,BufferSize,false> {
+		template<typename Func>
+		struct func_constructor_help<Func,false> {
 #ifndef __cpp_aligned_new
 			static_assert(alignof(Func)<=alignment(),"Overaligned functions not supported");
 #endif
@@ -248,6 +249,9 @@ namespace exlib {
 				*static_cast<Func**>(location)=new Func(std::forward<Args>(args)...);
 			}
 		};
+
+		template<typename Func,size_t BufferSize>
+		struct func_constructor:func_constructor_help<Func,type_fits<Func,BufferSize>::value> {};
 
 		template<typename... Types>
 		struct has_nothrow_tag;
@@ -309,7 +313,7 @@ namespace exlib {
 
 #define _EXFUNC_FUNC_TABLE_DEFINITION(Func) indirect_deleter<Func,BufferSize>::get_deleter(),&indirect_call<Func,typename func_element<Is,SigTuple>::type,BufferSize>::call_me...
 		template<typename Func,typename SigTuple,std::size_t BufferSize,size_t... Is>
-		struct func_table_holder_help<Func,SigTuple,BufferSize,index_sequence<Is...>>{
+		struct func_table_holder_help<Func,SigTuple,BufferSize,index_sequence<Is...>> {
 			using table_type=typename func_table_type_with_destructor<SigTuple>::type;
 #ifndef __cpp_inline_variables
 			static table_type const* get_func_table() noexcept
@@ -340,6 +344,10 @@ namespace exlib {
 		public:
 			constexpr static bool is_inplace=false;
 			func_table_from_tup():_func_table{}{}
+			func_table_from_tup(func_table_from_tup&& o) noexcept:_func_table{o._func_table}
+			{
+				o._func_table=nullptr;
+			}
 			template<typename FuncHolder,size_t I>
 			func_table_from_tup(FuncHolder,object_size_tag<I>) noexcept:_func_table{func_table_holder<typename FuncHolder::type,SigTuple,I>::get_func_table()}
 			{}
@@ -372,6 +380,11 @@ namespace exlib {
 			table_type _func_table;
 		public:
 			func_table_from_tup_inplace_help():_func_table{}{}
+
+			func_table_from_tup_inplace_help(func_table_from_tup_inplace_help&& o):_func_table{o._func_table} 
+			{
+				o._func_table=table_type{};
+			}
 
 			template<typename FuncHolder,size_t BufferSize>
 			func_table_from_tup_inplace_help(FuncHolder,object_size_tag<BufferSize>) noexcept: _func_table{_EXFUNC_FUNC_TABLE_DEFINITION(typename FuncHolder::type)}
@@ -424,11 +437,6 @@ namespace exlib {
 
 		template<typename First,typename... Rest>
 		struct strip_tags<First,Rest...>:cons_pack<First,typename strip_tags<Rest...>::type> {
-		};
-
-		template<typename... Signatures>
-		struct func_table:func_table_from_tup<typename strip_tags<Signatures...>::type>{
-			using func_table_from_tup<typename strip_tags<Signatures...>::type>::func_table_from_tup;
 		};
 
 		template<size_t I,typename Derived,typename Sig>
@@ -562,12 +570,12 @@ namespace exlib {
 		Template arguments are function signatures that may be additionally const and noexcept (C++17+) qualified.
 		If nothrow_destructor_tag is found anywhere in the argument list, the destructor and move operations are non-throwing.
 		Small object optimization enabled for types that are nothrow move constructible/assignable and will
-		fit in this object (total size - vtable space), which can be customized with a object_size_tag (breaks ABI compatibility).
+		fit in this object (total size - vtable space), which can be customized with an object_size_tag (breaks ABI compatibility).
 		The vtable may be stored in place depending on the number of signatures as given by EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT (default 0).
 	*/
 	template<typename... Signatures>
 	class unique_function:
-		unique_func_det::func_table<Signatures...>,
+		unique_func_det::func_table_from_tup<typename unique_func_det::strip_tags<Signatures...>::type>,
 		unique_func_det::get_call_op_table<unique_function<Signatures...>,typename unique_func_det::strip_tags<Signatures...>::type>,
 		public unique_func_det::get_result_type<typename unique_func_det::strip_tags<Signatures...>::type> {
 
@@ -577,7 +585,7 @@ namespace exlib {
 		template<size_t I,typename Derived,typename Sig>
 		friend struct unique_func_det::get_call_op;
 
-		using func_table=unique_func_det::func_table<Signatures...>;
+		using func_table=unique_func_det::func_table_from_tup<typename unique_func_det::strip_tags<Signatures...>::type>;
 
 		template<size_t I,typename Ret,bool nothrow,typename UniqueFunc,typename... Args>
 		friend Ret unique_func_det::call_op(UniqueFunc&,Args&&...);
@@ -611,10 +619,18 @@ namespace exlib {
 		//nullptr constructor, no held function
 		unique_function(std::nullptr_t) noexcept:unique_function{}{}
 
+		unique_function(unique_function const&)=delete;
+		unique_function& operator=(unique_function const&)=delete;
+		unique_function(unique_function const&&)=delete;
+		unique_function& operator=(unique_function const&&)=delete;
+		unique_function(unique_function&)=delete;
+		unique_function& operator=(unique_function&)=delete;
+
 		//copies or moves a function from an existing function-like object
-		template<typename Func>
-		unique_function(Func&& func):func_table{std::decay<Func>{},object_size_tag<buffer_size>{}}
+		template<typename Func,typename... Misc>
+		unique_function(Func&& func,Misc...):func_table{std::decay<Func>{},object_size_tag<buffer_size>{}}
 		{
+			static_assert(sizeof...(Misc)==0,"Only for SFINAE");
 			unique_func_det::func_constructor<typename std::decay<Func>::type,buffer_size>::construct(&_data,std::forward<Func>(func));
 		}
 
@@ -662,17 +678,15 @@ namespace exlib {
 			return std::move(emplace<Func>(il,std::forward<Args>(args)...));
 		}
 
-		unique_function(unique_function&& o) noexcept:func_table{static_cast<func_table&>(o)},_data{o._data}
-		{
-			static_cast<func_table&>(o)=func_table{};
-		}
+		unique_function(unique_function&& o) noexcept:func_table{static_cast<func_table&&>(o)},_data{o._data}
+		{}
 
 		using func_table::operator bool;
 
 		template<typename Func>
-		unique_function& operator=(Func func)
+		unique_function& operator=(Func&& func)
 		{
-			unique_function{std::move(func)}.swap(*this);
+			unique_function{std::forward<Func>(func)}.swap(*this);
 			return *this;
 		}
 
@@ -680,6 +694,21 @@ namespace exlib {
 		{
 			unique_function{std::move(func)}.swap(*this);
 			return *this;
+		}
+
+		template<typename... OSignatures>
+		friend class unique_function;
+
+		template<typename... OSignatures>
+		unique_function(unique_function<OSignatures...>&& o,
+			typename std::enable_if<
+				std::is_same<typename unique_function<OSignatures...>::func_table,func_table>::value&&
+				(sizeof(typename unique_function<OSignatures...>::Data)<=sizeof(Data)),int>::type=0) noexcept:func_table{static_cast<func_table&&>(o)}
+		{
+			using other=unique_function<OSignatures...>;
+			static_assert(std::is_same<typename other::func_table,func_table>::value,"Incompatible function signature");
+			static_assert(sizeof(o._data)<=sizeof(_data),"Other function must fit");
+			std::memcpy(&_data,&o._data,sizeof(o._data));
 		}
 
 		void swap(unique_function& other) noexcept

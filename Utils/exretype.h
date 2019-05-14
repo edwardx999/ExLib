@@ -627,7 +627,7 @@ namespace exlib {
 	struct overloaded:private Funcs...
 	{
 		template<typename... F>
-		overloaded(F&& ... f):Funcs(wrap(std::forward<F>(f)))...{
+		overloaded(F&&... f):Funcs(wrap(std::forward<F>(f)))... {
 		}
 		using Funcs::operator()...;
 	};
