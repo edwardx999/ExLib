@@ -49,7 +49,7 @@ namespace exlib {
 
 	namespace empty_store_impl {
 		template<typename Type,bool ShouldInherit=std::is_empty<Type>::value&& 
-#if _EXRETYPE_HAS_CPP_14
+#ifdef __cpp_lib_is_final
 			!std::is_final<Type>::value
 #else
 			false
@@ -622,7 +622,7 @@ namespace exlib {
 	}
 
 
-#if _EXRETYPE_HAS_CPP_17
+#ifdef __cpp_variadic_using
 	template<typename... Funcs>
 	struct overloaded:private Funcs...
 	{
@@ -664,7 +664,7 @@ namespace exlib {
 		return overloaded<remove_cvref_t<decltype(wrap(f))>...>(std::forward<Funcs>(f)...);
 	}
 
-#if _EXRETYPE_HAS_CPP_17
+#ifdef __cpp_deduction_guides
 	template<typename... Funcs>
 	overloaded(Funcs&& ... f)->overloaded<remove_cvref_t<decltype(wrap(f))>...>;
 #endif
@@ -710,7 +710,7 @@ namespace exlib {
 	struct array_size<std::span<T,std::size_t(-1)>> {};
 #endif
 
-#if _EXRETYPE_HAS_CPP_17
+#ifdef __cpp_inline_variables
 	template<typename T>
 	inline constexpr size_t array_size_v=array_size<T>::value;
 #endif
@@ -754,7 +754,7 @@ namespace exlib {
 	struct sum_type_value<SumType,Type,Rest...>:std::integral_constant<SumType,Type::value+sum_type_value<SumType,Rest...>::value> {
 	};
 
-#if _EXRETYPE_HAS_CPP_17
+#ifdef __cpp_lib_logical_traits
 	using std::conjunction;
 #else
 	template<typename... Types>
@@ -771,7 +771,7 @@ namespace exlib {
 #endif
 
 	
-#if _EXRETYPE_HAS_CPP_14
+#ifdef __cpp_lib_integer_sequence
 	using std::index_sequence;
 
 	using std::make_index_sequence;

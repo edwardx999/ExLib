@@ -45,7 +45,7 @@ namespace exlib {
 		}
 	};
 
-#if EXFINALLY_HAS_CPP17
+#ifdef __cpp_deduction_guides
 	template<typename F>
 	finally(F&& f)->finally<std::decay_t<F>>;
 #endif
