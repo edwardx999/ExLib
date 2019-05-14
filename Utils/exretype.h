@@ -770,7 +770,7 @@ namespace exlib {
 	struct conjunction<First,Rest...>:std::integral_constant<bool,bool(First::value)&&conjunction<Rest...>::value> {};
 #endif
 
-	
+
 #ifdef __cpp_lib_integer_sequence
 	using std::index_sequence;
 

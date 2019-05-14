@@ -147,7 +147,7 @@ namespace exlib {
 
 		template<typename T,size_t BufferSize>
 		struct indirect_deleter:indirect_deleter_help<T,std::is_trivially_destructible<T>::value,type_fits<T,BufferSize>::value> {};
-		
+
 		template<typename Func,typename Sig,bool fits>
 		struct indirect_call_help;
 
@@ -648,6 +648,21 @@ namespace exlib {
 			unique_func_det::func_constructor<Func,buffer_size>::construct(&_data,il,std::forward<Args>(args)...);
 		}
 
+		template<typename... OSignatures>
+		friend class unique_function;
+
+		template<typename... OSignatures>
+		unique_function(unique_function<OSignatures...>&& o,
+			typename std::enable_if<
+				std::is_same<typename unique_function<OSignatures...>::func_table,func_table>::value&&
+				(sizeof(typename unique_function<OSignatures...>::Data)<=sizeof(Data)),int>::type=0) noexcept:func_table{static_cast<func_table&&>(o)}
+		{
+			using other=unique_function<OSignatures...>;
+			static_assert(std::is_same<typename other::func_table,func_table>::value,"Incompatible function signature");
+			static_assert(sizeof(o._data)<=sizeof(_data),"Other function must fit");
+			std::memcpy(&_data,&o._data,sizeof(o._data));
+		}
+
 		//constructs the function given by in_place_type in place using the given arguments
 		template<typename Func,typename... Args>
 		unique_function& emplace(Args&&... args) &
@@ -696,21 +711,6 @@ namespace exlib {
 			return *this;
 		}
 
-		template<typename... OSignatures>
-		friend class unique_function;
-
-		template<typename... OSignatures>
-		unique_function(unique_function<OSignatures...>&& o,
-			typename std::enable_if<
-				std::is_same<typename unique_function<OSignatures...>::func_table,func_table>::value&&
-				(sizeof(typename unique_function<OSignatures...>::Data)<=sizeof(Data)),int>::type=0) noexcept:func_table{static_cast<func_table&&>(o)}
-		{
-			using other=unique_function<OSignatures...>;
-			static_assert(std::is_same<typename other::func_table,func_table>::value,"Incompatible function signature");
-			static_assert(sizeof(o._data)<=sizeof(_data),"Other function must fit");
-			std::memcpy(&_data,&o._data,sizeof(o._data));
-		}
-
 		void swap(unique_function& other) noexcept
 		{
 			static_cast<func_table&>(*this).swap(static_cast<func_table&>(other));
@@ -732,10 +732,10 @@ namespace exlib {
 
 #ifdef __cpp_deduction_guides
 	template<typename Ret,typename... Args>
-	unique_function(Ret(*)(Args...)) -> unique_function<Ret(Args...) const, nothrow_destructor_tag>;
+	unique_function(Ret(*)(Args...)) -> unique_function<Ret(Args...) const,nothrow_destructor_tag>;
 #ifdef __cpp_noexcept_function_type
 	template<typename Ret,typename... Args>
-	unique_function(Ret(*)(Args...) noexcept) -> unique_function<Ret(Args...) const noexcept, nothrow_destructor_tag>;
+	unique_function(Ret(*)(Args...) noexcept) -> unique_function<Ret(Args...) const noexcept,nothrow_destructor_tag>;
 #endif
 #endif
 
