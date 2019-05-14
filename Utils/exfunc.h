@@ -44,6 +44,9 @@ namespace exlib {
 
 	struct nothrow_destructor_tag {};
 
+	template<size_t I>
+	struct object_size_tag:std::integral_constant<std::size_t,I>{};
+
 	namespace unique_func_det {
 
 		template<typename... Signatures>
@@ -90,52 +93,46 @@ namespace exlib {
 #define EX_UNIQUE_FUNCTION_INPLACE_TABLE_COUNT 1
 #endif
 
-#ifdef EX_UNIQUE_FUNCTION_MAX_SIZE
-		constexpr std::size_t max_size() noexcept
-		{
-			return EX_UNIQUE_FUNCTION_MAX_SIZE;
-		}
-#else
 		constexpr std::size_t max(std::ptrdiff_t a,std::ptrdiff_t b)
 		{
 			return a<b?b:a;
 		}
-		constexpr std::size_t max_size() noexcept
-		{
-			return max(
-#ifdef __cpp_lib_hardware_interference_size
-				std::hardware_constructive_interference_size
-#else 
-				64
-#endif
-			,sizeof(void*));
-		}
-#define EX_UNIQUE_FUNCTION_MAX_SIZE ::exlib::unique_func_det::max_size()
-#endif
 
 		constexpr std::size_t alignment() noexcept
 		{
 			return alignof(std::max_align_t);
 		}
 
-		template<typename T>
-		struct type_fits:std::integral_constant<bool,(alignof(T)<=alignment())&&(sizeof(T)<=max_size())&&std::is_nothrow_move_constructible<T>::value&&std::is_nothrow_move_assignable<T>::value>{};
+		template<typename T,size_t BufferSize>
+		struct type_fits:std::integral_constant<bool,(alignof(T)<=alignment())&&(sizeof(T)<=BufferSize)&&std::is_nothrow_move_constructible<T>::value&&std::is_nothrow_move_assignable<T>::value>{};
 
 		using DeleterFunc=void(*)(void*);
 
-		template<typename T,bool trivial=std::is_trivially_destructible<T>::value,bool fits=type_fits<T>::value>
-		struct indirect_deleter {
+		template<typename Func,bool trivial,bool fits>
+		struct indirect_deleter_help;
+
+		template<typename Func>
+		struct indirect_deleter_help<Func,false,true> {
 			static void do_delete(void* data) noexcept
 			{
-				static_cast<T*>(data)->~T();
+				static_cast<Func*>(data)->~Func();
 			}
 			static constexpr DeleterFunc get_deleter() noexcept
 			{
 				return &do_delete;
 			}
 		};
+
+		template<typename Func>
+		struct indirect_deleter_help<Func,true,true> {
+			static constexpr DeleterFunc get_deleter() noexcept
+			{
+				return nullptr;
+			}
+		};
+
 		template<typename Func,bool trivial>
-		struct indirect_deleter<Func,trivial,false> {
+		struct indirect_deleter_help<Func,trivial,false> {
 			constexpr static void do_delete(void* data) noexcept
 			{
 				auto const real_data=*static_cast<Func**>(data);
@@ -147,29 +144,21 @@ namespace exlib {
 			}
 		};
 
-		struct trivial_deleter {
-			static constexpr DeleterFunc get_deleter() noexcept
-			{
-				return nullptr;
-			}
-		};
-
-		template<typename Func>
-		struct indirect_deleter<Func,true,true>:trivial_deleter {
-		};
+		template<typename T,size_t BufferSize>
+		struct indirect_deleter:indirect_deleter_help<T,std::is_trivially_destructible<T>::value,type_fits<T,BufferSize>::value> {};
 		
-		template<typename Func,typename Sig,bool fits=type_fits<Func>::value>
-		struct indirect_call;
+		template<typename Func,typename Sig,bool fits>
+		struct indirect_call_help;
 
 		template<typename Func,typename Ret,typename... Args>
-		struct indirect_call<Func,Ret(Args...),true> {
+		struct indirect_call_help<Func,Ret(Args...),true> {
 			static Ret call_me(void* obj,move_param_type_t<Args>... args)
 			{
 				return (*static_cast<Func*>(obj))(std::forward<Args>(args)...);
 			}
 		};
 		template<typename Func,typename Ret,typename... Args>
-		struct indirect_call<Func,Ret(Args...),false> {
+		struct indirect_call_help<Func,Ret(Args...),false> {
 			static Ret call_me(void* obj,move_param_type_t<Args>... args)
 			{
 				return (**static_cast<Func**>(obj))(std::forward<Args>(args)...);
@@ -177,14 +166,14 @@ namespace exlib {
 		};
 
 		template<typename Func,typename Ret,typename... Args>
-		struct indirect_call<Func,Ret(Args...) const,true> {
+		struct indirect_call_help<Func,Ret(Args...) const,true> {
 			static Ret call_me(void const* obj,move_param_type_t<Args>... args)
 			{
 				return (*static_cast<Func const*>(obj))(std::forward<Args>(args)...);
 			}
 		};
 		template<typename Func,typename Ret,typename... Args>
-		struct indirect_call<Func,Ret(Args...) const,false> {
+		struct indirect_call_help<Func,Ret(Args...) const,false> {
 			static Ret call_me(void const* obj,move_param_type_t<Args>... args)
 			{
 				return (**static_cast<Func const* const*>(obj))(std::forward<Args>(args)...);
@@ -193,14 +182,14 @@ namespace exlib {
 
 #ifdef __cpp_noexcept_function_type
 		template<typename Func,typename Ret,typename... Args>
-		struct indirect_call<Func,Ret(Args...) noexcept,true> {
+		struct indirect_call_help<Func,Ret(Args...) noexcept,true> {
 			static Ret call_me(void* obj,move_param_type_t<Args>... args) noexcept
 			{
 				return (*static_cast<Func*>(obj))(std::forward<Args>(args)...);
 			}
 		};
 		template<typename Func,typename Ret,typename... Args>
-		struct indirect_call<Func,Ret(Args...) noexcept,false> {
+		struct indirect_call_help<Func,Ret(Args...) noexcept,false> {
 			static Ret call_me(void* obj,move_param_type_t<Args>... args) noexcept
 			{
 				return (**static_cast<Func**>(obj))(std::forward<Args>(args)...);
@@ -208,14 +197,14 @@ namespace exlib {
 		};
 
 		template<typename Func,typename Ret,typename... Args>
-		struct indirect_call<Func,Ret(Args...) const noexcept,true> {
+		struct indirect_call_help<Func,Ret(Args...) const noexcept,true> {
 			static Ret call_me(void const* obj,move_param_type_t<Args>... args) noexcept
 			{
 				return (*static_cast<Func const*>(obj))(std::forward<Args>(args)...);
 			}
 		};
 		template<typename Func,typename Ret,typename... Args>
-		struct indirect_call<Func,Ret(Args...) const noexcept,false> {
+		struct indirect_call_help<Func,Ret(Args...) const noexcept,false> {
 			static Ret call_me(void const* obj,move_param_type_t<Args>... args) noexcept
 			{
 				return (**static_cast<Func const* const*>(obj))(std::forward<Args>(args)...);
@@ -223,9 +212,12 @@ namespace exlib {
 		};
 #endif
 
+		template<typename Func,typename Sig,std::size_t BufferSize>
+		struct indirect_call:indirect_call_help<Func,Sig,type_fits<Func,BufferSize>::value> {};
+
 #pragma warning(push)
 #pragma warning(disable:4789) //MSVC complains about initializing overaligned types even when the other specialization is used
-		template<typename Func,bool fits=type_fits<Func>::value>
+		template<typename Func,std::size_t BufferSize,bool fits=type_fits<Func,BufferSize>::value>
 		struct func_constructor {
 			template<typename U,typename... Args>
 			static void construct(void* location,std::initializer_list<U> il,Args&&... args)
@@ -240,8 +232,8 @@ namespace exlib {
 		};
 #pragma warning(pop)
 
-		template<typename Func>
-		struct func_constructor<Func,false> {
+		template<typename Func,std::size_t BufferSize>
+		struct func_constructor<Func,BufferSize,false> {
 #ifndef __cpp_aligned_new
 			static_assert(alignof(Func)<=alignment(),"Overaligned functions not supported");
 #endif
@@ -312,12 +304,12 @@ namespace exlib {
 			using type=typename cons_pack<DeleterFunc,typename func_table_type<SigTuple>::type>::type;
 		};
 
-		template<typename Func,typename SigTuple,typename IndexSeq=make_index_sequence<SigTuple::size>>
+		template<typename Func,typename SigTuple,std::size_t BufferSize,typename IndexSeq=make_index_sequence<SigTuple::size>>
 		struct func_table_holder_help;
 
-#define _EXFUNC_FUNC_TABLE_DEFINITION(Func) indirect_deleter<Func>::get_deleter(),&indirect_call<Func,typename func_element<Is,SigTuple>::type>::call_me...
-		template<typename Func,typename SigTuple,size_t... Is>
-		struct func_table_holder_help<Func,SigTuple,index_sequence<Is...>>{
+#define _EXFUNC_FUNC_TABLE_DEFINITION(Func) indirect_deleter<Func,BufferSize>::get_deleter(),&indirect_call<Func,typename func_element<Is,SigTuple>::type,BufferSize>::call_me...
+		template<typename Func,typename SigTuple,std::size_t BufferSize,size_t... Is>
+		struct func_table_holder_help<Func,SigTuple,BufferSize,index_sequence<Is...>>{
 			using table_type=typename func_table_type_with_destructor<SigTuple>::type;
 #ifndef __cpp_inline_variables
 			static table_type const* get_func_table() noexcept
@@ -336,8 +328,8 @@ namespace exlib {
 #endif
 		};
 
-		template<typename Func,typename SigTuple>
-		struct func_table_holder:func_table_holder_help<Func,SigTuple> {
+		template<typename Func,typename SigTuple,std::size_t BufferSize>
+		struct func_table_holder:func_table_holder_help<Func,SigTuple,BufferSize> {
 		};
 
 		template<typename SigTuple>
@@ -348,8 +340,8 @@ namespace exlib {
 		public:
 			constexpr static bool is_inplace=false;
 			func_table_from_tup():_func_table{}{}
-			template<typename FuncHolder>
-			func_table_from_tup(FuncHolder) noexcept:_func_table{func_table_holder<typename FuncHolder::type,SigTuple>::get_func_table()}
+			template<typename FuncHolder,size_t I>
+			func_table_from_tup(FuncHolder,object_size_tag<I>) noexcept:_func_table{func_table_holder<typename FuncHolder::type,SigTuple,I>::get_func_table()}
 			{}
 
 			table_type const* get_table() const noexcept
@@ -381,8 +373,8 @@ namespace exlib {
 		public:
 			func_table_from_tup_inplace_help():_func_table{}{}
 
-			template<typename FuncHolder>
-			func_table_from_tup_inplace_help(FuncHolder) noexcept: _func_table{_EXFUNC_FUNC_TABLE_DEFINITION(typename FuncHolder::type)}
+			template<typename FuncHolder,size_t BufferSize>
+			func_table_from_tup_inplace_help(FuncHolder,object_size_tag<BufferSize>) noexcept: _func_table{_EXFUNC_FUNC_TABLE_DEFINITION(typename FuncHolder::type)}
 			{}
 
 			table_type const* get_table() const noexcept
@@ -415,24 +407,28 @@ namespace exlib {
 		};
 
 		template<typename... Signatures>
-		struct strip_nothrow_tags;
+		struct strip_tags;
 
 		template<>
-		struct strip_nothrow_tags<> {
+		struct strip_tags<> {
 			using type=func_pack<>;
 		};
 
 		template<typename... Rest>
-		struct strip_nothrow_tags<nothrow_destructor_tag,Rest...>:strip_nothrow_tags<Rest...> {
+		struct strip_tags<nothrow_destructor_tag,Rest...>:strip_tags<Rest...> {
+		};
+
+		template<std::size_t I,typename... Rest>
+		struct strip_tags<object_size_tag<I>,Rest...>:strip_tags<Rest...> {
 		};
 
 		template<typename First,typename... Rest>
-		struct strip_nothrow_tags<First,Rest...>:cons_pack<First,typename strip_nothrow_tags<Rest...>::type> {
+		struct strip_tags<First,Rest...>:cons_pack<First,typename strip_tags<Rest...>::type> {
 		};
 
 		template<typename... Signatures>
-		struct func_table:func_table_from_tup<typename strip_nothrow_tags<Signatures...>::type>{
-			using func_table_from_tup<typename strip_nothrow_tags<Signatures...>::type>::func_table_from_tup;
+		struct func_table:func_table_from_tup<typename strip_tags<Signatures...>::type>{
+			using func_table_from_tup<typename strip_tags<Signatures...>::type>::func_table_from_tup;
 		};
 
 		template<size_t I,typename Derived,typename Sig>
@@ -535,6 +531,23 @@ namespace exlib {
 			using result_type=Ret;
 		};
 #endif
+
+		template<typename... Types>
+		struct get_max_size {
+#ifdef __cpp_lib_hardware_interference_size
+			static constexpr std::size_t value=std::hardware_constructive_interference_size;
+#else
+			static constexpr std::size_t value=64;
+#endif
+		};
+
+		template<typename First,typename... Types>
+		struct get_max_size<First,Types...>:get_max_size<Types...> {};
+
+		template<size_t Value,typename... Types>
+		struct get_max_size<object_size_tag<Value>,Types...> {
+			static constexpr auto value=Value;
+		};
 	}
 
 	template<typename T>
@@ -542,6 +555,8 @@ namespace exlib {
 		explicit in_place_type() noexcept=default;
 		using type=T;
 	};
+
+
 
 	/*
 		Template arguments are function signatures that may be additionally const and noexcept (C++17+) qualified.
@@ -553,10 +568,10 @@ namespace exlib {
 	template<typename... Signatures>
 	class unique_function:
 		unique_func_det::func_table<Signatures...>,
-		unique_func_det::get_call_op_table<unique_function<Signatures...>,typename unique_func_det::strip_nothrow_tags<Signatures...>::type>,
-		public unique_func_det::get_result_type<typename unique_func_det::strip_nothrow_tags<Signatures...>::type> {
+		unique_func_det::get_call_op_table<unique_function<Signatures...>,typename unique_func_det::strip_tags<Signatures...>::type>,
+		public unique_func_det::get_result_type<typename unique_func_det::strip_tags<Signatures...>::type> {
 
-		using get_call_op=unique_func_det::get_call_op_table<unique_function<Signatures...>,typename unique_func_det::strip_nothrow_tags<Signatures...>::type>;
+		using get_call_op=unique_func_det::get_call_op_table<unique_function<Signatures...>,typename unique_func_det::strip_tags<Signatures...>::type>;
 		friend get_call_op;
 
 		template<size_t I,typename Derived,typename Sig>
@@ -567,7 +582,8 @@ namespace exlib {
 		template<size_t I,typename Ret,bool nothrow,typename UniqueFunc,typename... Args>
 		friend Ret unique_func_det::call_op(UniqueFunc&,Args&&...);
 
-		using Data=typename std::aligned_storage<unique_func_det::max(unique_func_det::max_size()-sizeof(func_table),sizeof(void*)),unique_func_det::alignment()>::type;
+		static constexpr auto buffer_size=unique_func_det::max(unique_func_det::get_max_size<Signatures...>::value-sizeof(func_table),sizeof(void*));
+		using Data=typename std::aligned_storage<buffer_size,unique_func_det::alignment()>::type;
 		Data _data;
 
 		void cleanup()
@@ -597,23 +613,23 @@ namespace exlib {
 
 		//copies or moves a function from an existing function-like object
 		template<typename Func>
-		unique_function(Func&& func):func_table{std::decay<Func>{}}
+		unique_function(Func&& func):func_table{std::decay<Func>{},object_size_tag<buffer_size>{}}
 		{
-			unique_func_det::func_constructor<typename std::decay<Func>::type>::construct(&_data,std::forward<Func>(func));
+			unique_func_det::func_constructor<typename std::decay<Func>::type,buffer_size>::construct(&_data,std::forward<Func>(func));
 		}
 
 		//constructs the function given by in_place_type in place using the given arguments
 		template<typename Func,typename... Args>
-		unique_function(in_place_type<Func> a,Args&&... args):func_table{a}
+		unique_function(in_place_type<Func> a,Args&&... args):func_table{a,object_size_tag<buffer_size>{}}
 		{
-			unique_func_det::func_constructor<Func>::construct(&_data,std::forward<Args>(args)...);
+			unique_func_det::func_constructor<Func,buffer_size>::construct(&_data,std::forward<Args>(args)...);
 		}
 
 		//constructs the function given by in_place_type in place using the given arguments
 		template<typename Func,typename U,typename... Args>
-		unique_function(in_place_type<Func> a,std::initializer_list<U> il,Args&&... args):func_table{a}
+		unique_function(in_place_type<Func> a,std::initializer_list<U> il,Args&&... args):func_table{a,object_size_tag<buffer_size>{}}
 		{
-			unique_func_det::func_constructor<Func>::construct(&_data,il,std::forward<Args>(args)...);
+			unique_func_det::func_constructor<Func,buffer_size>::construct(&_data,il,std::forward<Args>(args)...);
 		}
 
 		//constructs the function given by in_place_type in place using the given arguments
