@@ -1074,7 +1074,7 @@ namespace exlib {
 		template<typename Func>
 		function& operator=(Func&& func)
 		{
-			unique_function{std::forward<Func>(func)}.swap(*this);
+			function{std::forward<Func>(func)}.swap(*this);
 			return *this;
 		}
 
