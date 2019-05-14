@@ -27,14 +27,9 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #else
 #define _EXFUNC_HAS_CPP_17 (__cplusplus>=201700L)
 #endif
-#if	_EXFUNC_HAS_CPP_17
+#ifdef	__cpp_if_constexpr
 #define _EXFUNC_CONSTEXPRIF constexpr
-#ifdef __cpp_lib_hardware_interference_size
-#define _EXFUNC_HAS_HARDWARE_INTERFERENCE_SIZE 1
-#include <new>
-#endif
 #else
-#define _EXFUNC_HAS_HARDWARE_INTERFERENCE_SIZE 0
 #define _EXFUNC_CONSTEXPRIF
 #endif
 namespace exlib {
@@ -108,7 +103,7 @@ namespace exlib {
 		constexpr std::size_t max_size() noexcept
 		{
 			return max(
-#if _EXFUNC_HAS_HARDWARE_INTERFERENCE_SIZE
+#ifdef __cpp_lib_hardware_interference_size
 				std::hardware_constructive_interference_size
 #else 
 				64
@@ -196,7 +191,7 @@ namespace exlib {
 			}
 		};
 
-#if _EXFUNC_HAS_CPP_17
+#ifdef __cpp_noexcept_function_type
 		template<typename Func,typename Ret,typename... Args>
 		struct indirect_call<Func,Ret(Args...) noexcept,true> {
 			static Ret call_me(void* obj,move_param_type_t<Args>... args) noexcept
@@ -247,8 +242,8 @@ namespace exlib {
 
 		template<typename Func>
 		struct func_constructor<Func,false> {
-#if !_EXFUNC_HAS_CPP_17
-				static_assert(alignof(Func)<=alignment(),"Overaligned functions not supported");
+#ifndef __cpp_aligned_new
+			static_assert(alignof(Func)<=alignment(),"Overaligned functions not supported");
 #endif
 			template<typename U,typename... Args>
 			static void construct(void* location,std::initializer_list<U> il,Args&&... args)
@@ -291,7 +286,7 @@ namespace exlib {
 			using type=Ret(*)(void const*,move_param_type_t<Args>...);
 		};
 
-#if _EXFUNC_HAS_CPP_17
+#ifdef __cpp_noexcept_function_type
 		template<typename Ret,typename... Args>
 		struct get_pfunc<Ret(Args...) noexcept> {
 			using type=Ret(*)(void*,move_param_type_t<Args>...);
@@ -324,7 +319,7 @@ namespace exlib {
 		template<typename Func,typename SigTuple,size_t... Is>
 		struct func_table_holder_help<Func,SigTuple,index_sequence<Is...>>{
 			using table_type=typename func_table_type_with_destructor<SigTuple>::type;
-#if !_EXFUNC_HAS_CPP_17
+#ifndef __cpp_inline_variables
 			static table_type const* get_func_table() noexcept
 			{
 				static table_type const func_table{_EXFUNC_FUNC_TABLE_DEFINITION(Func)};
@@ -470,7 +465,7 @@ namespace exlib {
 			}
 		};
 
-#if _EXFUNC_HAS_CPP_17
+#ifdef __cpp_noexcept_function_type
 		template<size_t I,typename Derived,typename Ret,typename... Args>
 		struct get_call_op<I,Derived,Ret(Args...) const noexcept> {
 			using result_type=Ret;
@@ -529,7 +524,7 @@ namespace exlib {
 			using result_type=Ret;
 		};
 
-#if _EXFUNC_HAS_CPP_17
+#ifdef __cpp_noexcept_function_type
 		template<typename Ret,typename... Args>
 		struct get_result_type<func_pack<Ret(Args...) noexcept>> {
 			using result_type=Ret;
