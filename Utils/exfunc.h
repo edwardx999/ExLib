@@ -730,6 +730,15 @@ namespace exlib {
 		using get_call_op::operator();
 	};
 
+#ifdef __cpp_deduction_guides
+	template<typename Ret,typename... Args>
+	unique_function(Ret(*)(Args...)) -> unique_function<Ret(Args...) const, nothrow_destructor_tag>;
+#ifdef __cpp_noexcept_function_type
+	template<typename Ret,typename... Args>
+	unique_function(Ret(*)(Args...) noexcept) -> unique_function<Ret(Args...) const noexcept, nothrow_destructor_tag>;
+#endif
+#endif
+
 	template<typename... Signatures>
 	void swap(unique_function<Signatures...>& a,unique_function<Signatures...>& b) noexcept
 	{
