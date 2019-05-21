@@ -132,20 +132,36 @@ namespace exlib {
 		for(;begin!=end;++begin)
 		{
 			auto value=transform(*begin);
-			if(c(value,min_val))
+			if _EXALG_CONSTEXPRIF(std::is_trivially_copyable<decltype(value)>::value)
 			{
-				min_iter=begin;
+				if(c(value,min_val))
+				{
+					min_iter=begin;
+					min_val=value;
+				}
 				if(!c(value,max_val))
 				{
 					max_iter=begin;
 					max_val=value;
 				}
-				min_val=std::move(value);
 			}
-			else if(!c(value,max_val))
+			else
 			{
-				max_iter=begin;
-				max_val=std::move(value);
+				if(c(value,min_val))
+				{
+					min_iter=begin;
+					if(!c(value,max_val))
+					{
+						max_iter=begin;
+						max_val=value;
+					}
+					min_val=std::move(value);
+				}
+				else if(!c(value,max_val))
+				{
+					max_iter=begin;
+					max_val=std::move(value);
+				}
 			}
 		}
 		return {min_iter,max_iter};
@@ -631,7 +647,7 @@ namespace exlib {
 		{}
 	}
 
-#if !_EXALG_HAS_CPP_17
+#ifndef __cpp_fold_expressions
 
 	namespace detail {
 		template<typename Container>
@@ -669,9 +685,7 @@ namespace exlib {
 		detail::container_concat_help(copy,c,rest...);
 		return c;
 	}
-#endif
-
-#if _EXALG_HAS_CPP_17
+#else
 	template<typename Container>
 	Container container_concat(Container&& cont)
 	{
@@ -687,7 +701,7 @@ namespace exlib {
 	template<typename Container,typename... Rest>
 	Container container_concat(Container&& cont,Rest const&... rest)
 	{
-		detail::reserve_if_able(cont,cont.size()+(...+rest.size()));
+		detail::reserve_if_able(cont,(cont.size()+...+rest.size()));
 		(cont.insert(cont.end(),rest.begin(),rest.end()),...);
 		return std::move(cont);
 	}
@@ -696,7 +710,7 @@ namespace exlib {
 	Container container_concat(Container const& cont,Rest const&... rest)
 	{
 		Container copy;
-		detail::reserve_if_able(copy,cont.size()+(...+rest.size()));
+		detail::reserve_if_able(copy,(cont.size()+...+rest.size()));
 		copy.insert(cont.begin(),cont.end());
 		(copy.insert(copy.end(),rest.begin(),rest.end()),...);
 		return copy;
