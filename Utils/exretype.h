@@ -273,12 +273,7 @@ namespace exlib {
 
 	namespace max_cpointer_impl {
 		template<typename... Types>
-		struct max_cpointer_impl;
-
-		template<>
-		struct max_cpointer_impl<> {
-			using type=void;
-		};
+		struct max_cpointer_impl {};
 
 		template<typename T>
 		struct max_cpointer_impl<T*> {

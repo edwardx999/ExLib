@@ -447,7 +447,7 @@ namespace exlib {
 		return (*it-*it2)/Increment;
 	}
 
-#define make_comp_op_for_gi(op) template<typename Integral,Integral Increment> constexpr bool operator op(count_iterator<Integral,Increment> a,count_iterator<Integral,Increment> b) noexcept {return *a<*b;}
+#define make_comp_op_for_gi(op) template<typename Integral,Integral Increment> constexpr bool operator op(count_iterator<Integral,Increment> a,count_iterator<Integral,Increment> b) noexcept {return *a op *b;}
 	make_comp_op_for_gi(==)
 		make_comp_op_for_gi(!=)
 		make_comp_op_for_gi(<)
