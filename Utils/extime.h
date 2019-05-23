@@ -42,7 +42,7 @@ namespace exlib {
 				Res res=op(std::forward<Args>(args)...);
 				auto e=std::chrono::steady_clock::now();
 				M p=std::chrono::duration_cast<M>(e-b);
-				return {p,res};
+				return {p,std::forward<Res>(res)};
 			}
 		};
 		template<typename M>
