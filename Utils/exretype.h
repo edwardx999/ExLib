@@ -806,5 +806,34 @@ namespace exlib {
 	template<size_t N>
 	using make_index_sequence=typename detail::make_index_sequence_h<0,N>::type;
 #endif
+
+	template<typename T>
+	struct replace_lvalue_with_rvalue {
+		using type=T;
+	};
+	template<typename T>
+	struct replace_lvalue_with_rvalue<T&> {
+		using type=T&&;
+	};
+	template<typename T>
+	using replace_lvalue_with_rvalue_t=typename replace_lvalue_with_rvalue<T>::type;
+
+	template<typename T>
+	struct function_return_type {};
+
+	template<typename R,typename... Args>
+	struct function_return_type<R(Args...)> {
+		using type=R;
+	};
+
+#ifdef __cpp_noexcept_function_type
+	template<typename R,typename... Args>
+	struct function_return_type<R(Args...) noexcept> {
+		using type=R;
+	};
+#endif
+
+	template<typename T>
+	using function_return_type_t=typename function_return_type<T>::type;
 }
 #endif
