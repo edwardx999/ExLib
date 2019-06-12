@@ -23,6 +23,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <exception>
 #include <cstring>
 #include "exretype.h"
+#include "extags.h"
 #ifdef _MSVC_LANG
 #define _EXFUNC_HAS_CPP_17 (_MSVC_LANG>=201700L)
 #else
@@ -558,14 +559,6 @@ namespace exlib {
 		};
 	}
 
-	template<typename T>
-	struct in_place_type {
-		explicit in_place_type() noexcept=default;
-		using type=T;
-	};
-
-
-
 	/*
 		Template arguments are function signatures that may be additionally const and noexcept (C++17+) qualified.
 		If nothrow_destructor_tag is found anywhere in the argument list, the destructor and move operations are non-throwing.
@@ -634,16 +627,16 @@ namespace exlib {
 			unique_func_det::func_constructor<typename std::decay<Func>::type,buffer_size>::construct(&_data,std::forward<Func>(func));
 		}
 
-		//constructs the function given by in_place_type in place using the given arguments
+		//constructs the function given by in_place_type_t in place using the given arguments
 		template<typename Func,typename... Args>
-		unique_function(in_place_type<Func> a,Args&&... args):func_table{a,object_size_tag<buffer_size>{}}
+		unique_function(in_place_type_t<Func> a,Args&&... args):func_table{a,object_size_tag<buffer_size>{}}
 		{
 			unique_func_det::func_constructor<Func,buffer_size>::construct(&_data,std::forward<Args>(args)...);
 		}
 
-		//constructs the function given by in_place_type in place using the given arguments
+		//constructs the function given by in_place_type_t in place using the given arguments
 		template<typename Func,typename U,typename... Args>
-		unique_function(in_place_type<Func> a,std::initializer_list<U> il,Args&&... args):func_table{a,object_size_tag<buffer_size>{}}
+		unique_function(in_place_type_t<Func> a,std::initializer_list<U> il,Args&&... args):func_table{a,object_size_tag<buffer_size>{}}
 		{
 			unique_func_det::func_constructor<Func,buffer_size>::construct(&_data,il,std::forward<Args>(args)...);
 		}
@@ -663,30 +656,30 @@ namespace exlib {
 			std::memcpy(&_data,&o._data,sizeof(o._data));
 		}
 
-		//constructs the function given by in_place_type in place using the given arguments
+		//constructs the function given by in_place_type_t in place using the given arguments
 		template<typename Func,typename... Args>
 		unique_function& emplace(Args&&... args) &
 		{
-			unique_function(in_place_type<Func>{},std::forward<Args>(args)...).swap(*this);
+			unique_function(in_place_type_t<Func>{},std::forward<Args>(args)...).swap(*this);
 			return *this;
 		}
 
-		//constructs the function given by in_place_type in place using the given arguments
+		//constructs the function given by in_place_type_t in place using the given arguments
 		template<typename Func,typename U,typename... Args>
 		unique_function& emplace(std::initializer_list<U> il,Args&&... args) &
 		{
-			unique_function(in_place_type<Func>{},il,std::forward<Args>(args)...).swap(*this);
+			unique_function(in_place_type_t<Func>{},il,std::forward<Args>(args)...).swap(*this);
 			return *this;
 		}
 
-		//constructs the function given by in_place_type in place using the given arguments
+		//constructs the function given by in_place_type_t in place using the given arguments
 		template<typename Func,typename... Args>
 		unique_function&& emplace(Args&&... args) &&
 		{
 			return std::move(emplace<Func>(std::forward<Args>(args)...));
 		}
 
-		//constructs the function given by in_place_type in place using the given arguments
+		//constructs the function given by in_place_type_t in place using the given arguments
 		template<typename Func,typename U,typename... Args>
 		unique_function&& emplace(std::initializer_list<U> il,Args&&... args) &&
 		{
@@ -1004,16 +997,16 @@ namespace exlib {
 			unique_func_det::func_constructor<typename std::decay<Func>::type,buffer_size>::construct(&_data,std::forward<Func>(func));
 		}
 
-		//constructs the function given by in_place_type in place using the given arguments
+		//constructs the function given by in_place_type_t in place using the given arguments
 		template<typename Func,typename... Args>
-		function(in_place_type<Func> a,Args&&... args):func_table{a,object_size_tag<buffer_size>{}}
+		function(in_place_type_t<Func> a,Args&&... args):func_table{a,object_size_tag<buffer_size>{}}
 		{
 			unique_func_det::func_constructor<Func,buffer_size>::construct(&_data,std::forward<Args>(args)...);
 		}
 
-		//constructs the function given by in_place_type in place using the given arguments
+		//constructs the function given by in_place_type_t in place using the given arguments
 		template<typename Func,typename U,typename... Args>
-		function(in_place_type<Func> a,std::initializer_list<U> il,Args&&... args):func_table{a,object_size_tag<buffer_size>{}}
+		function(in_place_type_t<Func> a,std::initializer_list<U> il,Args&&... args):func_table{a,object_size_tag<buffer_size>{}}
 		{
 			unique_func_det::func_constructor<Func,buffer_size>::construct(&_data,il,std::forward<Args>(args)...);
 		}
@@ -1033,30 +1026,30 @@ namespace exlib {
 			std::memcpy(&_data,&o._data,sizeof(o._data));
 		}
 
-		//constructs the function given by in_place_type in place using the given arguments
+		//constructs the function given by in_place_type_t in place using the given arguments
 		template<typename Func,typename... Args>
 		function& emplace(Args&&... args) &
 		{
-			function(in_place_type<Func>{},std::forward<Args>(args)...).swap(*this);
+			function(in_place_type_t<Func>{},std::forward<Args>(args)...).swap(*this);
 			return *this;
 		}
 
-		//constructs the function given by in_place_type in place using the given arguments
+		//constructs the function given by in_place_type_t in place using the given arguments
 		template<typename Func,typename U,typename... Args>
 		function& emplace(std::initializer_list<U> il,Args&&... args) &
 		{
-			function(in_place_type<Func>{},il,std::forward<Args>(args)...).swap(*this);
+			function(in_place_type_t<Func>{},il,std::forward<Args>(args)...).swap(*this);
 			return *this;
 		}
 
-		//constructs the function given by in_place_type in place using the given arguments
+		//constructs the function given by in_place_type_t in place using the given arguments
 		template<typename Func,typename... Args>
 		function&& emplace(Args&&... args) &&
 		{
 			return std::move(emplace<Func>(std::forward<Args>(args)...));
 		}
 
-		//constructs the function given by in_place_type in place using the given arguments
+		//constructs the function given by in_place_type_t in place using the given arguments
 		template<typename Func,typename U,typename... Args>
 		function&& emplace(std::initializer_list<U> il,Args&&... args) &&
 		{
