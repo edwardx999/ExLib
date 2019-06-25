@@ -214,7 +214,7 @@ namespace exlib {
 
 	//comparison similar to windows sorting
 	template<typename T>
-	constexpr int strncmp_wind(T const* a,T const* b)
+	constexpr int strncmp_wind(T const* a,T const* b) noexcept
 	{
 		for(;;)
 		{
@@ -251,5 +251,91 @@ namespace exlib {
 		}
 	}
 
+	template<typename Iter>
+	struct unicode_conversion {
+		std::uint32_t value;
+		Iter next;
+	};
+
+	struct unicode_converter {
+		template<typename Iter>
+		auto operator()(Iter a) noexcept -> typename std::enable_if<std::is_same<typename std::decay<decltype(*a)>::type,char>::value,unicode_conversion<Iter>>::type
+		{
+			using Ret=unicode_conversion<Iter>;
+			Ret ret;
+			if(*a==0)
+			{
+				ret.next=a;
+			}
+			else if(*a<=0b01111111)
+			{
+				ret.value=*a;
+				ret.next=++a;
+			}
+			else if(*a<=0b11011111) 
+			{
+				ret.value=(*a&0b00011111)<<6;
+				++a;
+				ret.value|=(*a&0b00111111);
+				ret.next=++a;
+			}
+			else if(*a<=11101111)
+			{
+				ret.value=(*a&0b00001111)<<12;
+				++a;
+				ret.value|=(*a&0b00011111)<<6;
+				++a;
+				ret.value|=(*a&0b00111111);
+				ret.next=++a;
+			}
+			else
+			{
+				ret.value=(*a&0b00000111)<<18;
+				++a;
+				ret.value|=(*a&0b00011111)<<12;
+				++a;
+				ret.value|=(*a&0b00011111)<<6;
+				++a;
+				ret.value|=(*a&0b00111111);
+				ret.next=++a;
+			}
+			return ret;
+		}
+	};
+
+	//unicode comparison, a converter is given its iter and return a struct containing next: the next valid iterator, and value,
+	// the equivalent (utf32) value
+	// if next==input, then the unicode sequence has ended
+	template<typename CharIter1,typename CharIter2,typename Converter1=unicode_converter,typename Converter2=unicode_converter>
+	int unicode_compare(CharIter1 a,CharIter2 b,Converter1 c1={},Converter2 c2={}) noexcept(noexcept(c1(a))&&noexcept(c2(b)))
+	{
+		while(true)
+		{
+			unicode_conversion a_step=c1(a);
+			unicode_conversion b_step=c2(b);
+			if(a_step.next==a)
+			{
+				if(b_step.next==b)
+				{
+					return 0;
+				}
+				return -1;
+			}
+			if(b_step.next==b)
+			{
+				return 1;
+			}
+			if(a_step.value<b_step.value)
+			{
+				return -1;
+			}
+			if(a_step.value>b_step.value)
+			{
+				return 1;
+			}
+			a=a_step.next;
+			b=b_step.next;
+		}
+	}
 }
 #endif
