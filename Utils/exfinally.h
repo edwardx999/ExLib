@@ -29,6 +29,9 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <cstring>
 namespace exlib {
 
+	/*
+		Invokes the given functor when it goes out of scope.
+	*/
 	template<typename Finally>
 	struct EXFINALLY_NODISCARD finally:exlib::empty_store<Finally> {
 		using Base=exlib::empty_store<Finally>;
