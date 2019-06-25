@@ -915,16 +915,16 @@ namespace exlib {
 			}
 			return len;
 		}
-		template<typename Iter>
-		constexpr auto has_diff(Iter const& it) -> decltype(it-it,5);
+		template<typename Iter,typename Iter2>
+		constexpr auto has_diff(Iter const& it,Iter2 const& it2) -> decltype(it-it2,5);
 
-		template<typename Iter,typename... Extra>
-		constexpr double has_diff(Iter const& it,Extra...);
+		template<typename Iter,typename Iter2,typename... Extra>
+		constexpr double has_diff(Iter const& it,Iter2 const& it2,Extra...);
 
-		template<typename Iter>
+		template<typename Iter,typename Iter2=Iter>
 		constexpr auto has_diff()
 		{
-			return std::is_same<decltype(has_diff(std::declval<Iter>())),int>::value;
+			return std::is_same<decltype(has_diff(std::declval<Iter>(),std::declval<Iter2>())),int>::value;
 		}
 
 		template<typename... Types,typename... Types2,std::size_t I>
@@ -1066,7 +1066,7 @@ namespace exlib {
 			std::get<I>(_iters)+=n;
 		}
 		template<std::size_t I,std::size_t I2,::size_t... Is,typename... Extra>
-		constexpr auto add_help(index_sequence<I,I2,Is...>,difference_type n,Extra...) -> decltype(std::get<I>(_iters)+=n,add_help(index_sequence<I2,Is...>{},n),void())
+		constexpr auto add_help(index_sequence<I,I2,Is...>,difference_type n,Extra...) -> decltype((std::get<I>(_iters)+=n),add_help(index_sequence<I2,Is...>{},n),void())
 		{
 			add_help(index_sequence<I>{},n),add_help(index_sequence<I2,Is...>{},n);
 		}
@@ -1083,7 +1083,8 @@ namespace exlib {
 		{
 			return {operator*()};
 		}
-		constexpr auto operator[](std::size_t n) const noexcept(value_conjunction<noexcept(std::declval<Iters>()[0])...>::value) -> decltype(subscript_help(full_seq{},n))
+		template<typename SizeT>
+		constexpr auto operator[](SizeT n) const noexcept(value_conjunction<noexcept(std::declval<Iters>()[n])...>::value) -> decltype(subscript_help(full_seq{},n))
 		{
 			return subscript_help(full_seq{},n);
 		}
@@ -1109,26 +1110,29 @@ namespace exlib {
 			operator--();
 			return copy;
 		}
-		constexpr auto operator+=(difference_type n) -> decltype(add_help(full_seq{},n),*this)
+		template<typename DifferenceType>
+		constexpr auto operator+=(DifferenceType n) -> decltype(add_help(full_seq{},n),*this)
 		{
 			add_help(full_seq{},n);
 			return *this;
 		}
-		constexpr auto operator-=(difference_type n) -> decltype(*this+=n)
+		template<typename DifferenceType>
+		constexpr auto operator-=(DifferenceType n) -> decltype(*this+=n)
 		{
 			*this+=-n;
 			return *this;
 		}
 #define make_comp_op_for_combined_iter(op,name)\
 	private:\
-		template<typename It>\
-		constexpr auto name(It iter) const -> decltype(iter==iter)\
+		template<typename It,typename It2>\
+		constexpr auto name(std::tuple<It,It2> iters) const -> decltype(std::get<0>(iters) op std::get<1>(iters))\
 		{}\
-		template<typename It,typename... Its>\
-		constexpr auto name(It it,Its... iters) const -> decltype(it==it,name(iters...))\
+		template<typename It,typename It2,typename It3,typename It4,typename... Its>\
+		constexpr auto name(std::tuple<It,It2> it,std::tuple<It3,It4> it2,Its... iters) const -> decltype(name(it),name(it2,iters...))\
 		{}\
 	public:\
-		constexpr auto operator op(combined_iterator const& other) const noexcept -> decltype(name(std::declval<Iters>()...))\
+		template<typename... OIters>\
+		constexpr auto operator op(combined_iterator<OIters...> const& other) const noexcept -> decltype(name(std::declval<std::tuple<Iters,OIters>>()...))\
 		{\
 			return std::get<0>(_iters) op std::get<0>(other._iters);\
 		}
@@ -1140,33 +1144,7 @@ namespace exlib {
 		make_comp_op_for_combined_iter(>=,has_greater_equal)
 #undef make_comp_op_for_combined_iter
 	private:
-		template<std::size_t I>
-		constexpr static auto has_diff() -> decltype(std::get<I>(std::declval<std::tuple<Iters...>>())-std::get<I>(std::declval<std::tuple<Iters...>>()),true)
-		{
-			return true;
-		}
-		template<std::size_t I,typename... Extra>
-		constexpr static bool has_diff(Extra...)
-		{
-			return false;
-		}
-		template<std::size_t... Is>
-		static constexpr std::array<bool,sizeof...(Is)> make_has_diffs(index_sequence<Is...>)
-		{
-			return {has_diff<Is>()...};
-		}
-		static constexpr auto has_diffs=make_has_diffs(full_seq{});
-		static constexpr std::size_t diff_index=combined_iterator_detail::find_index(has_diffs.begin(),sizeof...(Iters),true);
-		template<std::size_t... Is>
-		constexpr difference_type minus_help(index_sequence<Is...>,combined_iterator const& other) const
-		{
-			return std::get<diff_index>(_iters)-std::get<diff_index>(other._iters);
-		}
 	public:
-		constexpr friend auto operator-(combined_iterator const& a,combined_iterator const& other) noexcept -> typename std::enable_if<value_disjunction<combined_iterator_detail::has_diff<Iters>()...>::value,difference_type>::type
-		{
-			return a.minus_help(full_seq{},other);
-		}
 	};
 
 	namespace combined_iterator_detail {
@@ -1175,6 +1153,36 @@ namespace exlib {
 		{
 			return combined_iterator<Iters...>(std::get<I>(iter.base())+n...);
 		}
+		template<typename... Iters>
+		struct minus_help_str {
+			template<std::size_t I>
+			constexpr static auto has_diff() -> decltype(std::get<I>(std::declval<std::tuple<Iters...>>())-std::get<I>(std::declval<std::tuple<Iters...>>()),true)
+			{
+				return true;
+			}
+			template<std::size_t I,typename... Extra>
+			constexpr static bool has_diff(Extra...)
+			{
+				return false;
+			}
+			template<std::size_t... Is>
+			static constexpr std::array<bool,sizeof...(Is)> make_has_diffs(index_sequence<Is...>)
+			{
+				return {has_diff<Is>()...};
+			}
+			static constexpr auto has_diffs=make_has_diffs(make_index_sequence<sizeof...(Iters)>{});
+			static constexpr std::size_t diff_index=combined_iterator_detail::find_index(has_diffs.begin(),sizeof...(Iters),true);
+			static constexpr typename combined_iterator<Iters...>::difference_type minus_help(combined_iterator<Iters...> const& a,combined_iterator<Iters...> const& b)
+			{
+				return std::get<diff_index>(a.base())-std::get<diff_index>(b.base());
+			}
+		};
+	}
+
+	template<typename... OIters>
+	constexpr auto operator-(combined_iterator<OIters...> const& a,combined_iterator<OIters...> const& b) noexcept -> typename std::enable_if<value_disjunction<combined_iterator_detail::has_diff<OIters>()...>::value,typename combined_iterator<OIters...>::difference_type>::type
+	{
+		return combined_iterator_detail::minus_help_str<OIters...>::minus_help(a,b);
 	}
 	template<typename... OIters>
 	constexpr auto operator+(
