@@ -954,6 +954,17 @@ namespace exlib {
 			swap_detail(refs,vals,index_sequence<I>{});
 			swap_detail(refs,vals,index_sequence<I2,Is...>{});
 		}
+		template<typename Iter,typename Diff>
+		constexpr auto has_plus_equal(Iter const& it,Diff d) -> decltype(it+=d,5);
+
+		template<typename Iter,typename Diff,typename... Extra>
+		constexpr double has_plus_equal(Iter const& it,Diff,Extra...);
+
+		template<typename Iter,typename Diff>
+		constexpr bool has_plus_equal()
+		{
+			return std::is_same<int,decltype(has_plus_equal(std::declval<Iter>(),std::declval<Diff>()))>::value;
+		}
 	}
 	
 
@@ -1060,6 +1071,10 @@ namespace exlib {
 			add_help(index_sequence<I>{},n),add_help(index_sequence<I2,Is...>{},n);
 		}
 	public:
+		std::tuple<Iters...> const& base() const
+		{
+			return _iters;
+		}
 		constexpr reference operator*() const noexcept(value_conjunction<noexcept(*std::declval<Iters>())...>::value)
 		{
 			return ref_help(full_seq{});
@@ -1068,11 +1083,11 @@ namespace exlib {
 		{
 			return {operator*()};
 		}
-		constexpr auto operator[](std::size_t n) const noexcept(value_conjunction<noexcept(std::declval<Iters>()[0])...>::value) -> decltype(subscript_help(make_index_sequence<sizeof...(Iters)>{},n))
+		constexpr auto operator[](std::size_t n) const noexcept(value_conjunction<noexcept(std::declval<Iters>()[0])...>::value) -> decltype(subscript_help(full_seq{},n))
 		{
 			return subscript_help(full_seq{},n);
 		}
-		constexpr auto operator++() noexcept(value_conjunction<noexcept(++std::declval<Iters>())...>::value) -> decltype(inc_help(make_index_sequence<sizeof...(Iters)>{}),std::declval<combined_iterator&>())
+		constexpr auto operator++() noexcept(value_conjunction<noexcept(++std::declval<Iters>())...>::value) -> decltype(inc_help(full_seq{}),std::declval<combined_iterator&>())
 		{
 			inc_help(full_seq{});
 			return *this;
@@ -1083,9 +1098,9 @@ namespace exlib {
 			operator++();
 			return copy;
 		}
-		constexpr auto operator--() noexcept(value_conjunction<noexcept(--std::declval<Iters>())...>::value) -> decltype(dec_help(full_seq{}),*this)
+		constexpr auto operator--() noexcept(value_conjunction<noexcept(--std::declval<Iters>())...>::value) -> decltype(dec_help(full_seq{}),std::declval<combined_iterator&>())
 		{
-			dec_help(make_index_sequence<sizeof...(Iters)>{});
+			dec_help(full_seq{});
 			return *this;
 		}
 		constexpr auto operator--(int) noexcept(noexcept(operator--())&&std::is_nothrow_copy_constructible<combined_iterator>::value) -> typename std::remove_reference<decltype(++*this)>::type
@@ -1096,7 +1111,7 @@ namespace exlib {
 		}
 		constexpr auto operator+=(difference_type n) -> decltype(add_help(full_seq{},n),*this)
 		{
-			add_help(make_index_sequence<sizeof...(Iters)>{},n);
+			add_help(full_seq{},n);
 			return *this;
 		}
 		constexpr auto operator-=(difference_type n) -> decltype(*this+=n)
@@ -1140,7 +1155,7 @@ namespace exlib {
 		{
 			return {has_diff<Is>()...};
 		}
-		static constexpr auto has_diffs=make_has_diffs(make_index_sequence<sizeof...(Iters)>{});
+		static constexpr auto has_diffs=make_has_diffs(full_seq{});
 		static constexpr std::size_t diff_index=combined_iterator_detail::find_index(has_diffs.begin(),sizeof...(Iters),true);
 		template<std::size_t... Is>
 		constexpr difference_type minus_help(index_sequence<Is...>,combined_iterator const& other) const
@@ -1150,25 +1165,35 @@ namespace exlib {
 	public:
 		constexpr friend auto operator-(combined_iterator const& a,combined_iterator const& other) noexcept -> typename std::enable_if<value_disjunction<combined_iterator_detail::has_diff<Iters>()...>::value,difference_type>::type
 		{
-			return a.minus_help(make_index_sequence<sizeof...(Iters)>{},other);
-		}
-	private:
-		template<std::size_t... I>
-		constexpr auto plus_help(std::index_sequence<I...>,difference_type n) const -> decltype(combined_iterator(std::get<I>(_iters)+n...))
-		{
-			return combined_iterator(std::get<I>(_iters)+n...);
-		}
-	public:
-		constexpr combined_iterator operator+(difference_type n) const
-		{
-			return plus_help(full_seq{},n);
-		}
-		constexpr combined_iterator operator-(difference_type n) const
-		{
-			return plus_help(make_index_sequence<sizeof...(Iters)>{},-n);
+			return a.minus_help(full_seq{},other);
 		}
 	};
-	
+
+	namespace combined_iterator_detail {
+		template<typename... Iters,std::size_t... I>
+		constexpr auto plus_help(combined_iterator<Iters...> const& iter,index_sequence<I...>,typename combined_iterator<Iters...>::difference_type n) -> decltype(combined_iterator<Iters...>(std::get<I>(iter.base())+n...))
+		{
+			return combined_iterator<Iters...>(std::get<I>(iter.base())+n...);
+		}
+	}
+	template<typename... OIters>
+	constexpr auto operator+(
+		combined_iterator<OIters...> const& iter,
+		typename combined_iterator<OIters...>::difference_type n) 
+		-> decltype(combined_iterator_detail::plus_help(iter,make_index_sequence<sizeof...(OIters)>{},n))
+	{
+		return combined_iterator_detail::plus_help(iter,make_index_sequence<sizeof...(OIters)>{},n);
+	}
+	template<typename DifferenceType,typename... OIters>
+	constexpr auto operator+(DifferenceType n,combined_iterator<OIters...> const& iter) -> decltype(iter+n)
+	{
+		return iter+n;
+	}
+	template<typename... OIters>
+	constexpr auto operator-(combined_iterator<OIters...> const& iter,typename combined_iterator<OIters...>::difference_type n) -> decltype(iter+n)
+	{
+		return iter+-n;
+	}
 	template<typename... Iters>
 	combined_iterator<Iters...> make_combined_iterator(Iters const&... iters)
 	{
