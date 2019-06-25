@@ -764,7 +764,38 @@ namespace exlib {
 	template<typename First,typename... Rest>
 	struct conjunction<First,Rest...>:std::integral_constant<bool,bool(First::value)&&conjunction<Rest...>::value> {};
 #endif
+	
+	template<bool... Values>
+	struct value_conjunction;
+#ifdef __cpp_fold_expressions
+	template<bool... Values>
+	struct value_conjunction:std::integral_constant<bool,(Values&&...)>{};
+#else
+	template<>
+	struct value_conjunction<>:std::true_type {};
 
+	template<bool... Values>
+	struct value_conjunction<false,Values...>:std::false_type {};
+
+	template<bool... Values>
+	struct value_conjunction<true,Values...>:value_conjunction<Values...> {};
+#endif
+
+	template<bool... Values>
+	struct value_disjunction;
+#ifdef __cpp_fold_expressions
+	template<bool... Values>
+	struct value_disjunction:std::integral_constant<bool,(Values||...)>{};
+#else
+	template<>
+	struct value_disjunction<>:std::false_type {};
+
+	template<bool... Values>
+	struct value_disjunction<true,Values...>:std::true_type {};
+
+	template<bool... Values>
+	struct value_disjunction<false,Values...>:value_conjunction<Values...> {};
+#endif
 
 #ifdef __cpp_lib_integer_sequence
 	using std::index_sequence;
