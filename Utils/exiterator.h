@@ -1071,7 +1071,7 @@ namespace exlib {
 			add_help(index_sequence<I>{},n),add_help(index_sequence<I2,Is...>{},n);
 		}
 	public:
-		std::tuple<Iters...> const& base() const
+		constexpr std::tuple<Iters...> const& base() const
 		{
 			return _iters;
 		}
@@ -1111,13 +1111,13 @@ namespace exlib {
 			return copy;
 		}
 		template<typename DifferenceType>
-		constexpr auto operator+=(DifferenceType n) -> decltype(add_help(full_seq{},n),*this)
+		constexpr auto operator+=(DifferenceType n) noexcept(value_conjunction<noexcept(std::declval<Iters>()+=n)...>::value) -> decltype(add_help(full_seq{},n),*this)
 		{
 			add_help(full_seq{},n);
 			return *this;
 		}
 		template<typename DifferenceType>
-		constexpr auto operator-=(DifferenceType n) -> decltype(*this+=n)
+		constexpr auto operator-=(DifferenceType n) noexcept(value_conjunction<noexcept(std::declval<Iters>()+=n)...>::value) -> decltype(*this+=n)
 		{
 			*this+=-n;
 			return *this;
@@ -1203,7 +1203,7 @@ namespace exlib {
 		return iter+-n;
 	}
 	template<typename... Iters>
-	combined_iterator<Iters...> make_combined_iterator(Iters const&... iters)
+	constexpr combined_iterator<Iters...> make_combined_iterator(Iters const&... iters)
 	{
 		return {iters...};
 	}
