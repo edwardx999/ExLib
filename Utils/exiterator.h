@@ -819,14 +819,13 @@ namespace exlib {
 			return refs;
 		}
 		constexpr multi_rvalue_reference(multi_rvalue_reference const& args)=default;
-		constexpr multi_rvalue_reference(multi_rvalue_reference& args)=default;
 		constexpr multi_rvalue_reference(multi_rvalue_reference&& args)=default;
 
 		template<typename... Args>
-		constexpr multi_rvalue_reference(Args&& ... refs):refs(std::forward<Args>(refs)...) {}
+		constexpr multi_rvalue_reference(Args&&... refs):refs(std::forward<Args>(refs)...) {}
 
 		template<typename... Types>
-		constexpr operator std::tuple<Types...>() const
+		constexpr operator std::tuple<Types...>() const noexcept(std::is_nothrow_move_constructible<std::tuple<Types...>>::value)
 		{
 			return move_convert_help<std::tuple<Types...>>(make_index_sequence<sizeof...(References)>{});
 		}
@@ -884,9 +883,8 @@ namespace exlib {
 			assign_help(make_index_sequence<sizeof...(References)>{},args);
 			return *this;
 		}
-
 		template<typename... Types>
-		constexpr operator std::tuple<Types...>() const
+		constexpr operator std::tuple<Types...>() const noexcept(std::is_nothrow_copy_constructible<std::tuple<Types...>>::value)
 		{
 			return std::tuple<Types...>(refs);
 		}
@@ -926,33 +924,66 @@ namespace exlib {
 		return a.base() op b;\
 	}
 	make_multi_reference_compare(!=)
-		make_multi_reference_compare(<)
-		make_multi_reference_compare(>)
-		make_multi_reference_compare(<=)
-		make_multi_reference_compare(>=)
-		make_multi_reference_compare(==)
+	make_multi_reference_compare(<)
+	make_multi_reference_compare(>)
+	make_multi_reference_compare(<=)
+	make_multi_reference_compare(>=)
+	make_multi_reference_compare(==)
 #undef make_multi_reference_compare
+	namespace multi_reference_detail {
+		template<typename T>
+		constexpr T const& as_const(T const& a) noexcept
+		{
+			return a;
+		}
+		template<typename Ret,typename Tuple,std::size_t... I>
+		constexpr Ret move_impl(Tuple&& tuple,exlib::index_sequence<I...>)
+		{
+			return Ret{std::move(std::get<I>(tuple))...};
+		}
+	}
+
+	template<typename... References>
+	constexpr multi_rvalue_reference<References...> move(multi_reference<References...> const& ref) noexcept
+	{
+		return multi_reference_detail::move_impl<multi_rvalue_reference<References...>>(ref.base(),make_index_sequence<sizeof...(References)>{});
+	}
+	template<typename... References>
+	constexpr multi_rvalue_reference<References...> move(multi_reference<References...> const&& ref) noexcept
+	{
+		return move(multi_reference_detail::as_const(ref));
+	}
+	template<typename... References>
+	constexpr multi_rvalue_reference<References...> move(multi_reference<References...>&& ref) noexcept
+	{
+		return move(multi_reference_detail::as_const(ref));
+	}
+	template<typename... References>
+	constexpr multi_rvalue_reference<References...> move(multi_reference<References...>& ref) noexcept
+	{
+		return move(multi_reference_detail::as_const(ref));
+	}
 }
 namespace std {
 	template<typename... References>
 	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...>&& ref)
 	{
-		return exlib::multi_rvalue_reference<References...>{ref.base()};
+		return exlib::move(ref);
 	}
 	template<typename... References>
 	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...>& ref)
 	{
-		return exlib::multi_rvalue_reference<References...>{ref.base()};
+		return exlib::move(ref);
 	}
 	template<typename... References>
 	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...> const&& ref)
 	{
-		return exlib::multi_rvalue_reference<References...>{ref.base()};
+		return exlib::move(ref);
 	}
 	template<typename... References>
 	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...> const& ref)
 	{
-		return exlib::multi_rvalue_reference<References...>{ref.base()};
+		return exlib::move(ref);
 	}
 }
 namespace exlib {
