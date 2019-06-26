@@ -17,6 +17,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <iterator>
 #include "exretype.h"
 #include <assert.h>
+#include <utility>
 #include <tuple>
 #ifdef _MSVC_LANG
 #define _EXITERATOR_HAS_CPP20 (_MSVC_LANG>=202000l)
@@ -63,7 +64,7 @@ namespace exlib {
 			constexpr cstring_iterator& operator++()
 			{
 				++_loc;
-				if (*_loc==terminator)
+				if(*_loc==terminator)
 				{
 					_loc=nullptr;
 				}
@@ -493,9 +494,9 @@ namespace exlib {
 		using Traits=std::iterator_traits<Base>;
 		void advance_until_satisfied()
 		{
-			for (;_base!=_end;++_base)
+			for(; _base!=_end; ++_base)
 			{
-				if (empty_store<Functor>::get()(*_base))
+				if(empty_store<Functor>::get()(*_base))
 				{
 					return;
 				}
@@ -561,266 +562,302 @@ namespace exlib {
 		return {iter,end,std::move(f)};
 	}
 
-//	namespace indexed_iterator_detail {
-//		template<typename Value>
-//		struct value_with_index {
-//			Value value;
-//			std::size_t index;
-//			template<typename Val>
-//			constexpr value_with_index(Val&& val,std::size_t ind):value(std::forward<Val>(val)),index(ind) {}
-//			
-//			template<typename T>
-//			constexpr value_with_index(value_with_index<T> const& val):value(val.value),index(val.index) {}
-//
-//			template<typename T>
-//			constexpr value_with_index(value_with_index<T>&& val) : value(std::move(val.value)), index(val.index) {}
-//
-//			template<typename T>
-//			constexpr value_with_index& operator=(value_with_index<T> const& val) noexcept(noexcept(value=val.value))
-//			{
-//				value=val.value;
-//				index=val.index;
-//				return *this;
-//			}
-//			template<typename T>
-//			constexpr value_with_index& operator=(value_with_index<T>&& val) noexcept(noexcept(value=std::move(val.value)))
-//			{
-//				value=std::move(val.value);
-//				index=val.index;
-//				return *this;
-//			}
-//		};
-//
-//		template<typename Val1,typename Val2>
-//		void swap(value_with_index<Val1>& a,value_with_index<Val2>& b) noexcept
-//		{
-//			using std::swap;
-//			swap(a.value,b.value);
-//			swap(a.index,b.index);
-//		}
-//
-//		template<typename Val1,typename Val2>
-//		void swap(value_with_index<Val1>&& a,value_with_index<Val2>&& b) noexcept
-//		{
-//			using std::swap;
-//			swap(a.value,b.value);
-//			swap(a.index,b.index);
-//		}
-//
-//		template<typename Val1,typename Val2>
-//		void swap(value_with_index<Val1>&& a,value_with_index<Val2>& b) noexcept
-//		{
-//			using std::swap;
-//			swap(a.value,b.value);
-//			swap(a.index,b.index);
-//		}
-//
-//		template<typename Val1,typename Val2>
-//		void swap(value_with_index<Val1>& a,value_with_index<Val2>&& b) noexcept
-//		{
-//			using std::swap;
-//			swap(a.value,b.value);
-//			swap(a.index,b.index);
-//		}
-//
-//		template<typename Base,typename Derived,
-//			bool random_access=
-//				std::is_convertible<
-//					typename std::iterator_traits<Base>::iterator_category*,
-//					std::random_access_iterator_tag*>::value>
-//		class indexed_iterator_base {
-//			Base _base;
-//			std::size_t _index;
-//		public:
-//			using difference_type=typename Base::difference_type;
-//			using value_type=value_with_index<typename Base::value_type>;
-//			using reference=value_with_index<typename Base::reference>;
-//			using pointer=iterator_detail::ptr_wrapper<reference>;
-//			using iterator_category=typename Base::iterator_category;
-//			constexpr indexed_iterator_base() noexcept:_base{},_index{}{}
-//			constexpr indexed_iterator_base(Base base, std::size_t offset=0) noexcept:_base(base), _index{offset}{}
-//			constexpr reference operator*() const noexcept
-//			{
-//				return {_base[_index],_index};
-//			}
-//			constexpr reference operator[](std::size_t index) const noexcept
-//			{
-//				return {_base[index+index],_index+index};
-//			}
-//			constexpr pointer operator->() const noexcept
-//			{
-//				return {**this};
-//			}
-//			constexpr Derived& operator++() noexcept
-//			{
-//				++_index;
-//				return static_cast<Derived&>(*this);
-//			}
-//			constexpr Derived operator++(int) noexcept
-//			{
-//				Derived copy{*this};
-//				++_index;
-//				return copy;
-//			}
-//			constexpr Derived& operator--() noexcept
-//			{
-//				--_index;
-//				return static_cast<Derived&>(*this);
-//			}
-//			constexpr Derived operator--(int) noexcept
-//			{
-//				Derived copy{*this};
-//				--_index;
-//				return copy;
-//			}
-//			constexpr Derived& operator+=(difference_type d) noexcept
-//			{
-//				_index+=d;
-//				return static_cast<Derived&>(*this);
-//			}
-//			constexpr Derived& operator-=(difference_type d) noexcept
-//			{
-//				_index-=d;
-//				return static_cast<Derived&>(*this);
-//			}
-//			constexpr Base base() const noexcept
-//			{
-//				return _base;
-//			}
-//			constexpr std::size_t index() const noexcept
-//			{
-//				return _index;
-//			}
-//		};
-//		
-//		template<typename Base,typename Derived>
-//		class indexed_iterator_base<Base,Derived,false> {
-//			Base _base;
-//			std::size_t _index;
-//		public:
-//			using difference_type=typename Base::difference_type;
-//			using value_type=value_with_index<typename Base::value_type>;
-//			using reference=value_with_index<typename Base::reference>;
-//			using pointer=iterator_detail::ptr_wrapper<reference>;
-//			using iterator_category=typename Base::iterator_category;
-//			indexed_iterator_base() noexcept:_base{},_index{}{}
-//			indexed_iterator_base(Base base, std::size_t offset=0) noexcept:_base(base), _index{offset}{}
-//			reference operator*() const noexcept
-//			{
-//				return {*_base,_index};
-//			}
-//			pointer operator->() const noexcept
-//			{
-//				return {**this};
-//			}
-//			Derived& operator++() noexcept
-//			{
-//				++_index;
-//				++_base;
-//				return static_cast<Derived&>(*this);
-//			}
-//			Derived operator++(int) noexcept
-//			{
-//				Derived copy{*this};
-//				++_index;
-//				++_base;
-//				return copy;
-//			}
-//			Derived& operator--() noexcept
-//			{
-//				--_index;
-//				--_base;
-//				return static_cast<Derived&>(*this);
-//			}
-//			Derived operator--(int) noexcept
-//			{
-//				Derived copy{*this};
-//				--_index;
-//				--_base;
-//				return copy;
-//			}
-//			Base base() const noexcept
-//			{
-//				return _base;
-//			}
-//			std::size_t index() const noexcept
-//			{
-//				return _index;
-//			}
-//		};
-//
-//	}
-//
-//	template<typename Base>
-//	class indexed_iterator:public indexed_iterator_detail::indexed_iterator_base<Base,indexed_iterator<Base>> {
-//		using MyBase=indexed_iterator_detail::indexed_iterator_base<Base,indexed_iterator<Base>>;
-//	public:
-//		using MyBase::MyBase;
-//	};
-//
-//	template<typename Base>
-//	constexpr auto operator+(indexed_iterator<Base> a,typename indexed_iterator<Base>::difference_type d) noexcept -> typename std::decay<decltype(a+=d,a)>::type
-//	{
-//		a+=d;
-//		return a;
-//	}
-//	template<typename Base>
-//	constexpr auto operator-(indexed_iterator<Base> a,typename indexed_iterator<Base>::difference_type d) noexcept -> typename std::decay<decltype(a-=d,a)>::type
-//	{
-//		a-=d;
-//		return a;
-//	}
-//	template<typename Base>
-//	constexpr auto operator-(indexed_iterator<Base> const& a,indexed_iterator<Base> const& b) noexcept -> decltype(a.base()-b.base())
-//	{
-//		return a.base()-b.base();
-//	}
-//
-//#define make_comp_op_for_index_iterator(op)\
-//	template<typename Base>\
-//	constexpr bool operator op(indexed_iterator<Base> const& a,indexed_iterator<Base> const& b)\
-//	{\
-//		return a.index() op b.index();\
-//	}
-//	make_comp_op_for_index_iterator(==)
-//		make_comp_op_for_index_iterator(!=)
-//		make_comp_op_for_index_iterator(<)
-//		make_comp_op_for_index_iterator(>)
-//		make_comp_op_for_index_iterator(<=)
-//		make_comp_op_for_index_iterator(>=)
-//#undef make_comp_op_for_index_iterator
-//
-//	template<typename Base>
-//	constexpr indexed_iterator<Base> make_indexed_iterator(Base b,std::size_t offset=0) noexcept
-//	{
-//		return {b,offset};
-//	}
-//
-//	template<typename Container>
-//	constexpr auto make_begin_indexed_iterator(Container&& cont) noexcept -> indexed_iterator<decltype(std::forward<Container>(cont).begin())>
-//	{
-//		return {std::forward<Container>(cont).begin()};
-//	}
-//
-//	template<typename Container>
-//	constexpr auto make_end_indexed_iterator(Container&& cont) noexcept -> indexed_iterator<decltype(std::forward<Container>(cont).size(),std::forward<Container>(cont).end())>
-//	{
-//		return {std::forward<Container>(cont).end(),std::forward<Container>(cont).size()};
-//	}
+	//	namespace indexed_iterator_detail {
+	//		template<typename Value>
+	//		struct value_with_index {
+	//			Value value;
+	//			std::size_t index;
+	//			template<typename Val>
+	//			constexpr value_with_index(Val&& val,std::size_t ind):value(std::forward<Val>(val)),index(ind) {}
+	//			
+	//			template<typename T>
+	//			constexpr value_with_index(value_with_index<T> const& val):value(val.value),index(val.index) {}
+	//
+	//			template<typename T>
+	//			constexpr value_with_index(value_with_index<T>&& val) : value(std::move(val.value)), index(val.index) {}
+	//
+	//			template<typename T>
+	//			constexpr value_with_index& operator=(value_with_index<T> const& val) noexcept(noexcept(value=val.value))
+	//			{
+	//				value=val.value;
+	//				index=val.index;
+	//				return *this;
+	//			}
+	//			template<typename T>
+	//			constexpr value_with_index& operator=(value_with_index<T>&& val) noexcept(noexcept(value=std::move(val.value)))
+	//			{
+	//				value=std::move(val.value);
+	//				index=val.index;
+	//				return *this;
+	//			}
+	//		};
+	//
+	//		template<typename Val1,typename Val2>
+	//		void swap(value_with_index<Val1>& a,value_with_index<Val2>& b) noexcept
+	//		{
+	//			using std::swap;
+	//			swap(a.value,b.value);
+	//			swap(a.index,b.index);
+	//		}
+	//
+	//		template<typename Val1,typename Val2>
+	//		void swap(value_with_index<Val1>&& a,value_with_index<Val2>&& b) noexcept
+	//		{
+	//			using std::swap;
+	//			swap(a.value,b.value);
+	//			swap(a.index,b.index);
+	//		}
+	//
+	//		template<typename Val1,typename Val2>
+	//		void swap(value_with_index<Val1>&& a,value_with_index<Val2>& b) noexcept
+	//		{
+	//			using std::swap;
+	//			swap(a.value,b.value);
+	//			swap(a.index,b.index);
+	//		}
+	//
+	//		template<typename Val1,typename Val2>
+	//		void swap(value_with_index<Val1>& a,value_with_index<Val2>&& b) noexcept
+	//		{
+	//			using std::swap;
+	//			swap(a.value,b.value);
+	//			swap(a.index,b.index);
+	//		}
+	//
+	//		template<typename Base,typename Derived,
+	//			bool random_access=
+	//				std::is_convertible<
+	//					typename std::iterator_traits<Base>::iterator_category*,
+	//					std::random_access_iterator_tag*>::value>
+	//		class indexed_iterator_base {
+	//			Base _base;
+	//			std::size_t _index;
+	//		public:
+	//			using difference_type=typename Base::difference_type;
+	//			using value_type=value_with_index<typename Base::value_type>;
+	//			using reference=value_with_index<typename Base::reference>;
+	//			using pointer=iterator_detail::ptr_wrapper<reference>;
+	//			using iterator_category=typename Base::iterator_category;
+	//			constexpr indexed_iterator_base() noexcept:_base{},_index{}{}
+	//			constexpr indexed_iterator_base(Base base, std::size_t offset=0) noexcept:_base(base), _index{offset}{}
+	//			constexpr reference operator*() const noexcept
+	//			{
+	//				return {_base[_index],_index};
+	//			}
+	//			constexpr reference operator[](std::size_t index) const noexcept
+	//			{
+	//				return {_base[index+index],_index+index};
+	//			}
+	//			constexpr pointer operator->() const noexcept
+	//			{
+	//				return {**this};
+	//			}
+	//			constexpr Derived& operator++() noexcept
+	//			{
+	//				++_index;
+	//				return static_cast<Derived&>(*this);
+	//			}
+	//			constexpr Derived operator++(int) noexcept
+	//			{
+	//				Derived copy{*this};
+	//				++_index;
+	//				return copy;
+	//			}
+	//			constexpr Derived& operator--() noexcept
+	//			{
+	//				--_index;
+	//				return static_cast<Derived&>(*this);
+	//			}
+	//			constexpr Derived operator--(int) noexcept
+	//			{
+	//				Derived copy{*this};
+	//				--_index;
+	//				return copy;
+	//			}
+	//			constexpr Derived& operator+=(difference_type d) noexcept
+	//			{
+	//				_index+=d;
+	//				return static_cast<Derived&>(*this);
+	//			}
+	//			constexpr Derived& operator-=(difference_type d) noexcept
+	//			{
+	//				_index-=d;
+	//				return static_cast<Derived&>(*this);
+	//			}
+	//			constexpr Base base() const noexcept
+	//			{
+	//				return _base;
+	//			}
+	//			constexpr std::size_t index() const noexcept
+	//			{
+	//				return _index;
+	//			}
+	//		};
+	//		
+	//		template<typename Base,typename Derived>
+	//		class indexed_iterator_base<Base,Derived,false> {
+	//			Base _base;
+	//			std::size_t _index;
+	//		public:
+	//			using difference_type=typename Base::difference_type;
+	//			using value_type=value_with_index<typename Base::value_type>;
+	//			using reference=value_with_index<typename Base::reference>;
+	//			using pointer=iterator_detail::ptr_wrapper<reference>;
+	//			using iterator_category=typename Base::iterator_category;
+	//			indexed_iterator_base() noexcept:_base{},_index{}{}
+	//			indexed_iterator_base(Base base, std::size_t offset=0) noexcept:_base(base), _index{offset}{}
+	//			reference operator*() const noexcept
+	//			{
+	//				return {*_base,_index};
+	//			}
+	//			pointer operator->() const noexcept
+	//			{
+	//				return {**this};
+	//			}
+	//			Derived& operator++() noexcept
+	//			{
+	//				++_index;
+	//				++_base;
+	//				return static_cast<Derived&>(*this);
+	//			}
+	//			Derived operator++(int) noexcept
+	//			{
+	//				Derived copy{*this};
+	//				++_index;
+	//				++_base;
+	//				return copy;
+	//			}
+	//			Derived& operator--() noexcept
+	//			{
+	//				--_index;
+	//				--_base;
+	//				return static_cast<Derived&>(*this);
+	//			}
+	//			Derived operator--(int) noexcept
+	//			{
+	//				Derived copy{*this};
+	//				--_index;
+	//				--_base;
+	//				return copy;
+	//			}
+	//			Base base() const noexcept
+	//			{
+	//				return _base;
+	//			}
+	//			std::size_t index() const noexcept
+	//			{
+	//				return _index;
+	//			}
+	//		};
+	//
+	//	}
+	//
+	//	template<typename Base>
+	//	class indexed_iterator:public indexed_iterator_detail::indexed_iterator_base<Base,indexed_iterator<Base>> {
+	//		using MyBase=indexed_iterator_detail::indexed_iterator_base<Base,indexed_iterator<Base>>;
+	//	public:
+	//		using MyBase::MyBase;
+	//	};
+	//
+	//	template<typename Base>
+	//	constexpr auto operator+(indexed_iterator<Base> a,typename indexed_iterator<Base>::difference_type d) noexcept -> typename std::decay<decltype(a+=d,a)>::type
+	//	{
+	//		a+=d;
+	//		return a;
+	//	}
+	//	template<typename Base>
+	//	constexpr auto operator-(indexed_iterator<Base> a,typename indexed_iterator<Base>::difference_type d) noexcept -> typename std::decay<decltype(a-=d,a)>::type
+	//	{
+	//		a-=d;
+	//		return a;
+	//	}
+	//	template<typename Base>
+	//	constexpr auto operator-(indexed_iterator<Base> const& a,indexed_iterator<Base> const& b) noexcept -> decltype(a.base()-b.base())
+	//	{
+	//		return a.base()-b.base();
+	//	}
+	//
+	//#define make_comp_op_for_index_iterator(op)\
+	//	template<typename Base>\
+	//	constexpr bool operator op(indexed_iterator<Base> const& a,indexed_iterator<Base> const& b)\
+	//	{\
+	//		return a.index() op b.index();\
+	//	}
+	//	make_comp_op_for_index_iterator(==)
+	//		make_comp_op_for_index_iterator(!=)
+	//		make_comp_op_for_index_iterator(<)
+	//		make_comp_op_for_index_iterator(>)
+	//		make_comp_op_for_index_iterator(<=)
+	//		make_comp_op_for_index_iterator(>=)
+	//#undef make_comp_op_for_index_iterator
+	//
+	//	template<typename Base>
+	//	constexpr indexed_iterator<Base> make_indexed_iterator(Base b,std::size_t offset=0) noexcept
+	//	{
+	//		return {b,offset};
+	//	}
+	//
+	//	template<typename Container>
+	//	constexpr auto make_begin_indexed_iterator(Container&& cont) noexcept -> indexed_iterator<decltype(std::forward<Container>(cont).begin())>
+	//	{
+	//		return {std::forward<Container>(cont).begin()};
+	//	}
+	//
+	//	template<typename Container>
+	//	constexpr auto make_end_indexed_iterator(Container&& cont) noexcept -> indexed_iterator<decltype(std::forward<Container>(cont).size(),std::forward<Container>(cont).end())>
+	//	{
+	//		return {std::forward<Container>(cont).end(),std::forward<Container>(cont).size()};
+	//	}
 
-	
+
 	template<typename... References>
-	struct multi_reference {
-		std::tuple<References...> refs;
-
-		constexpr multi_reference(multi_reference const& args)=delete;
-		constexpr multi_reference(multi_reference& args)=delete;
-		constexpr multi_reference(multi_reference&& args)=delete;
-		constexpr multi_reference(multi_reference const&& args)=delete;
+	class multi_rvalue_reference {
+		std::tuple<decltype(std::move(std::declval<References>()))...> mutable refs;
+	public:
+		decltype(refs) const & base() const noexcept
+		{
+			return refs;
+		}
+		constexpr multi_rvalue_reference(multi_rvalue_reference const& args)=default;
+		constexpr multi_rvalue_reference(multi_rvalue_reference& args)=default;
+		constexpr multi_rvalue_reference(multi_rvalue_reference&& args)=default;
 
 		template<typename... Args>
-		constexpr multi_reference(Args&&... refs):refs(std::forward<Args>(refs)...) {}
-		
+		constexpr multi_rvalue_reference(Args&& ... refs):refs(std::forward<Args>(refs)...) {}
+
+		template<typename... Types>
+		constexpr operator std::tuple<Types...>() const
+		{
+			return move_convert_help<std::tuple<Types...>>(make_index_sequence<sizeof...(References)>{});
+		}
+	private:
+		template<typename Type,std::size_t... Indices>
+		constexpr Type move_convert_help(std::index_sequence<Indices...>) const
+		{
+			return Type(std::move(std::get<Indices>(refs))...);
+		}
+	};
+
+	template<typename... References>
+	class multi_reference {
+		std::tuple<References...> refs;
+	public:
+
+		decltype(refs) const & base() const noexcept
+		{
+			return refs;
+		}
+
+		constexpr multi_reference(multi_reference const& args)=default;
+		constexpr multi_reference(multi_reference&& args)=default;
+
+		template<typename... Refs>
+		constexpr multi_reference(multi_rvalue_reference<Refs...> const& rrefs) noexcept:refs(rrefs.base())
+		{}
+
+		template<typename... Args>
+		constexpr multi_reference(Args&& ... refs) noexcept:refs(std::forward<Args>(refs)...) {}
+
 		template<typename... Types>
 		constexpr multi_reference& operator=(multi_reference<Types...> const& args)
 		{
@@ -849,26 +886,11 @@ namespace exlib {
 		}
 
 		template<typename... Types>
-		constexpr operator std::tuple<Types...>() const&
+		constexpr operator std::tuple<Types...>() const
 		{
-			return convert_help<std::tuple<Types...>>(make_index_sequence<sizeof...(References)>{});
-		}
-		template<typename... Types>
-		constexpr operator std::tuple<Types...>() &&
-		{
-			return move_convert_help<std::tuple<Types...>>(make_index_sequence<sizeof...(References)>{});
+			return std::tuple<Types...>(refs);
 		}
 	private:
-		template<typename Type,std::size_t... Indices>
-		constexpr Type convert_help(std::index_sequence<Indices...>) const&
-		{
-			return Type(std::get<Indices>(refs)...);
-		}
-		template<typename Type,std::size_t... Indices>
-		constexpr Type move_convert_help(std::index_sequence<Indices...>)
-		{
-			return Type(std::move(std::get<Indices>(refs))...);
-		}
 		template<std::size_t I,std::size_t I2,std::size_t... Indices,typename Tuple>
 		constexpr void assign_help(index_sequence<I,I2,Indices...>,Tuple&& args)
 		{
@@ -887,22 +909,62 @@ namespace exlib {
 		}
 	};
 
-	template<size_t I,typename... Types>
-	auto get(multi_reference<Types...> const& ref) -> decltype(std::get<I>(ref.refs))
-	{
-		return std::get<I>(ref.refs);
+#define make_multi_reference_compare(op)\
+	template<typename... Types,typename... Types2>\
+	constexpr bool operator op(multi_reference<Types...> const& a,multi_reference<Types2...> const& b)\
+	{\
+		return a.base() op b.base();\
+	}\
+	template<typename... Types,typename... Types2>\
+	constexpr bool operator op(std::tuple<Types...> const& a,multi_reference<Types2...> const& b)\
+	{\
+		return a op b.base();\
+	}\
+	template<typename... Types,typename... Types2>\
+	constexpr bool operator op(multi_reference<Types...> const& a,std::tuple<Types2...> const& b)\
+	{\
+		return a.base() op b;\
 	}
-
-	template<size_t I,typename... Types>
-	auto get(multi_reference<Types...>& ref) -> decltype(std::get<I>(ref.refs))
+	make_multi_reference_compare(!=)
+		make_multi_reference_compare(<)
+		make_multi_reference_compare(>)
+		make_multi_reference_compare(<=)
+		make_multi_reference_compare(>=)
+		make_multi_reference_compare(==)
+#undef make_multi_reference_compare
+}
+namespace std {
+	template<typename... References>
+	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...>&& ref)
 	{
-		return std::get<I>(ref.refs);
+		return exlib::multi_rvalue_reference<References...>{ref.base()};
 	}
-
-	template<size_t I,typename... Types>
-	auto get(multi_reference<Types...>&& ref) -> decltype(std::get<I>(std::move(ref.refs)))
+	template<typename... References>
+	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...>& ref)
 	{
-		return std::get<I>(std::move(ref.refs));
+		return exlib::multi_rvalue_reference<References...>{ref.base()};
+	}
+	template<typename... References>
+	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...> const&& ref)
+	{
+		return exlib::multi_rvalue_reference<References...>{ref.base()};
+	}
+	template<typename... References>
+	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...> const& ref)
+	{
+		return exlib::multi_rvalue_reference<References...>{ref.base()};
+	}
+}
+namespace exlib {
+	template<size_t I,typename... Types>
+	auto get(multi_reference<Types...> const& ref) -> decltype(std::get<I>(ref.base()))
+	{
+		return std::get<I>(ref.base());
+	}
+	template<size_t I,typename... Types>
+	auto get(multi_rvalue_reference<Types...> const& ref) -> decltype(std::move(std::get<I>(ref.base())))
+	{
+		return std::move(std::get<I>(ref.base()));
 	}
 
 	namespace combined_iterator_detail {
@@ -966,7 +1028,6 @@ namespace exlib {
 			return std::is_same<int,decltype(has_plus_equal(std::declval<Iter>(),std::declval<Diff>()))>::value;
 		}
 	}
-	
 
 	template<typename... Types,typename... Types2>
 	void swap(multi_reference<Types...>& refs,std::tuple<Types2...>& vals)
@@ -1024,9 +1085,8 @@ namespace exlib {
 		using reference=multi_reference<typename std::iterator_traits<Iters>::reference...>;
 		using pointer=iterator_detail::ptr_wrapper<reference>;
 		using iterator_category=typename std::common_type<typename std::iterator_traits<Iters>::iterator_category...>::type;
-		constexpr combined_iterator(Iters const&... iters) noexcept:_iters(iters...)
-		{
-		}
+		constexpr combined_iterator(Iters const& ... iters) noexcept:_iters(iters...)
+		{}
 		constexpr combined_iterator(combined_iterator const&)=default;
 		constexpr combined_iterator& operator=(combined_iterator const&)=default;
 	private:
@@ -1093,7 +1153,7 @@ namespace exlib {
 			inc_help(full_seq{});
 			return *this;
 		}
-		constexpr auto operator++(int) noexcept(noexcept(operator++())&&std::is_nothrow_copy_constructible<combined_iterator>::value) -> typename std::remove_reference<decltype(++*this)>::type
+		constexpr auto operator++(int) noexcept(noexcept(operator++())&&std::is_nothrow_copy_constructible<combined_iterator>::value) -> typename std::remove_reference<decltype(++* this)>::type
 		{
 			auto copy(*this);
 			operator++();
@@ -1104,7 +1164,7 @@ namespace exlib {
 			dec_help(full_seq{});
 			return *this;
 		}
-		constexpr auto operator--(int) noexcept(noexcept(operator--())&&std::is_nothrow_copy_constructible<combined_iterator>::value) -> typename std::remove_reference<decltype(++*this)>::type
+		constexpr auto operator--(int) noexcept(noexcept(operator--())&&std::is_nothrow_copy_constructible<combined_iterator>::value) -> typename std::remove_reference<decltype(++* this)>::type
 		{
 			auto copy(*this);
 			operator--();
@@ -1137,11 +1197,11 @@ namespace exlib {
 			return std::get<0>(_iters) op std::get<0>(other._iters);\
 		}
 		make_comp_op_for_combined_iter(==,has_equal)
-		make_comp_op_for_combined_iter(<,has_less)
-		make_comp_op_for_combined_iter(>,has_greater)
-		make_comp_op_for_combined_iter(!=,has_not_equal)
-		make_comp_op_for_combined_iter(<=,has_less_equal)
-		make_comp_op_for_combined_iter(>=,has_greater_equal)
+			make_comp_op_for_combined_iter(<,has_less)
+			make_comp_op_for_combined_iter(>,has_greater)
+			make_comp_op_for_combined_iter(!=,has_not_equal)
+			make_comp_op_for_combined_iter(<=,has_less_equal)
+			make_comp_op_for_combined_iter(>=,has_greater_equal)
 #undef make_comp_op_for_combined_iter
 	private:
 	public:
@@ -1187,7 +1247,7 @@ namespace exlib {
 	template<typename... OIters>
 	constexpr auto operator+(
 		combined_iterator<OIters...> const& iter,
-		typename combined_iterator<OIters...>::difference_type n) 
+		typename combined_iterator<OIters...>::difference_type n)
 		-> decltype(combined_iterator_detail::plus_help(iter,make_index_sequence<sizeof...(OIters)>{},n))
 	{
 		return combined_iterator_detail::plus_help(iter,make_index_sequence<sizeof...(OIters)>{},n);
@@ -1203,26 +1263,9 @@ namespace exlib {
 		return iter+-n;
 	}
 	template<typename... Iters>
-	constexpr combined_iterator<Iters...> make_combined_iterator(Iters const&... iters)
+	constexpr combined_iterator<Iters...> make_combined_iterator(Iters const& ... iters)
 	{
 		return {iters...};
 	}
-}
-
-namespace std {
-	/*
-	template<typename... Iters>
-	class move_iterator<exlib::combined_iterator<Iters...>>:
-		exlib::combined_iterator<Iters...>,
-		public exlib::iterator_detail::inherit_decrement<exlib::combined_iterator<Iters...>,move_iterator<exlib::combined_iterator<Iters...>>>,
-		public exlib::iterator_detail::inherit_minus_equal<exlib::combined_iterator<Iters...>,move_iterator<exlib::combined_iterator<Iters...>>>,
-		public exlib::iterator_detail::inherit_plus_equal<exlib::combined_iterator<Iters...>,move_iterator<exlib::combined_iterator<Iters...>>>
-
-	{
-		using Base=exlib::combined_iterator<Iters...>;
-	public:
-		move_iterator(Base const& b):Base(b) noexcept{}
-	};
-	*/
 }
 #endif
