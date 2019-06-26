@@ -41,7 +41,7 @@ namespace exlib {
 		{}
 		finally(finally const&)=delete;
 		finally& operator=(finally const&)=delete;
-		~finally() noexcept(noexcept(this->get()()))
+		~finally() noexcept(noexcept(std::declval<Finally&>()()))
 		{
 			this->get()();
 		}
@@ -58,7 +58,7 @@ namespace exlib {
 		class finally;
 
 		template<typename F,typename=decltype(std::declval<typename std::decay<F>::type>()())>
-		struct invokable {
+		struct finvokable {
 			using type=finally<typename std::decay<F>::type>;
 		};
 
@@ -66,26 +66,28 @@ namespace exlib {
 		class finally:exlib::empty_store<Finally> {
 			using Base=exlib::empty_store<Finally>;
 			bool _invoke_me;
-			finally(finally&& o): Base{std::move(o)}, _invoke_me{true}
+			finally(finally&& o): Base{std::move(o)},_invoke_me{true}
 			{
 				o._invoke_me=false;
 			}
 		public:
 			template<typename F>
-			finally(F&& f): Base{std::forward<F>(f)}, _invoke_me{true}
+			finally(F&& f): Base{std::forward<F>(f)},_invoke_me{true}
 			{}
 			finally(finally const&)=delete;
 			finally& operator=(finally const&)=delete;
-			~finally() noexcept(noexcept(this->get()()))
+			~finally() noexcept(noexcept(std::declval<Finally&>()()))
 			{
 				if(_invoke_me)
 				{
 					this->get()();
 				}
 			}
+			template<typename Functor>
+			friend typename finvokable<Functor>::type make_finally(Functor&& f);
 		};
 		template<typename Functor>
-		typename invokable<Functor>::type make_finally(Functor&& f)
+		typename finvokable<Functor>::type make_finally(Functor&& f)
 		{
 			return {std::forward<Functor>(f)};
 		}

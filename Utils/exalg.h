@@ -192,12 +192,11 @@ namespace get_impl {
 
 namespace exlib {
 
-	template<size_t I,typename Container>
-	constexpr auto get(Container&& cont) noexcept(noexcept(get_impl::do_get<I>(std::forward<Container>(cont)))) -> decltype(get_impl::do_get<I>(std::forward<Container>(cont)))
+	template<size_t I,typename Container,typename... Extra>
+	constexpr auto generic_get(Container&& cont,Extra...) noexcept(noexcept(get_impl::do_get<I>(std::forward<Container>(cont)))) -> decltype(get_impl::do_get<I>(std::forward<Container>(cont)))
 	{
 		return get_impl::do_get<I>(std::forward<Container>(cont));
 	}
-
 
 	/*
 		Call the member function as if it is a global function.
@@ -272,14 +271,12 @@ namespace exlib {
 			template<typename Tpl,typename Func,size_t I>
 			constexpr static void apply(Tpl&& tpl,Func& f,index_sequence<I>)
 			{
-				using std::get;
-				f(get<I>(std::forward<Tpl>(tpl)));
+				f(generic_get<I>(std::forward<Tpl>(tpl)));
 			}
 			template<typename Tpl,typename Func,size_t I,size_t... Rest>
 			constexpr static void apply(Tpl&& tpl,Func& f,index_sequence<I,Rest...>)
 			{
-				using std::get;
-				f(get<I>(std::forward<Tpl>(tpl)));
+				f(generic_get<I>(std::forward<Tpl>(tpl)));
 				for_each_in_tuple_h::apply(std::forward<Tpl>(tpl),f,index_sequence<Rest...>{});
 			}
 		};
@@ -1043,7 +1040,7 @@ namespace exlib {
 		template<typename Type,typename Tuple,size_t... I>
 		constexpr typename ca_type<Type,Tuple>::type conv_array(Tuple&& tup,index_sequence<I...>)
 		{
-			return {{  std::get<I>(std::forward<Tuple>(tup))... }};
+			return {{  generic_get<I>(std::forward<Tuple>(tup))... }};
 		}
 	}
 
@@ -1054,7 +1051,7 @@ namespace exlib {
 		return detail::conv_array<Type>(std::forward<Tuple>(args),make_index_sequence<TS>());
 	}
 
-	//the number of elements accessible by std::get
+	//the number of elements accessible by generic_get
 	template<typename T>
 	struct get_max {
 	private:
@@ -1093,8 +1090,7 @@ namespace exlib {
 		template<typename Ret,size_t I,typename Funcs,typename...Args>
 		constexpr Ret apply_single(Funcs&& funcs,Args&&... args)
 		{
-			using std::get;
-			return static_cast<Ret>(get<I>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...));
+			return static_cast<Ret>(generic_get<I>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...));
 		}
 
 		template<typename Ret,typename IndexSequence,typename Funcs,typename... Args>
@@ -1206,7 +1202,7 @@ namespace exlib {
 		}
 		else
 		{
-			using Ret=decltype(get<0>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...));
+			using Ret=decltype(generic_get<0>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...));
 			return apply_ind<Ret,NumFuncs>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 		}
 	}

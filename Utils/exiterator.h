@@ -510,7 +510,7 @@ namespace exlib {
 		using reference=typename Traits::reference;
 		using iterator_category=std::forward_iterator_tag;
 
-		constexpr filter_iterator(Base iter,Base end,Functor f={}) noexcept(std::is_nothrow_move_constructible<Functor>::value):_base(iter),_end(end),empty_store(std::move(f))
+		constexpr filter_iterator(Base iter,Base end,Functor f={}) noexcept(std::is_nothrow_move_constructible<Functor>::value):_base(iter),_end(end),empty_store<Functor>	(std::move(f))
 		{
 			advance_until_satisfied();
 		}
@@ -987,17 +987,24 @@ namespace std {
 	}
 }
 namespace exlib {
-	template<size_t I,typename... Types>
-	auto get(multi_reference<Types...> const& ref) -> decltype(std::get<I>(ref.base()))
-	{
-		return std::get<I>(ref.base());
-	}
-	template<size_t I,typename... Types>
-	auto get(multi_rvalue_reference<Types...> const& ref) -> decltype(std::move(std::get<I>(ref.base())))
-	{
-		return std::move(std::get<I>(ref.base()));
+#define multi_reference_get(qualifier)\
+	template<std::size_t I,typename... Types>\
+	constexpr auto get(multi_reference<Types...> qualifier ref) -> decltype(std::get<I>(ref.base()))\
+	{\
+		return std::get<I>(ref.base());\
+	}\
+	template<std::size_t I,typename... Types>\
+	constexpr auto get(multi_rvalue_reference<Types...> qualifier ref) -> decltype(std::move(std::get<I>(ref.base())))\
+	{\
+		return std::move(std::get<I>(ref.base()));\
 	}
 
+	multi_reference_get(&)
+	multi_reference_get(&&)
+	multi_reference_get(const&)
+	multi_reference_get(const&&)
+
+#undef multi_reference_get
 	namespace combined_iterator_detail {
 		template<typename RandIter,typename T>
 		constexpr std::size_t find_index(RandIter iter,std::size_t len,T const& target)
@@ -1180,7 +1187,7 @@ namespace exlib {
 		{
 			return subscript_help(full_seq{},n);
 		}
-		constexpr auto operator++() noexcept(value_conjunction<noexcept(++std::declval<Iters>())...>::value) -> decltype(inc_help(full_seq{}),std::declval<combined_iterator&>())
+		constexpr auto operator++() noexcept(value_conjunction<noexcept(++std::declval<Iters&>())...>::value) -> decltype(inc_help(full_seq{}),std::declval<combined_iterator&>())
 		{
 			inc_help(full_seq{});
 			return *this;
@@ -1191,7 +1198,7 @@ namespace exlib {
 			operator++();
 			return copy;
 		}
-		constexpr auto operator--() noexcept(value_conjunction<noexcept(--std::declval<Iters>())...>::value) -> decltype(dec_help(full_seq{}),std::declval<combined_iterator&>())
+		constexpr auto operator--() noexcept(value_conjunction<noexcept(--std::declval<Iters&>())...>::value) -> decltype(dec_help(full_seq{}),std::declval<combined_iterator&>())
 		{
 			dec_help(full_seq{});
 			return *this;
