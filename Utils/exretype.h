@@ -58,11 +58,11 @@ namespace exlib {
 		class empty_store_base {
 			Type _value;
 		public:
-			_EX_CONSTEXPR_OVERLOAD Type& get()
+			_EX_CONSTEXPR_OVERLOAD Type& get() noexcept
 			{
 				return _value;
 			}
-			_EX_CONSTEXPR_OVERLOAD Type const& get() const
+			_EX_CONSTEXPR_OVERLOAD Type const& get() const noexcept
 			{
 				return _value;
 			}
@@ -75,16 +75,16 @@ namespace exlib {
 		template<typename Type>
 		class empty_store_base<Type,true>:Type {
 		public:
-			_EX_CONSTEXPR_OVERLOAD Type& get()
+			_EX_CONSTEXPR_OVERLOAD Type& get() noexcept
 			{
 				return *this;
 			}
-			_EX_CONSTEXPR_OVERLOAD Type const& get() const
+			_EX_CONSTEXPR_OVERLOAD Type const& get() const noexcept
 			{
 				return *this;
 			}
 			template<typename... Args>
-			constexpr empty_store_base(Args&& ... args):Type(std::forward<Args>(args)...)
+			constexpr empty_store_base(Args&&... args):Type(std::forward<Args>(args)...)
 			{}
 			constexpr empty_store_base(){}
 		};
@@ -95,7 +95,7 @@ namespace exlib {
 		using Base=empty_store_impl::empty_store_base<Type>;
 	public:
 		template<typename... Args>
-		constexpr empty_store(Args&& ... args) noexcept(noexcept(Type(std::forward<Args>(args)...))):Base(std::forward<Args>(args)...)
+		constexpr empty_store(Args&&... args) noexcept(noexcept(Type(std::forward<Args>(args)...))):Base(std::forward<Args>(args)...)
 		{}
 		constexpr empty_store() noexcept(std::is_nothrow_default_constructible<Type>::value)
 		{}

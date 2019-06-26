@@ -33,16 +33,21 @@ namespace exlib {
 		Invokes the given functor when it goes out of scope.
 	*/
 	template<typename Finally>
-	struct EXFINALLY_NODISCARD finally:exlib::empty_store<Finally> {
+	class EXFINALLY_NODISCARD finally:exlib::empty_store<Finally> {
 		using Base=exlib::empty_store<Finally>;
 	public:
 		template<typename F>
 		finally(F&& f): Base{std::forward<F>(f)}
-		{
-		}
-		finally(finally const&) = delete;
-		finally& operator=(finally const&) = delete;
-		~finally()
+		{}
+		finally(finally&)=delete;
+		finally& operator=(finally&)=delete;
+		finally(finally const&)=delete;
+		finally& operator=(finally const&)=delete;
+		finally(finally const&&)=delete;
+		finally& operator=(finally const&&)=delete;
+		finally(finally&&)=delete;
+		finally& operator=(finally&&)=delete;
+		~finally() noexcept(noexcept(this->get()()))
 		{
 			this->get()();
 		}
@@ -52,5 +57,44 @@ namespace exlib {
 	template<typename F>
 	finally(F&& f)->finally<std::decay_t<F>>;
 #endif
+
+	namespace finally_legacy {
+		template<typename Finally>
+		class finally:exlib::empty_store<Finally> {
+			using Base=exlib::empty_store<Finally>;
+			bool _invoke_me;
+			finally(finally&& o): Base{std::move(o)}, _invoke_me{true}
+			{
+				o._invoke_me=false;
+			}
+		public:
+			template<typename F>
+			finally(F&& f): Base{std::forward<F>(f)}, _invoke_me{true}
+			{}
+			finally(finally const&)=delete;
+			finally& operator=(finally const&)=delete;
+			finally(finally&)=delete;
+			finally& operator=(finally&)=delete;
+			finally& operator=(finally&&)=delete;
+			finally(finally const&&)=delete;
+			finally& operator=(finally const&&)=delete;
+			~finally() noexcept(noexcept(this->get()()))
+			{
+				if(_invoke_me)
+				{
+					this->get()();
+				}
+			}
+			template<typename Functor>
+			friend finally<typename std::decay<Functor>::type> make_finally(Functor&& f);
+		};
+		template<typename Functor>
+		finally<typename std::decay<Functor>::type> make_finally(Functor&& f)
+		{
+			return {std::forward<Functor>(f)};
+		}
+	}
+
+	using finally_legacy::make_finally;
 }
 #endif
