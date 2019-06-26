@@ -70,10 +70,10 @@ namespace exlib {
 			{
 				o._invoke_me=false;
 			}
+		public:
 			template<typename F>
 			finally(F&& f): Base{std::forward<F>(f)}, _invoke_me{true}
 			{}
-		public:
 			finally(finally const&)=delete;
 			finally& operator=(finally const&)=delete;
 			~finally() noexcept(noexcept(this->get()()))
@@ -83,8 +83,6 @@ namespace exlib {
 					this->get()();
 				}
 			}
-			template<typename Functor>
-			friend typename invokable<Functor>::type make_finally(Functor&& f);
 		};
 		template<typename Functor>
 		typename invokable<Functor>::type make_finally(Functor&& f)
