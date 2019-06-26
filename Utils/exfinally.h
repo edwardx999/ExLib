@@ -40,13 +40,10 @@ namespace exlib {
 		finally(F&& f): Base{std::forward<F>(f)}
 		{}
 		finally(finally&)=delete;
-		finally& operator=(finally&)=delete;
 		finally(finally const&)=delete;
 		finally& operator=(finally const&)=delete;
 		finally(finally const&&)=delete;
-		finally& operator=(finally const&&)=delete;
 		finally(finally&&)=delete;
-		finally& operator=(finally&&)=delete;
 		~finally() noexcept(noexcept(this->get()()))
 		{
 			this->get()();
@@ -74,10 +71,7 @@ namespace exlib {
 			finally(finally const&)=delete;
 			finally& operator=(finally const&)=delete;
 			finally(finally&)=delete;
-			finally& operator=(finally&)=delete;
-			finally& operator=(finally&&)=delete;
 			finally(finally const&&)=delete;
-			finally& operator=(finally const&&)=delete;
 			~finally() noexcept(noexcept(this->get()()))
 			{
 				if(_invoke_me)
