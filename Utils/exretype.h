@@ -97,7 +97,7 @@ namespace exlib {
 		using Base=empty_store_impl::empty_store_base<Type>;
 	public:
 		template<typename... Args>
-		constexpr empty_store(Args&&... args) noexcept(noexcept(Type(std::forward<Args>(args)...))):Base(std::forward<Args>(args)...)
+		constexpr empty_store(Args&&... args) noexcept(std::is_nothrow_constructible<Type,Args&&...>::value):Base(std::forward<Args>(args)...)
 		{}
 		constexpr empty_store() noexcept(std::is_nothrow_default_constructible<Type>::value)
 		{}

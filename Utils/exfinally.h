@@ -65,11 +65,11 @@ namespace exlib {
 		class finally:exlib::empty_store<Finally> {
 			using Base=exlib::empty_store<Finally>;
 			bool _invoke_me;
-			finally(finally&& o): Base{std::move(o)},_invoke_me{true}
+		public:
+			finally(finally&& o): Base{static_cast<Base&&>(o)},_invoke_me{true}
 			{
 				o._invoke_me=false;
 			}
-		public:
 			template<typename F>
 			finally(F&& f): Base{std::forward<F>(f)},_invoke_me{true}
 			{}
