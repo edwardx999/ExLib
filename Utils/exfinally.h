@@ -36,14 +36,11 @@ namespace exlib {
 	class EXFINALLY_NODISCARD finally:exlib::empty_store<Finally> {
 		using Base=exlib::empty_store<Finally>;
 	public:
-		template<typename F>
+		template<typename F,typename=decltype(std::declval<Finally>()())>
 		finally(F&& f): Base{std::forward<F>(f)}
 		{}
-		finally(finally&)=delete;
 		finally(finally const&)=delete;
 		finally& operator=(finally const&)=delete;
-		finally(finally const&&)=delete;
-		finally(finally&&)=delete;
 		~finally() noexcept(noexcept(this->get()()))
 		{
 			this->get()();
@@ -56,6 +53,15 @@ namespace exlib {
 #endif
 
 	namespace finally_legacy {
+
+		template<typename Finally>
+		class finally;
+
+		template<typename F,typename=decltype(std::declval<typename std::decay<F>::type>()())>
+		struct invokable {
+			using type=finally<typename std::decay<F>::type>;
+		};
+
 		template<typename Finally>
 		class finally:exlib::empty_store<Finally> {
 			using Base=exlib::empty_store<Finally>;
@@ -64,14 +70,12 @@ namespace exlib {
 			{
 				o._invoke_me=false;
 			}
-		public:
 			template<typename F>
 			finally(F&& f): Base{std::forward<F>(f)}, _invoke_me{true}
 			{}
+		public:
 			finally(finally const&)=delete;
 			finally& operator=(finally const&)=delete;
-			finally(finally&)=delete;
-			finally(finally const&&)=delete;
 			~finally() noexcept(noexcept(this->get()()))
 			{
 				if(_invoke_me)
@@ -80,10 +84,10 @@ namespace exlib {
 				}
 			}
 			template<typename Functor>
-			friend finally<typename std::decay<Functor>::type> make_finally(Functor&& f);
+			friend typename invokable<Functor>::type make_finally(Functor&& f);
 		};
 		template<typename Functor>
-		finally<typename std::decay<Functor>::type> make_finally(Functor&& f)
+		typename invokable<Functor>::type make_finally(Functor&& f)
 		{
 			return {std::forward<Functor>(f)};
 		}
