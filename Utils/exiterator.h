@@ -1114,6 +1114,7 @@ namespace exlib {
 		using value_type=std::tuple<typename std::iterator_traits<Iters>::value_type...>;
 		using difference_type=typename std::common_type<typename std::iterator_traits<Iters>::difference_type...>::type;
 		using reference=multi_reference<typename std::iterator_traits<Iters>::reference...>;
+		using rvalue_reference=multi_rvalue_reference<typename std::iterator_traits<Iters>::reference...>;
 		using pointer=iterator_detail::ptr_wrapper<reference>;
 		using iterator_category=typename std::common_type<typename std::iterator_traits<Iters>::iterator_category...>::type;
 		constexpr combined_iterator(Iters const& ... iters) noexcept:_iters(iters...)
