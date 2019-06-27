@@ -74,6 +74,7 @@ namespace exlib {
 			finally(F&& f): Base{std::forward<F>(f)},_invoke_me{true}
 			{}
 			finally(finally const&)=delete;
+			finally(finally&)=delete;
 			finally& operator=(finally const&)=delete;
 			~finally() noexcept(noexcept(std::declval<Finally&>()()))
 			{
