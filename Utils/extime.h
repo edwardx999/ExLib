@@ -15,15 +15,20 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #define EXTIME_H
 #include <chrono>
 #include <utility>
+#include <type_traits>
 namespace exlib {
 
 	template<typename Measure,typename Res>
 	struct timing {
 		Measure time;
 		Res result;
-		operator std::pair<Measure,Res>() const
+		operator std::pair<Measure,Res>() const&
 		{
-			return {time,result};
+			return std::pair<Measure,Res>(time,std::forward<typename std::add_const<Res>::type>(result));
+		}
+		operator std::pair<Measure,Res>() &&
+		{
+			return std::pair<Measure,Res>(time,std::forward<Res>(result));
 		}
 	};
 
