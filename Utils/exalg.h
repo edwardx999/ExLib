@@ -41,6 +41,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <exception>
 #include <stddef.h>
 #include <tuple>
+#include <iterator>
 #include "exretype.h"
 
 #if _EXALG_HAS_CPP_17
@@ -50,6 +51,33 @@ namespace std {
 }
 #endif
 namespace exlib {
+
+	namespace fill_detail {
+		template<typename Iter,typename Val>
+		constexpr void fill_with_copy(Iter begin,Iter end,Val const& val)
+		{
+			for(;begin!=end;++begin)
+			{
+				*begin=val;
+			}
+		}
+	}
+
+	template<typename Iter,typename Val=typename std::iterator_traits<Iter>::value_type>
+	constexpr auto fill(Iter begin,Iter end,Val&& val) noexcept(noexcept(*begin=val)&&noexcept(++begin)&&noexcept(begin==end)) -> typename std::enable_if<std::is_rvalue_reference<Val&&>::value&&!std::is_trivially_assignable<decltype(*begin),Val&&>::value>::type
+	{
+		if(begin==end) return;
+		auto copy_begin=begin;
+		++begin;
+		fill_detail::fill_with_copy(begin,end,val);
+		*copy_begin=std::move(val);
+	}
+
+	template<typename Iter,typename Val=typename std::iterator_traits<Iter>::value_type>
+	constexpr void fill(Iter begin,Iter end,Val const& val) noexcept(noexcept(*begin=val)&&noexcept(++begin)&&noexcept(begin==end))
+	{
+		fill_detail::fill_with_copy(begin,end,val);
+	}
 
 	template<typename A,typename B,typename Compare=std::less<void>>
 	_EXALG_NODISCARD constexpr typename max_cref<A,B>::type min(A&& a,B&& b,Compare c={}) noexcept(noexcept(c(a,b)))
