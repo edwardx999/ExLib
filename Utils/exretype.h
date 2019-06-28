@@ -50,7 +50,7 @@ namespace exlib {
 	};
 
 	namespace empty_store_impl {
-		template<typename Type,bool ShouldInherit=std::is_empty<Type>::value&& 
+		template<typename Type,std::uint64_t Id,bool ShouldInherit=std::is_empty<Type>::value&& 
 #ifdef __cpp_lib_is_final
 			!std::is_final<Type>::value
 #else
@@ -74,8 +74,8 @@ namespace exlib {
 			constexpr empty_store_base()
 			{}
 		};
-		template<typename Type>
-		class empty_store_base<Type,true>:Type {
+		template<typename Type,std::uint64_t Id>
+		class empty_store_base<Type,Id,true>:Type {
 		public:
 			_EX_CONSTEXPR_OVERLOAD Type& get() noexcept
 			{
@@ -92,9 +92,9 @@ namespace exlib {
 		};
 	}
 
-	template<typename Type>
-	class empty_store:public empty_store_impl::empty_store_base<Type> {
-		using Base=empty_store_impl::empty_store_base<Type>;
+	template<typename Type,std::uint64_t Id=0>
+	class empty_store:public empty_store_impl::empty_store_base<Type,Id> {
+		using Base=empty_store_impl::empty_store_base<Type,Id>;
 	public:
 		template<typename... Args>
 		constexpr empty_store(Args&&... args) noexcept(std::is_nothrow_constructible<Type,Args&&...>::value):Base(std::forward<Args>(args)...)
