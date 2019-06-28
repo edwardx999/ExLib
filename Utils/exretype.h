@@ -94,7 +94,7 @@ namespace exlib {
 
 	template<typename Type,std::uint64_t Id=0>
 	class empty_store:public empty_store_impl::empty_store_base<Type> {
-		using Base=empty_store_impl::empty_store_base<Type;
+		using Base=empty_store_impl::empty_store_base<Type>;
 	public:
 		template<typename... Args>
 		constexpr empty_store(Args&&... args) noexcept(std::is_nothrow_constructible<Type,Args&&...>::value):Base(std::forward<Args>(args)...)
