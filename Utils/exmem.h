@@ -111,7 +111,12 @@ namespace exlib {
 		{
 			return *_base;
 		}
+		Allocator get_allocator() const
+		{
+			return *this;
+		}
 	};
+
 	namespace detail {
 
 		template<typename T>
@@ -134,74 +139,6 @@ namespace exlib {
 			char data[N];
 		};
 	}
-
-	template<typename Constructor>
-	struct constructor_traits {
-	public:
-		using value_type=Constructor::value_type;
-	private:
-		template<typename T,typename... Args>
-		static constexpr auto has_construct(int,Constructor& c,T* p,Args&&... args) -> decltype(c.construct(p,std::forward<Args>(args)...),true)
-		{
-			return true;
-		}
-		template<typename T,typename... Args>
-		static constexpr bool has_construct(char,Constructor& c,T* p,Args&&... args)
-		{
-			return false;
-		}
-
-		template<typename T>
-		static constexpr auto has_destroy(Constructor& c,T* p) -> decltype(c.destroy(*p),true)
-		{
-			return true;
-		}
-		template<typename T,typename... Extra>
-		static constexpr bool has_destroy(Constructor& c,T* p,Extra... args)
-		{
-			return false;
-		}
-
-		template<typename T>
-		static constexpr auto has_destructor(int,T* p) -> decltype(p->~value_type(),true)
-		{
-			return true;
-		}
-		template<typename T>
-		static constexpr bool has_destructor(char,T* p)
-		{
-			return false;
-		}
-	public:
-		template<typename T,typename... Args>
-		static void construct(Constructor& c,T* p,Args&&... args) -> typename std::enable_if<has_construct(0,c,p,std::forward<Args>(args)...)>::type
-		{
-			c.construct(p,std::forward<Args>(args)...);
-		}
-		template<typename T,typename... Args>
-		static void construct(Constructor& c,T* p,Args&&... args) -> typename std::enable_if<!has_construct(0,c,p,std::forward<Args>(args)...)>::type
-		{
-			new (static_cast<void*>(p)) value_type(std::forward<Args>(args)...);
-		}
-		template<typename T>
-		static void destroy(Constructor& c,T* p) -> typename std::enable_if<has_destroy(c,p)>::type
-		{
-			c.destroy(p);
-		}
-		template<typename T>
-		static void destroy(Constructor& c,T* p) -> typename std::enable_if<!has_destroy(c,p)&&has_destructor(0,p)>::type
-		{
-			p->~value_type();
-		}
-		template<typename T>
-		static void destroy(Constructor& c,T* p) -> typename std::enable_if<!has_destroy(c,p)&&!has_destructor(0,p)>::type
-		{}
-	};
-
-	template<typename... Constructors>
-	struct constructors:std::tuple<Constructors...> {
-		using types=std::tuple<Constructors...>;
-	};
 
 	template<typename... Types>
 	struct types:std::tuple<Types...> {
@@ -236,13 +173,11 @@ namespace exlib {
 		Fix constructors to use constructors
 	*/
 	namespace detail {
-		template<typename Types,typename Allocator,typename Constructors>
+		template<typename Types,typename Allocator>
 		class mvector;
 
-		template<typename... Types,typename Allocator,typename... Constructors>
-		class mvector<types<Types...>,Allocator,constructors<Constructors...>>
-			:protected std::allocator_traits<Allocator>::rebind_alloc<mvector_to_alloc<tuple_size_sum<Types...>::value>>,
-			protected constructors<Constructors...> {
+		template<typename... Types,typename Allocator>
+		class mvector<types<Types...>,Allocator> {
 		protected:
 			using TypeTuple=std::tuple<Types...>;
 		public:
@@ -265,7 +200,6 @@ namespace exlib {
 			using AllocBase=std::allocator_traits<Allocator>::rebind_alloc<mvector_to_alloc<tuple_size_sum<Types...>::value>>;
 			using AllocTraits=std::allocator_traits<AllocBase>;
 
-			using ConstructorsTuple=constructors<Constructors...>::types;
 			template<size_t I>
 			using get_construct_t=typename std::tuple_element<ConstructorsTuple>::type;
 			template<size_t I>
@@ -409,28 +343,20 @@ namespace exlib {
 			using size_type=size_t;
 			using difference_type=std::ptrdiff_t;
 
-		protected:
-			using _DataM=allocator_ptr<void,_Alloc>;
 		public:
 			using allocator_type=AllocBase;
 		protected:
-			void* do_alloc(size_t amount)
-			{
-				return AllocTraits::allocate(*this,amount);
-			}
-			void do_dealloc(void* what)
-			{
-				AllocTraits::deallocate(static_cast<_AllocType*>(what),_cap);
-			}
-			template<size_t I,Args... args>
+			using _DataM=allocator_ptr<void,allocator_type>;
+
+			template<size_t I,typename... Args>
 			void do_construct(get_t<I>* location,Args&&... args)
 			{
-				get_construct_traits_t<I>::construct(location,std::forward<Args>(args)...);
+				AllocTraits::construct(_data.get_allocator(),location,std::forward<Args>(args)...);
 			}
-			template<size_t I,Args... args>
+			template<size_t I>
 			void do_destroy(get_t<I>* location)
 			{
-				get_construct_traits_t<I>::destroy(location);
+				AllocTraits::destroy(_data.get_allocator(),location);
 			}
 
 			_DataM _data;
@@ -612,17 +538,6 @@ namespace exlib {
 				{
 					do_construct<I>(nb+i,std::move(old[i]));
 				}
-				/*if IFCONSTEXPR(!std::is_trivially_move_assignable<type>::value)
-				{
-					for(size_t i=0;i<size();++i)
-					{
-						nb[i]=std::move(old[i]);
-					}
-				}
-				else
-				{
-					std::memcpy(nb,old,size()*sizeof(type));
-				}*/
 			}
 
 			void move_ranges(void* new_buffer,size_t new_cap,std::index_sequence<>)
@@ -643,7 +558,8 @@ namespace exlib {
 				type const* osrc=reinterpret_cast<type const*>(src+offset*src_offset);
 				for(size_t i=0;i<_size;++i)
 				{
-					try{
+					try
+					{
 						do_construct<I>(odst+i,type(osrc[i]));
 					}
 					catch(...)
@@ -692,18 +608,18 @@ namespace exlib {
 			{}
 		private:
 			template<typename Ret,typename MV,size_t... Is>
-			friend Ret subscript_impl(size_t s,MV ref,std::index_sequence<Is...>)
+			friend Ret subscript_impl(size_t s,MV&& ref,std::index_sequence<Is...>)
 			{
 				return {static_cast<get_t<I>*>(ref.data()+ref.type_offset<I>())[s]...};
 			}
 		public:
 			reference operator[](size_t s)
 			{
-				return subscript_impl<reference,multi_vector&>(s,*this,idx_seq<type_count>{});
+				return subscript_impl<reference>(s,*this,idx_seq<type_count>{});
 			}
 			const_reference operator[](size_t s) const
 			{
-				return subscript_impl<const_reference,multi_vector const&>(s,*this,idx_seq<type_count>{});
+				return subscript_impl<const_reference>(s,*this,idx_seq<type_count>{});
 			}
 		private:
 			static constexpr size_t fix_alignment(size_t s)
@@ -966,11 +882,11 @@ namespace exlib {
 				copy_range(other.data(),other.capacity(),idx_seq{});
 				return *this;
 			}
-			~mvector()
+			~mvector() noexcept
 			{
 				eraser<0,type_count>::erase(0,0,size(),data(),capacity());
 			}
-			mvector& operator=(mvector&& other)
+			mvector& operator=(mvector&& other) noexcept
 			{
 				eraser<0,type_count>::erase(0,0,_size,data(),capacity());
 				_data=std::move(other._data);
