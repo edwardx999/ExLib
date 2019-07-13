@@ -3,9 +3,9 @@
 #define EXBOUNDVIEW_H
 #include <iterator>
 #ifdef _MSVC_LANG
-#define _EXBOUNDVIEW_HAS_CPP_17 _MSVC_LANG>=201700L
+#define _EXBOUNDVIEW_HAS_CPP_17 (_MSVC_LANG>=201700L)
 #else
-#define _EXBOUNDVIEW_HAS_CPP_17 _cplusplus>=201700L
+#define _EXBOUNDVIEW_HAS_CPP_17 (_cplusplus>=201700L)
 #endif
 namespace exlib {
 
