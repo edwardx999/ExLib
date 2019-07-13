@@ -19,6 +19,16 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #endif
 #include <stdio.h>
 #include <regex>
+#include <string>
+#ifdef _MSVC_LANG
+#define _EXFILES_HAS_CPP_20 (_MSVC_LANG>=202000L)
+#define _EXFILES_HAS_CPP_17 (_MSVC_LANG>=201700L)
+#define _EXFILES_HAS_CPP_14 (_MSVC_LANG>=201400L)
+#else
+#define _EXFILES_HAS_CPP_20 (__cplusplus>=202000L)
+#define _EXFILES_HAS_CPP_17 (__cplusplus>=201700L)
+#define _EXFILES_HAS_CPP_14 (__cplusplus>=201400L)
+#endif
 namespace exlib {
 
 #ifdef _WINDOWS
@@ -145,7 +155,7 @@ namespace exlib {
 			}
 		}
 		template<typename Iter>
-		constexpr size_t remove_multislashes(Iter input) noexcept
+		constexpr std::size_t remove_multislashes(Iter input) noexcept
 		{
 			auto sb=find_multi_slash_block(input);
 			if(sb.second==sb.first)
@@ -174,10 +184,10 @@ namespace exlib {
 	/*
 		Returns any consecutive slahes from the null-terminated input, and returns the new size of the input string.
 	*/
-	template<typename Iter>
-	constexpr size_t remove_multislashes(Iter input) noexcept
+	template<typename CharType>
+	constexpr std::size_t remove_multislashes(CharType* input) noexcept
 	{
-		return detail::remove_multislashes(std::addressof(*input));
+		return detail::remove_multislashes(input);
 	}
 
 	/*
@@ -186,23 +196,27 @@ namespace exlib {
 	template<typename Iter>
 	Iter find_extension(Iter begin,Iter end) noexcept
 	{
-		--begin;
-		auto it=end-1;
+		if(begin==end)
+		{
+			return end;
+		}
+		auto const real_end=end--;
 		while(1)
 		{
-			if(it==begin)
+			if(end==begin)
 			{
+				return real_end;
+			}
+			if(*end=='.')
+			{
+				++end;
 				return end;
 			}
-			if(*it=='.')
+			if(*end=='\\'||*end=='/')
 			{
-				return it+1;
+				return real_end;
 			}
-			if(*it=='\\'||*it=='/')
-			{
-				return end;
-			}
-			--it;
+			--end;
 		}
 	}
 
@@ -267,13 +281,19 @@ namespace exlib {
 	template<typename Iter>
 	Iter find_extension(Iter begin) noexcept
 	{
-		return detail::find_beyond_last(begin,[](auto c) { return c=='.'; });
+		return detail::find_beyond_last(begin,[](auto c)
+			{
+				return c=='.';
+			});
 	}
 
 	template<typename Iter>
 	Iter find_filename(Iter begin) noexcept
 	{
-		return detail::find_beyond_last(begin,[](auto c) { return is_slash(c); });
+		return detail::find_beyond_last(begin,[](auto c)
+			{
+				return is_slash(c);
+			});
 	}
 
 
@@ -294,5 +314,130 @@ namespace exlib {
 			}
 		}
 	}
+
+#if _EXFILES_HAS_CPP_17
+	namespace get_string_detail {
+		template<typename String>
+		struct get_string_help_base {
+			template<typename Path>
+			static auto get(Path const& path) noexcept->decltype(std::enable_if_t<std::is_same_v<typename Path::string_type,String>>(),std::declval<String const&>())
+			{
+				return path.native();
+			}
+		};
+
+		template<typename String>
+		struct get_string_help;
+
+		template<>
+		struct get_string_help<std::string>:get_string_help_base<std::string> {
+			using get_string_help_base<std::string>::get;
+			template<typename Path,typename... Extra>
+			static auto get(Path const& path,Extra...)
+			{
+				return path.string();
+			}
+		};
+
+		template<>
+		struct get_string_help<std::wstring>:get_string_help_base<std::wstring> {
+			using get_string_help_base<std::wstring>::get;
+			template<typename Path,typename... Extra>
+			static auto get(Path const& path,Extra...)
+			{
+				return path.wstring();
+			}
+		};
+
+		template<>
+		struct get_string_help<std::u16string>:get_string_help_base<std::u16string> {
+			using get_string_help_base<std::u16string>::get;
+			template<typename Path,typename... Extra>
+			static auto get(Path const& path,Extra...)
+			{
+				return path.u16string();
+			}
+		};
+
+		template<>
+		struct get_string_help<std::u32string>:get_string_help_base<std::u32string> {
+			using get_string_help_base<std::u32string>::get;
+			template<typename Path,typename... Extra>
+			static auto get(Path const& path,Extra...)
+			{
+				return path.u32string();
+			}
+		};
+
+#if _EXFILES_HAS_CPP_20
+		template<>
+		struct get_string_help<std::u8string>:get_string_help_base<std::u8string> {
+			using get_string_help_base<std::u8string>::get;
+			template<typename Path,typename... Extra>
+			static auto get(Path const& path,Extra...)
+			{
+				return path.u8string();
+			}
+		};
+#endif
+
+		template<typename String>
+		struct get_gen_help;
+
+		template<>
+		struct get_gen_help<std::string> {
+			template<typename Path>
+			static auto get(Path const& path)
+			{
+				return path.generic_string();
+			}
+		};
+		template<>
+		struct get_gen_help<std::wstring> {
+			template<typename Path>
+			static auto get(Path const& path)
+			{
+				return path.generic_wstring();
+			}
+		};
+		template<>
+		struct get_gen_help<std::u16string> {
+			template<typename Path>
+			static auto get(Path const& path)
+			{
+				return path.generic_u16string();
+			}
+		};
+		template<>
+		struct get_gen_help<std::u32string> {
+			template<typename Path>
+			static auto get(Path const& path)
+			{
+				return path.generic_u32string();
+			}
+		};
+#if _EXFILES_HAS_CPP_20
+		template<>
+		struct get_gen_help<std::u8string> {
+			template<typename Path>
+			static auto get(Path const& path)
+			{
+				return path.generic_u8string();
+			}
+		};
+#endif
+	}
+	template<typename StringType=std::string,typename Path>
+	decltype(auto) get_path_string(Path const& path) noexcept(std::is_same_v<typename Path::string_type,StringType>)
+	{
+		return get_string_detail::get_string_help<StringType>::get(path);
+	}
+
+	template<typename StringType=std::string,typename Path>
+	StringType get_generic_path_string(Path const& path)
+	{
+		return get_string_detail::get_gen_help<StringType>::get(path);
+	}
+#endif
 }
 #endif
