@@ -165,7 +165,7 @@ namespace exlib {
 			{
 				y*=x;
 				x*=x;
-				(n-	=1)/=2;
+				(n-=1)/=2;
 			}
 			else
 			{
@@ -774,7 +774,7 @@ namespace exlib {
 	public:
 		LimitedSet(size_t s):_max_size(s)
 		{
-			_data.reserve(s);
+			this->reserve(s);
 		}
 		LimitedSet():LimitedSet(0)
 		{}
