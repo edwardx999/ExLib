@@ -31,27 +31,107 @@ namespace exlib {
 			return fp(std::forward<decltype(args)>(args)...);
 		};
 	}
+}
+namespace exlib_swap_detail {
 
-	namespace detail {
-		template<typename A>
-		constexpr auto swap(A& a,A& b) -> decltype(a.swap(b),void())
-		{
-			a.swap(b);
-		}
-
-		template<typename A,typename... R>
-		constexpr void swap(A& a,A& b,R...)
-		{	
-			auto temp=std::move(a);
-			a=std::move(b);
-			b=std::move(temp);
-		}
+	template<typename A,typename B,typename... Extra>
+	constexpr auto fallback_swap(A& a,B& b,Extra...) ->
+		typename std::enable_if<
+			std::is_move_constructible<B>::value&&
+			std::is_assignable<A&,B&&>::value&&
+			std::is_assignable<B&,A&&>::value>::type
+	{
+		B temp{std::move(b)};
+		b=std::move(a);
+		a=std::move(temp);
 	}
 
-	template<typename A>
-	constexpr void swap(A& a,A& b)
+	template<typename A,typename B>
+	constexpr auto fallback_swap(A& a,B& b) ->
+		typename std::enable_if<
+			std::is_move_constructible<A>::value&&
+			std::is_assignable<A&,B&&>::value&&
+			std::is_assignable<B&,A&&>::value>::type
 	{
-		detail::swap(a,b);
+		A temp{std::move(a)};
+		a=std::move(b);
+		b=std::move(temp);
+	}
+
+	template<typename A,typename B,typename... Extra>
+	constexpr auto adl_swap2(A& a,B& b,Extra...) -> decltype(exlib_swap_detail::fallback_swap(a,b))
+	{
+		exlib_swap_detail::fallback_swap(a,b);
+	}
+
+	template<typename A,typename B>
+	constexpr auto adl_swap2(A& a,B& b) -> decltype(swap(b,a),void())
+	{
+		swap(b,a);
+	}
+
+	template<typename A,typename B,typename... Extra>
+	constexpr auto adl_swap1(A& a,B& b,Extra...) -> decltype(exlib_swap_detail::adl_swap2(a,b))
+	{
+		exlib_swap_detail::adl_swap2(a,b);
+	}
+
+	template<typename A,typename B>
+	constexpr auto adl_swap1(A& a,B& b) -> decltype(swap(a,b),void())
+	{
+		swap(a,b);
+	}
+
+	template<typename A,typename B,typename... Extra>
+	constexpr auto member_swap2(A& a,B& b,Extra...) -> decltype(exlib_swap_detail::adl_swap1(a,b))
+	{
+		exlib_swap_detail::adl_swap1(a,b);
+	}
+
+	template<typename A,typename B>
+	constexpr auto member_swap2(A& a,B& b) -> decltype(b.swap(a),void())
+	{
+		b.swap(a);
+	}
+
+	template<typename A,typename B,typename... Extra>
+	constexpr auto member_swap1(A& a,B& b,Extra...) -> decltype(exlib_swap_detail::member_swap2(a,b))
+	{
+		exlib_swap_detail::member_swap2(a,b);
+	}
+
+	template<typename A,typename B>
+	constexpr auto member_swap1(A& a,B& b) -> decltype(a.swap(b),void())
+	{
+		a.swap(b);
+	}
+}
+namespace exlib {
+
+	/*
+		Swaps by using the swaps (in priority order), SFINAE-friendly
+			member swaps
+				a.swap(b)
+				b.swap(a)
+			adl swaps
+				swap(a,b)
+				swap(b,a)
+			fallback swaps
+				swap using temp of type A
+				swap using temp of type B
+	*/
+	template<typename A,typename B>
+	constexpr auto adl_swap(A& a,B& b) noexcept -> decltype(exlib_swap_detail::member_swap1(a,b))
+	{
+		exlib_swap_detail::member_swap1(a,b);
+	}
+
+	template<typename A,typename B>
+	constexpr void simple_swap(A& a,B& b) noexcept
+	{
+		auto temp=std::move(a);
+		b=std::move(a);
+		a=std::move(b);
 	}
 
 	template<typename T=void>
@@ -130,7 +210,7 @@ namespace exlib {
 		qsort(begin,end,less<T>());
 	}
 
-		/*
+	/*
 		heapsort
 		sorts between [begin,end) heapsort using c as a less-than comparison function
 		@param begin random access iter pointing to beginning of range to sort
@@ -219,7 +299,7 @@ namespace exlib {
 
 	//inserts the element AT elem into the range [begin,elem] according to comp assuming the range is sorted
 	template<typename TwoWayIter,typename Comp>
-	constexpr void insert_back(TwoWayIter const begin,TwoWayIter elem,Comp comp)
+	constexpr TwoWayIter insert_back(TwoWayIter const begin,TwoWayIter elem,Comp comp)
 	{
 		auto j=elem;
 		while(j!=begin)
@@ -310,7 +390,7 @@ namespace exlib {
 			return concat(a,b,std::make_index_sequence<Nf>(),std::make_index_sequence<Mf>());
 		}
 		template<typename A,typename B,typename... C>
-		constexpr auto str_concat(A const& a,B const& b,C const&... c)
+		constexpr auto str_concat(A const& a,B const& b,C const& ... c)
 		{
 			return str_concat(str_concat(a,b),c...);
 		}
@@ -327,14 +407,14 @@ namespace exlib {
 
 	//concatenate arrays (std::array<T,N> or T[N]) and returns an std::array<T,CombinedLen> of the arrays
 	template<typename A,typename B,typename... C>
-	constexpr auto concat(A const& a,B const& b,C const&... c)
+	constexpr auto concat(A const& a,B const& b,C const& ... c)
 	{
 		return concat(concat(a,b),c...);
 	}
 
 	//concatenate str arrays (std::array<T,N> or T[N]) and returns an std::array<T,CombinedLen> of the arrays
 	template<typename A,typename B,typename... C>
-	constexpr auto str_concat(A const& a,B const& b,C const&... c)
+	constexpr auto str_concat(A const& a,B const& b,C const& ... c)
 	{
 		return concat(detail::str_concat(a,b,c...),"");
 	}
@@ -391,6 +471,50 @@ namespace exlib {
 			return 1;
 		}
 	};
+
+	/*
+		Reverses given range.
+	*/
+	template<typename TwoWayIter>
+	constexpr void reverse(TwoWayIter begin,TwoWayIter end)
+	{
+		while((begin!=end)&&(begin!=--end))
+		{
+			exlib::swap(*begin,*end);
+			++begin;
+		}
+	}
+
+	/*
+		Rotates range such that what was once at middle will be at begin.
+	*/
+	template<typename TwoWayIter>
+	constexpr void rotate(TwoWayIter begin,TwoWayIter middle,TwoWayIter end)
+	{
+		exlib::reverse(begin,middle);
+		exlib::reverse(middle,end);
+		exlib::reverse(begin,end);
+	}
+
+	/*
+		Rotates range such that what was once at middle will be at begin.
+	*/
+	template<typename TwoWayIter>
+	constexpr void rotate_left(TwoWayIter begin,TwoWayIter middle,TwoWayIter end)
+	{
+		exlib::rotate(begin,middle,end);
+	}
+
+	/*
+		Rotates range such that what was once at begin will be at middle.
+	*/
+	template<typename TwoWayIter>
+	constexpr void rotate_right(TwoWayIter begin,TwoWayIter middle,TwoWayIter end)
+	{
+		exlib::reverse(begin,end);
+		exlib::reverse(begin,middle);
+		exlib::reverse(middle,end);
+	}
 
 	//returns the iterator it for which c(target,*it)==0
 	//if this is not found, end is returned
@@ -583,7 +707,7 @@ namespace exlib {
 		using Data::data;
 
 		template<typename... Args>
-		constexpr ct_map(Args&&... rest):Data{{std::forward<Args>(rest)...}}
+		constexpr ct_map(Args&& ... rest):Data{{std::forward<Args>(rest)...}}
 		{
 			static_assert(sizeof...(Args)==entries,"Wrong number of entries");
 			qsort(begin(),end(),lt_comp<key_compare>());
@@ -610,14 +734,14 @@ namespace exlib {
 
 	//inputs should be of type map_pair<Key,Value>
 	template<typename Comp,typename First,typename... Rest>
-	constexpr auto make_ct_map(First&& f,Rest&&... r)
+	constexpr auto make_ct_map(First&& f,Rest&& ... r)
 	{
 		return ct_map<First::key_type,First::mapped_type,1+sizeof...(r),Comp>(std::forward<First>(f),std::forward<Rest>(r)...);
 	}
 
 	//inputs should be of type map_pair<Key,Value>
 	template<typename First,typename... T>
-	constexpr auto make_ct_map(First&& k,T&&... rest)
+	constexpr auto make_ct_map(First&& k,T&& ... rest)
 	{
 		return make_ct_map<compare<First::key_type>>(std::forward<First>(k),std::forward<T>(rest)...);
 	}
@@ -647,7 +771,7 @@ namespace exlib {
 	}
 
 	template<typename Type=void,typename... Args>
-	constexpr std::array<typename detail::ma_ret<Type,Args...>::type,sizeof...(Args)> make_array(Args&&... args)
+	constexpr std::array<typename detail::ma_ret<Type,Args...>::type,sizeof...(Args)> make_array(Args&& ... args)
 	{
 		return
 		{{
@@ -692,13 +816,13 @@ namespace exlib {
 	namespace detail {
 
 		template<typename Ret,size_t I,typename Funcs,typename...Args>
-		constexpr Ret apply_single(Funcs&& funcs,Args&&... args)
+		constexpr Ret apply_single(Funcs&& funcs,Args&& ... args)
 		{
 			return static_cast<Ret>(std::get<I>(std::forward<Funcs>(funcs))(std::forward<Args>(args)...));
 		}
 
 		template<typename Ret,size_t... Is,typename Funcs,typename... Args>
-		constexpr Ret apply_ind_jump_h(size_t i,std::index_sequence<Is...>,Funcs&& funcs,Args&&... args)
+		constexpr Ret apply_ind_jump_h(size_t i,std::index_sequence<Is...>,Funcs&& funcs,Args&& ... args)
 		{
 			using Func=Ret(Funcs&&,Args&&...);
 			static constexpr Func* jtable[]={&apply_single<Ret,Is,Funcs,Args...>...};
@@ -706,13 +830,13 @@ namespace exlib {
 		}
 
 		template<typename Ret,size_t N,typename Funcs,typename... Args>
-		constexpr Ret apply_ind_jump(size_t i,Funcs&& funcs,Args&&... args)
+		constexpr Ret apply_ind_jump(size_t i,Funcs&& funcs,Args&& ... args)
 		{
 			return apply_ind_jump_h<Ret>(i,std::make_index_sequence<N>(),std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 		}
 
 		template<typename Ret,size_t I,size_t Max,typename Tuple,typename... Args>
-		constexpr Ret apply_ind_linear_h(size_t i,Tuple&& funcs,Args&&... args)
+		constexpr Ret apply_ind_linear_h(size_t i,Tuple&& funcs,Args&& ... args)
 		{
 			if constexpr(I<Max)
 			{
@@ -729,13 +853,13 @@ namespace exlib {
 		}
 
 		template<typename Ret,size_t NumFuncs,typename Tuple,typename... Args>
-		constexpr Ret apply_ind_linear(size_t i,Tuple&& funcs,Args&&... args)
+		constexpr Ret apply_ind_linear(size_t i,Tuple&& funcs,Args&& ... args)
 		{
 			return apply_ind_linear_h<Ret,0,NumFuncs>(i,std::forward<Tuple>(funcs),std::forward<Args>(args)...);
 		}
 
 		template<typename Ret,size_t Lower,size_t Upper,typename Funcs,typename... Args>
-		constexpr Ret apply_ind_bh(size_t i,Funcs&& funcs,Args&&... args)
+		constexpr Ret apply_ind_bh(size_t i,Funcs&& funcs,Args&& ... args)
 		{
 			if constexpr(Lower<Upper)
 			{
@@ -760,7 +884,7 @@ namespace exlib {
 		}
 
 		template<typename Ret,size_t NumFuncs,typename Funcs,typename... Args>
-		constexpr Ret apply_ind_bsearch(size_t i,Funcs&& funcs,Args&&... args)
+		constexpr Ret apply_ind_bsearch(size_t i,Funcs&& funcs,Args&& ... args)
 		{
 			return apply_ind_bh<Ret,0,NumFuncs>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 		}
@@ -770,7 +894,7 @@ namespace exlib {
 	//Assumes i is less than NumFuncs, otherwise behavior is undefined.
 	//Other overloads automatically determine Ret and NumFuncs if they are not supplied.
 	template<typename Ret,size_t NumFuncs,typename Funcs,typename... Args>
-	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&&... args)
+	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&& ... args)
 	{
 		//MSVC currently can't inline the function pointers used by jump so I have a somewhat arbitrary
 		//heuristic for choosing which apply to use
@@ -785,13 +909,13 @@ namespace exlib {
 	}
 
 	template<size_t NumFuncs,typename Ret,typename Funcs,typename... Args>
-	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&&... args)
+	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&& ... args)
 	{
 		return apply_ind<Ret,NumFuncs>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 	}
 
 	template<size_t NumFuncs,typename Funcs,typename... Args>
-	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&&... args)
+	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&& ... args)
 	{
 		if constexpr(NumFuncs==0)
 		{
@@ -805,14 +929,14 @@ namespace exlib {
 	}
 
 	template<typename Ret,typename Funcs,typename... Args>
-	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&&... args)
+	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&& ... args)
 	{
 		constexpr size_t N=get_max<std::remove_cv_t<std::remove_reference_t<Funcs>>>::value;
 		return apply_ind<Ret,N>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
 	}
 
 	template<typename Funcs,typename... Args>
-	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&&... args)
+	constexpr decltype(auto) apply_ind(size_t i,Funcs&& funcs,Args&& ... args)
 	{
 		constexpr size_t N=get_max<std::remove_cv_t<std::remove_reference_t<Funcs>>>::value;
 		return apply_ind<N>(i,std::forward<Funcs>(funcs),std::forward<Args>(args)...);
