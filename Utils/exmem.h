@@ -35,86 +35,168 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #define IFCONSTEXPR
 #endif
 #include "exiterator.h"
+#include "exretype.h"
 namespace exlib {
-
 	//A smart ptr that uses the given allocator to allocate and delete
 	//memory is uninitilized, and you are responsible for destroy any constructed objects
-	template<typename T,typename Allocator>
-	class allocator_ptr:private Allocator {
+	template<typename T,typename Allocator,bool noexcept_move=true>
+	class allocator_ptr:private empty_store<Allocator> {
 	private:
+		using Base=empty_store<Allocator>;
 		using Traits=std::allocator_traits<Allocator>;
 	public:
-		using pointer=Traits::pointer;
-		using element_type=Traits::value_type;
+		using pointer=typename Traits::pointer;
+		using element_type=typename Traits::value_type;
 		using allocator_type=Allocator;
-		using reference=Traits::reference;
+		using reference=typename Traits::reference;
 	private:
 		pointer _base;
-		size_t _capacity;
+		std::size_t _capacity;
 	public:
 		void release()
 		{
 			_base=nullptr;
 		}
-		void reset()
+		void reset() noexcept(noexcept_move)
 		{
-			Traits::deallocate(_base,_capacity);
+			Traits::deallocate(this->get(),_base,_capacity);
 			_base=nullptr;
 		}
-		void reset(pointer p,size_t capacity)
+		void reset(pointer p,std::size_t capacity) noexcept(noexcept_move)
 		{
-			Traits::deallocate(_base,_capacity);
+			Traits::deallocate(this->get(),_base,_capacity);
 			_base=p;
 			_capacity=capacity;
 		}
-		allocator_ptr(size_t n,Allocator const& alloc=Allocator()):Allocator(alloc),_base(Allocator::allocate(n)),_capacity(n)
+		allocator_ptr(std::size_t n,Allocator const& alloc=Allocator()):Base(alloc),_base(Allocator::allocate(n)),_capacity(n)
 		{}
-		allocator_ptr(Allocator const& alloc=Allocator()):Allocator(alloc),_base(nullptr),_capacity(0)
+		allocator_ptr(Allocator const& alloc=Allocator()) noexcept(std::is_nothrow_constructible<Allocator>::value):Base(alloc),_base(nullptr),_capacity(0)
 		{}
-		allocator_ptr(allocator_ptr&& o):Allocator(std::move(o)),_base(o._base),_capacity(o._capacity)
+		allocator_ptr(allocator_ptr&& o) noexcept(noexcept_move):Base(std::move(o)),_base(o._base),_capacity(o._capacity)
 		{
 			o.release();
 		}
-		size_t capacity() const
+		std::size_t capacity() const noexcept
 		{
 			return _capacity;
 		}
-		pointer get() const
+		pointer get() const noexcept
 		{
 			return _base;
 		}
-		void swap(allocator_ptr& o)
+		void swap(allocator_ptr& o) noexcept(noexcept_move)
 		{
 			using std::swap;
 			swap(_base,o._base);
 			swap(_capacity,o._capacity);
 		}
-		friend void swap(allocator_ptr& a,allocator_ptr& b)
+		friend void swap(allocator_ptr& a,allocator_ptr& b) noexcept(noexcept_move)
 		{
 			a.swap(b);
 		}
-		allocator& operator=(allocator_ptr&& o)
+		allocator& operator=(allocator_ptr&& o) noexcept(noexcept_move)
 		{
 			reset(o._base,o._capacity);
 			o.release();
 			return *this;
 		}
-		~allocator_ptr()
+		~allocator_ptr() noexcept(noexcept_move)
 		{
-			Traits::deallocate(_base,_capacity);
+			Traits::deallocate(this->get(),_base,_capacity);
 		}
-		reference operator[](size_t s) const
+		reference operator[](size_t s) const noexcept
 		{
 			return _base[s];
 		}
-		reference operator*() const
+		reference operator*() const noexcept
 		{
 			return *_base;
 		}
-		Allocator get_allocator() const
+	};
+
+	/*
+		A reference to an uninitialized object.
+		Is converted to a standard reference when assigned to.
+	*/
+	template<typename T>
+	class uninitialized_reference {
+		T* _base;
+	public:
+		using type=T;
+		uninitialized_reference(T& base):_base(std::addressof(base)) {}
+		T& operator=(T const& t) noexcept(noexcept(T(t)))
 		{
-			return *this;
+			new (_base)(t);
+			return *_base;
 		}
+		T& operator=(T&& t) noexcept(noexcept(T(std::move(t))))
+		{
+			new (_base)(std::move(t));
+			return *_base;
+		}
+		template<typename... Args>
+		T& emplace(Args&&... args)
+		{
+			new (_base)(std::forward<Args>(args)...);
+			return *_base;
+		}
+		explicit operator T&() const noexcept
+		{
+			return *_base;
+		}
+		uninitialized_reference& operator=(uninitialized_reference const&) noexcept=default;
+		uninitialized_reference& operator=(uninitialized_reference&&) noexcept=default;
+		void swap(uninitialized_reference& other)
+		{
+			std::swap(_base,other._base);
+		}
+		friend void swap(uninitialized_reference& a,uninitialized_reference& b)
+		{
+			a.swap(b);
+		}
+	};
+
+	template<typename T>
+	class uninitialized_iterator:public iterator_base<T,uninitialized_iterator<T>> {
+	public:
+		using value_type=T;
+		using pointer=T*;
+		using reference=uninitialized_reference<T>;
+		using iterator_base<T,uninitialized_iterator<T>>::iterator_base;
+		constexpr uninitialized_reference<T> operator*() const
+		{
+			return *base();
+		}
+	private:
+		constexpr T* operator->() const
+		{
+			return base();
+		}
+	public:
+		constexpr uninitialized_reference<T> operator[](size_t s) const
+		{
+			return base()[s];
+		}
+	};
+
+	template<typename T,typename Base=std::allocator<T>>
+	class default_init_allocator:public Base {
+	public:
+		using Base::Base;
+		void construct(T* place)
+		{
+			new (place) T;
+		}
+		using Base::construct;
+	};
+
+	template<typename T,typename Base=std::allocator<T>>
+	class no_init_allocator:public Base {
+	public:
+		using Base::Base;
+		template<typename... Args>
+		void construct(T* place,Args&&... args)
+		{}
 	};
 
 	namespace detail {
@@ -134,7 +216,7 @@ namespace exlib {
 		template<typename First,typename... Rest>
 		struct tuple_size_sum<std::tuple<First,Rest...>>:std::integral_constant<size_t,sizeof(First)+tuple_size_sum<Rest...>::value> {};
 #endif
-		template<size_t N>
+		template<std::size_t N>
 		class mvector_to_alloc {
 			char data[N];
 		};
@@ -903,10 +985,10 @@ namespace exlib {
 	template<typename Type1,typename... Types>
 	using multi_vector=detail::mvector<std::tuple<Type1,Types...>,std::allocator<std::tuple<std::allocator<Type1,Types...>>;
 
-	template<typename T,size_t size>
+	template<typename T,std::size_t size>
 	class stack_buffer {
 	private:
-		size_t num;
+		std::size_t num;
 		char data_buffer[size*sizeof(T)];
 	public:
 		typedef T& reference;
@@ -920,7 +1002,7 @@ namespace exlib {
 		{
 			if(!std::is_trivially_destructible<T>::value)
 			{
-				for(size_t i=0;i<num;++i)
+				for(std::size_t i=0;i<num;++i)
 				{
 					reinterpret_cast<T*>(data_buffer)[i].~T();
 				}
@@ -971,11 +1053,11 @@ namespace exlib {
 		{
 			(reinterpret_cast<T*>(data_buffer))[num++]=val;
 		}
-		size_t size() const noexcept
+		std::size_t size() const noexcept
 		{
 			return num;
 		}
-		size_t max_size() const noexcept
+		std::size_t max_size() const noexcept
 		{
 			return size;
 		}
@@ -1003,8 +1085,8 @@ namespace exlib {
 	class stack_vector {
 	private:
 		char* _data;
-		size_t _size;
-		size_t _capacity;
+		std::size_t _size;
+		std::size_t _capacity;
 	public:
 		typedef T& reference;
 		typedef T const& const_reference;
@@ -1053,11 +1135,11 @@ namespace exlib {
 		{
 			return _size==0;
 		}
-		size_t size() const
+		std::size_t size() const
 		{
 			return _size;
 		}
-		size_t max_size() const
+		std::size_t max_size() const
 		{
 			return ~0;
 		}
@@ -1069,7 +1151,7 @@ namespace exlib {
 			}
 			_capacity=s;
 		}
-		size_t capacity() const
+		std::size_t capacity() const
 		{
 			return _capacity;
 		}

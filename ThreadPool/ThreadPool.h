@@ -65,9 +65,11 @@ namespace exlib {
 		};
 	}
 
-	struct delay_activation_t {
-	};
+	struct delay_activation_t {};
 
+	/*
+		Thread pool for parallelizing a known/sequential set of jobs. Not intended for use as an event loop.
+	*/
 	template<typename... Args>
 	class ThreadPoolA {
 	public:
@@ -84,29 +86,44 @@ namespace exlib {
 		{
 			while(_running)
 			{
-				while(_workers[id].working)
+				if(_workers[id].working) //unlikely to be waiting long and threads can be made to wait below, so this is easiest way
 				{
-					std::unique_ptr<Task> task;
+					++_working_threads;
+					while(true)
 					{
-						std::lock_guard<std::mutex> guard(_locker);
-						if(!_tasks.empty())
+						std::unique_ptr<Task> task;
 						{
-							task=std::move(_tasks.front());
-							_tasks.pop();
+							std::lock_guard<std::mutex> guard(_locker); //can make threads wait here
+							if(!_tasks.empty())
+							{
+								task=std::move(_tasks.front());
+								_tasks.pop();
+							}
 						}
-					}
-					if(task)
-					{
-						std::apply([&](auto&... args)
+						if(!_workers[id].working)
 						{
-							task->execute(args...);
-						},_args);
-					}
-					else
-					{
-						_workers[id].working=false;
-						--_working_threads;
-						_queue_done.notify_one();
+							if(--_working_threads==0)
+							{
+								_queue_done.notify_one();
+							}
+							break;
+						}
+						if(task)
+						{
+							std::apply([&](auto&... args)
+							{
+								task->execute(args...);
+							},_args);
+						}
+						else
+						{
+							_workers[id].working=false;
+							if(--_working_threads==0)
+							{
+								_queue_done.notify_one();
+							}
+							break;
+						}
 					}
 				}
 			}
@@ -181,6 +198,9 @@ namespace exlib {
 
 		template<typename T>
 		struct is_thread_task<T&&>:public is_thread_task<T> {};
+
+		template<typename T>
+		struct is_thread_task<T const&&>:public is_thread_task<T> {};
 	public:
 
 		/*
@@ -190,7 +210,7 @@ namespace exlib {
 		template<typename Function>
 		auto add_task(Function func) -> decltype(func(std::declval<Args>()...),std::enable_if<!is_thread_task<Function>::value>::type())
 		{
-			_tasks.push(std::make_unique<AutoTaskA<decltype(func),Args...>>(func));
+			_tasks.push(std::make_unique<AutoTaskA<decltype(func),Args...>>(std::move(func)));
 		}
 
 		/*
@@ -245,13 +265,24 @@ namespace exlib {
 			add_tasks_base(std::forward<Tasks>(tasks)...);
 		}
 		/*
-			Whether the thread pool is running
+			Whether the thread pool is running.
 		*/
 		bool is_running() const
 		{
 			return _running;
 		}
 
+		/*
+			Number of threads looking for jobs and working.
+		*/
+		size_t num_working_threads() const
+		{
+			return _working_threads;
+		}
+
+		/*
+			Set the arguments passed to each job. Only call if no threads are working.
+		*/
 		template<typename... T>
 		void set_args(T&&... args)
 		{
@@ -263,7 +294,6 @@ namespace exlib {
 		*/
 		void start()
 		{
-			_working_threads=_workers.size();
 			for(auto& w:_workers)
 			{
 				w.working=true;
@@ -272,7 +302,6 @@ namespace exlib {
 
 		/*
 			Causes threads to no longer look for jobs
-			wait cannot be safely called after invoking this; join can
 		*/
 		void give_up()
 		{
@@ -280,6 +309,15 @@ namespace exlib {
 			{
 				w.working=false;
 			}
+		}
+
+		/*
+			Causes threads to no longer look for jobs and ends threads.
+		*/
+		void terminate()
+		{
+			give_up();
+			join();
 		}
 
 		/*
@@ -296,15 +334,15 @@ namespace exlib {
 		/*
 			Waits for all tasks to be finished. Threads keep running, but you can add tasks without synchronization.
 	   */
-		inline void wait()
+		void wait()
 		{
-			std::unique_lock<std::mutex> lk(_locker);
-			_queue_done.wait(lk,[&wt=_working_threads]()
+			if(_working_threads!=0)
 			{
-				return wt==0;
-			});
+				std::unique_lock<std::mutex> lk(_locker);
+				_queue_done.wait(lk);
+			}
 		}
-		
+
 		/*
 			Waits for all tasks to be finished. Threads stop.
 		*/
@@ -323,7 +361,7 @@ namespace exlib {
 		/*
 		Destroys the thread pool after waiting for its threads
 		*/
-		inline ~ThreadPoolA()
+		~ThreadPoolA()
 		{
 			join();
 		}

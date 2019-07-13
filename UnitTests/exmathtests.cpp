@@ -9,7 +9,8 @@ using namespace std;
 namespace Microsoft {
 	namespace VisualStudio {
 		namespace CppUnitTestFramework {
-			static std::wstring ToString(const vector<unsigned int>& obj)
+			template<typename Container>
+			static auto MyToString(const Container& obj)
 			{
 				std::wstring ret;
 				for(auto val:obj)
@@ -18,6 +19,15 @@ namespace Microsoft {
 					ret.append(L" ");
 				}
 				return ret;
+			}
+
+			static std::wstring ToString(const vector<unsigned int>& obj)
+			{
+				return MyToString(obj);
+			}
+			static std::wstring ToString(const list<unsigned int>& obj)
+			{
+				return MyToString(obj);
 			}
 			static std::wstring ToString(uint64_t in)
 			{
@@ -46,6 +56,13 @@ namespace ExMathTests {
 			});
 			Assert::AreEqual(ex,res);
 		}
+		TEST_METHOD(fatten1b)
+		{
+			std::vector<unsigned int> in={1,3,2,5  ,2  ,123,3  ,4  ,5 ,18,15,13,12,0 ,5};
+			std::vector<unsigned int> ex={3,5,5,123,123,123,123,123,18,18,18,18,15,13,12};
+			auto res=exlib::fattened_profile(in,2,[](auto a,auto b){return a>b;});
+			Assert::AreEqual(ex,res);
+		}
 		TEST_METHOD(fatten1a)
 		{
 			std::vector<unsigned int> in={1,2,3,4,5,6,7,8,9,10,1,2,3,4,5,6,8,0,10,112};
@@ -71,6 +88,14 @@ namespace ExMathTests {
 			{
 				return a>b;
 			});
+			Assert::AreEqual(ex,res);
+		}
+		TEST_METHOD(list)
+		{
+			std::list<unsigned int> in={1,3,2,5  ,2  ,123,3  ,4  ,5 ,18,15,13,12,0 ,5};
+			std::list<unsigned int> ex={3,5,5,123,123,123,123,123,18,18,18,18,15,13,12};
+			std::list<unsigned int> res;
+			exlib::get_fatten(in.begin(),in.end(),2,std::inserter(res,res.end()),std::greater<unsigned int>());
 			Assert::AreEqual(ex,res);
 		}
 	};

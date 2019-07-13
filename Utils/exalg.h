@@ -16,20 +16,72 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <utility>
 #include <array>
 #include <functional>
-#if __cplusplus>201700L
+#include <stddef.h>
+#ifdef _MSVC_LANG
+#define EXALG_HAS_CPP_17 _MSVC_LANG>201700L
+#define EXALG_HAS_CPP_14 _MSVC_LANG>201400L
+#else
+#define EXALG_HAS_CPP_17 __cplusplus>201700L
+#define EXALG_HAS_CPP_14 __cplusplus>201400L
+#endif
+#if EXALG_HAS_CPP_17
 #include <variant>
 #endif
 #include <exception>
+#include <stddef.h>
+#include <tuple>
+
+
 namespace exlib {
 
-	//wraps a function pointer (or really anything callable) in a lambda
-	template<typename FuncPointer>
-	constexpr auto wrap(FuncPointer fp)
+	template<size_t I,typename T,size_t N>
+	constexpr T&& get(T(&&arr)[N])
 	{
-		return [=](auto&&... args)
+		return arr[I];
+	}
+	/*
+		Call the member function as if it is a global function.
+	*/
+	template<typename T,typename Ret,typename... Args>
+	constexpr Ret apply_mem_fn(T* obj,Ret(T::*mem_fn)(Args...),Args&&... args)
+	{
+		return (obj->*mem_fn)(std::forward<Args>(args)...);
+	}
+#if	EXALG_HAS_CPP_17
+	/*
+		Version that has the member function constexpr bound to it,
+		MemFn is a member function pointer of T
+	*/
+	template<auto MemFn,typename T,typename... Args>
+	constexpr auto apply_mem_fn(T* obj,Args&&... args) -> decltype((obj->*MemFn)(std::forward<Args>(args)...))
+	{
+		return (obj->*MemFn)(std::forward<Args>(args)...);
+	}
+#endif
+
+	namespace detail {
+		template<typename A> //try ADL swap
+		constexpr auto try_swap2(A& a,A& b) -> decltype(swap(a,b),void())
 		{
-			return fp(std::forward<decltype(args)>(args)...);
-		};
+			swap(a,b);
+		}
+		template<typename A,typename... Extra> //default to temp move
+		constexpr void try_swap2(A& a,A& b,Extra...)
+		{
+			auto temp(std::move(a));
+			a=std::move(b);
+			b=std::move(temp);
+		}
+		template<typename A> //try member swap
+		constexpr auto try_swap1(A& a,A& b) -> decltype(a.swap(b),void())
+		{
+			a.swap(b);
+		}
+		template<typename A,typename... Extra> //failed member swap, try second round
+		constexpr void try_swap1(A& a,A& b,Extra...)
+		{
+			try_swap2(a,b);
+		}
 	}
 }
 namespace exlib_swap_detail {
@@ -127,11 +179,9 @@ namespace exlib {
 	}
 
 	template<typename A,typename B>
-	constexpr void simple_swap(A& a,B& b) noexcept
+	constexpr auto simple_swap(A& a,B& b) noexcept -> decltype(exlib_swap_detail::fallback_swap(a,b))
 	{
-		auto temp=std::move(a);
-		b=std::move(a);
-		a=std::move(b);
+		exlib_swap_detail::fallback_swap(a,b);
 	}
 
 	template<typename T=void>
@@ -144,6 +194,41 @@ namespace exlib {
 			return a<b;
 		}
 	};
+
+#if EXALG_HAS_CPP_14
+
+	namespace detail
+	{
+		struct for_each_in_tuple_h
+		{
+			template<typename Tpl,typename Func>
+			constexpr static void apply(Tpl&& tpl,Func f,std::index_sequence<>)
+			{
+
+			}
+			template<typename Tpl,typename Func,size_t I>
+			constexpr static void apply(Tpl&& tpl,Func f,std::index_sequence<I>)
+			{
+				using std::get;
+				f(get<I>(std::forward<Tpl>(tpl)));
+			}
+			template<typename Tpl,typename Func,size_t I,size_t... Rest>
+			constexpr static void apply(Tpl&& tpl,Func f,std::index_sequence<I,Rest...>)
+			{
+				using std::get;
+				f(get<I>(std::forward<Tpl>(tpl)));
+				apply(std::forward<Tpl>(tpl),f,std::index_sequence<Rest...>{});
+			}
+		};
+	}
+
+	template<typename Tpl,typename Func>
+	constexpr void for_each_in_tuple(Tpl&& tpl,Func f)
+	{
+		detail::for_each_in_tuple_h::apply(std::forward<Tpl>(tpl),f,std::make_index_sequence<std::tuple_size<typename std::remove_reference<Tpl>::type>::value>{});
+	}
+#endif
+
 
 	template<>
 	struct less<char const*> {
@@ -210,58 +295,22 @@ namespace exlib {
 		qsort(begin,end,less<T>());
 	}
 
-	/*
-		heapsort
-		sorts between [begin,end) heapsort using c as a less-than comparison function
-		@param begin random access iter pointing to beginning of range to sort
-		@param end random access iter pointing 1 beyond valid range to sort
-		@param c comparison function accepting type pointed to by Iter
-	*/
-	template<typename Iter,typename Comp>
-	constexpr void heapsort(Iter begin,Iter end,Comp c)
-	{
-		size_t const n=end-begin;
-		if(n<2)
+	namespace detail {
+		template<typename Iter,typename Comp>
+		constexpr void sift_down(Iter begin,size_t parent,size_t dist,Comp c)
 		{
-			return;
-		}
-		Iter const bbegin=begin-1;
-		//build max heap
-		for(size_t i=2;i<=n;++i)
-		{
-			size_t child=i;
 			while(true)
 			{
-				size_t const parent=child/2;
-				if(parent&&c(bbegin[parent],bbegin[child]))
-				{
-					std::swap(bbegin[parent],bbegin[child]);
-					child=parent;
-				}
-				else
-				{
-					break;
-				}
-			}
-		}
-		for(size_t i=n;i>1;--i)
-		{
-			//put max at end
-			swap(bbegin[i],bbegin[1]);
-			size_t parent=1;
-			//sift new top down
-			while(true)
-			{
-				size_t const child1=2*parent;
-				if(child1<i)
+				size_t const child1=2*parent+1;
+				if(child1<dist)
 				{
 					size_t const child2=child1+1;
-					if(child2<i)
+					if(child2<dist)
 					{
-						auto const max=c(bbegin[child1],bbegin[child2])?child2:child1;
-						if(c(bbegin[parent],bbegin[max]))
+						size_t const max=c(begin[child1],begin[child2])?child2:child1;
+						if(c(begin[parent],begin[max]))
 						{
-							std::swap(bbegin[parent],bbegin[max]);
+							swap(begin[parent],begin[max]);
 							parent=max;
 						}
 						else
@@ -271,9 +320,9 @@ namespace exlib {
 					}
 					else
 					{
-						if(c(bbegin[parent],bbegin[child1]))
+						if(c(begin[parent],begin[child1]))
 						{
-							swap(bbegin[parent],bbegin[child1]);
+							swap(begin[parent],begin[child1]);
 							parent=child1;
 						}
 						else
@@ -288,13 +337,61 @@ namespace exlib {
 				}
 			}
 		}
+
+		template<typename Iter,typename Comp>
+		constexpr void make_heap(Iter begin,size_t dist,Comp c)
+		{
+			for(size_t i=dist/2;i>0;)
+			{
+				--i;
+				detail::sift_down(begin,i,dist,c);
+			}
+		}
 	}
 
-	template<typename Iter>
-	void heapsort(Iter begin,Iter end)
+	template<typename Iter,typename Comp=std::less<typename std::iterator_traits<Iter>::value_type>>
+	constexpr void make_heap(Iter begin,Iter end,Comp c={})
 	{
-		using T=typename std::decay<decltype(*begin)>::type;
-		heapsort(begin,end,less<T>());
+		size_t const dist=end-begin;
+		detail::make_heap(begin,dist,c);
+	}
+
+	template<typename Iter,typename Comp=std::less<typename std::iterator_traits<Iter>::value_type>>
+	constexpr void pop_heap(Iter begin,Iter end,Comp c={})
+	{
+		size_t const dist=end-begin;
+		if(dist==0)
+		{
+			return;
+		}
+		swap(*begin,*(end-1));
+		detail::sift_down(begin,0,dist-1,c);
+	}
+
+	/*
+		heapsort
+		sorts between [begin,end) heapsort using c as a less-than comparison function
+		@param begin random access iter pointing to beginning of range to sort
+		@param end random access iter pointing 1 beyond valid range to sort
+		@param c comparison function accepting type pointed to by Iter
+	*/
+	template<typename Iter,typename Comp=std::less<typename std::iterator_traits<Iter>::value_type>>
+	constexpr void heapsort(Iter begin,Iter end,Comp c={})
+	{
+		size_t const n=end-begin;
+		if(n<2)
+		{
+			return;
+		}
+		detail::make_heap(begin,n,c);
+		for(size_t i=n;i>0;)
+		{
+			--i;
+			//put max at end
+			swap(begin[i],begin[0]);
+			//sift new top down
+			detail::sift_down(begin,0,i,c);
+		}
 	}
 
 	//inserts the element AT elem into the range [begin,elem] according to comp assuming the range is sorted
@@ -777,6 +874,34 @@ namespace exlib {
 		{{
 			std::forward<Args>(args)...
 		}};
+	}
+
+	namespace detail {
+		template<typename Type,typename Tuple,typename Ix>
+		struct ca_type_h;
+		template<typename Type,typename Tuple,size_t... Ix>
+		struct ca_type_h<Type,Tuple,std::index_sequence<Ix...>> {
+			using type=std::array<typename ma_ret<Type,typename std::tuple_element<Ix,Tuple>::type...>::type,sizeof...(Ix)>;
+		};
+		template<typename Type,typename Tuple>
+		struct ca_type:ca_type_h<Type,
+			typename std::remove_reference<Tuple>::type,
+			std::make_index_sequence<std::tuple_size<typename std::remove_reference<Tuple>::type>::value>>{
+
+		};
+
+		template<typename Type,typename Tuple,size_t... I>
+		constexpr typename ca_type<Type,Tuple>::type conv_array(Tuple&& tup,std::index_sequence<I...>)
+		{
+			return {{  std::get<I>(std::forward<Tuple>(tup))... }};
+		}
+	}
+
+	template<typename Type=void,typename Tuple>
+	constexpr typename detail::ca_type<Type,Tuple>::type conv_array(Tuple&& args)
+	{
+		constexpr auto TS=std::tuple_size_v<typename std::remove_reference<Tuple>::type>;
+		return detail::conv_array<Type>(std::forward<Tuple>(args),std::make_index_sequence<TS>());
 	}
 
 	//the number of elements accessible by std::get

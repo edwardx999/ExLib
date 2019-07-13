@@ -62,13 +62,13 @@ namespace exlib {
 	public:
 #define comp(op) constexpr bool operator op (mod_ring const& o) const { return _val op o;}
 		comp(<)
-		comp(>)
-		comp(<=)
-		comp(>=)
-		comp(==)
-		comp(!=)
+			comp(>)
+			comp(<=)
+			comp(>=)
+			comp(==)
+			comp(!=)
 #undef comp
-		constexpr operator Base const&() const
+			constexpr operator Base const&() const
 		{
 			return _val;
 		}
@@ -101,21 +101,21 @@ namespace exlib {
 			_val=mod-(o._val-_val);
 			return *this;
 		}
-		constexpr mod_ring operator+(mod_ring const& o) const
+		constexpr mod_ring operator+(mod_ring const& o) const&
 		{
 			Base t=_val+o._val;
 			if(t>=mod) t-=mod;
 			return mod_ring{std::move(t),no_mod_tag{}};
 		}
-		constexpr mod_ring operator*(mod_ring const& o) const
+		constexpr mod_ring operator*(mod_ring const& o) const&
 		{
 			return mod_ring{o._val*_val};
 		}
-		constexpr mod_ring operator /(mod_ring const& o) const
+		constexpr mod_ring operator /(mod_ring const& o) const&
 		{
 			return mod_ring{_val/o._val,no_mod_tag{}};
 		}
-		constexpr mod_ring operator-(mod_ring const& o) const
+		constexpr mod_ring operator-(mod_ring const& o) const&
 		{
 			if(_val>=o._val)
 			{
@@ -131,9 +131,11 @@ namespace exlib {
 		cassmd(-)
 		cassmd(*)
 		cassmd(/)
-#undef cass
+#undef cassmd
 
-	template<typename T>
+
+
+		template<typename T>
 	constexpr T additive_identity()
 	{
 		return T{0};
@@ -691,6 +693,109 @@ namespace exlib {
 	}
 
 #endif
+	namespace detail {
+
+		template<typename Iter,typename Comp>
+		constexpr auto get_end_swap_if(Iter it,Iter end,size_t radius,Iter& el,Comp c)
+		{
+			if(static_cast<size_t>(end-it)>radius)
+			{
+				auto const before_range_end=it+radius;
+				if(c(*before_range_end,*el))
+				{
+					el=before_range_end;
+				}
+				return before_range_end+1;
+			}
+			else
+			{
+				return end;
+			}
+		}
+		template<typename InputIter,typename OutputIter,typename Comp>
+		constexpr auto get_fatten(InputIter begin,InputIter end,size_t radius,OutputIter out,Comp c,std::random_access_iterator_tag)
+		{
+			auto el=std::min_element(begin,begin+radius,c);
+			for(auto it=begin;it<end;++it,++out)
+			{
+				//[) boundaries of search_range
+				auto const range_begin=(static_cast<size_t>(it-begin))<=radius?begin:it-radius;
+				//comparison to last element done with this function
+				auto const range_end=get_end_swap_if(it,end,radius,el,c);
+				if(el<range_begin)
+				{
+					el=std::min_element(range_begin,range_end,c);
+				}
+				*out=*el;
+			}
+			return out;
+		}
+
+		template<typename InputIter,typename OutputIter,typename Comp>
+		auto get_fatten(InputIter begin,InputIter end,size_t radius,OutputIter out,Comp c,std::input_iterator_tag)
+		{
+			auto range_begin=begin;
+			auto range_end=begin;
+			std::advance(range_end,radius);
+			auto el=std::min_element(range_begin,range_end,c);
+			size_t forepadding=0;
+			for(auto it=begin;it!=end;++it)
+			{
+				if(range_end!=end)
+				{
+					if(c(*range_end,*el))
+					{
+						el=range_end;
+					}
+					++range_end;
+				}
+				if(forepadding>=radius+1)
+				{
+					if(el==range_begin)
+					{
+						++range_begin;
+						el=std::min_element(range_begin,range_end,c);
+					}
+					else
+					{
+						++range_begin;
+					}
+				}
+				else
+				{
+					++forepadding;
+				}
+				*out=*el;
+				++out;
+			}
+			return out;
+		}
+	}
+
+	/*
+		Places the min element within n elements at each position in OutputIter
+		Ranges should not overlap
+	*/
+	template<typename InputIter,typename OutputIter,typename Comp=std::less_equal<typename std::iterator_traits<InputIter>::value_type>>
+	constexpr OutputIter get_fatten(InputIter begin,InputIter end,size_t radius,OutputIter out,Comp c={})
+	{
+		if(begin==end)
+		{
+			return out;
+		}
+		if(radius==0)
+		{
+			return std::copy(begin,end,out);
+		}
+		size_t const distance=std::distance(begin,end);
+		if(distance<radius+1) //all elements in the radius of every element
+		{
+			auto min=std::min_element(begin,end,c);
+			return std::fill_n(out,distance,*min);
+		}
+		return detail::get_fatten(begin,end,radius,out,c,std::iterator_traits<InputIter>::iterator_category{});
+	}
+
 	/*
 		Makes a container in which each element becomes the minimum element within hp of its index
 	*/
@@ -698,37 +803,7 @@ namespace exlib {
 	RandomAccessContainer fattened_profile(RandomAccessContainer const& prof,size_t hp,Comp comp)
 	{
 		RandomAccessContainer res(prof.size());
-		auto el=prof.begin()-1;
-		auto rit=res.begin();
-		for(auto it=prof.begin();it<prof.end();++it,++rit)
-		{
-			decltype(it) begin,end;
-			if((it-prof.begin())<=hp)
-			{
-				begin=prof.begin();
-			}
-			else
-			{
-				begin=it-hp;
-			}
-			end=it+hp+1;
-			if(end>prof.end())
-			{
-				end=prof.end();
-			}
-			if(el<begin)
-			{
-				el=std::min_element(begin,end,comp);
-			}
-			else
-			{
-				el=std::min(el,end-1,[=](auto const a,auto const b)
-				{
-					return comp(*a,*b);
-				});
-			}
-			*rit=*el;
-		}
+		get_fatten(prof.begin(),prof.end(),hp,res.begin(),comp);
 		return res;
 	}
 
@@ -744,14 +819,14 @@ namespace exlib {
 		{
 			return fattened_profile(prof,hp,[](auto a,auto b)
 			{
-				return a<b;
+				return a<=b;
 			});
 		}
 		else
 		{
 			return fattened_profile(prof,hp,[](auto const& a,auto const& b)
 			{
-				return a<b;
+				return a<=b;
 			});
 		}
 	}
