@@ -46,9 +46,9 @@ namespace exlib {
 
 #ifdef _WINDOWS
 	template<typename String>
-	std::vector<String> files_in_dir(String const& path)
+	std::vector<String> files_in_dir(String path)
 	{
-		String search=path+"*.*";
+		path+="*.*";
 		HANDLE hFind;
 		WIN32_FIND_DATAA fdata;
 		hFind=FindFirstFileA(search.c_str(),&fdata);
