@@ -11,3 +11,5 @@ LibTest*
 *.pdb
 *.exp
 *.log
+*.dll
+*.lib
