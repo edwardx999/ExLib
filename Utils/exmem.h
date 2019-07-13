@@ -13,30 +13,26 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 */
 #ifndef EX_MEM_H
 #define EX_MEM_H
+#ifndef EXMEM_H
+#define EXMEM_H
 #include <stdexcept>
 #include <vector>
 #include <type_traits>
 #include <array>
 #include <algorithm>
-#ifdef _MSVC_LANG
-#define EXMEM_HAS_CPP_17 _MSVC_LANG>201700L
-#else
-#define EXMEM_HAS_CPP_17 _cplusplus>201700L
-#endif
-#ifdef _MSVC_LANG
-#define EXMEM_HAS_CPP_20 _MSVC_LANG>202000L
-#else
-#define EXMEM_HAS_CPP_20 _cplusplus>202000L
-#endif
+#include <cstdlib>
+#include <initializer_list>
+#include "extags.h"
+#include "exretype.h"
+#include "exiterator.h"
 #define FORCEINLINE __forceinline
-#if EXMEM_HAS_CPP_17
+#if (__cplusplus>=201700l)
 #define IFCONSTEXPR constexpr
 #else
 #define IFCONSTEXPR
 #endif
-#include "exiterator.h"
-#include "exretype.h"
 namespace exlib {
+
 	//A smart ptr that uses the given allocator to allocate and delete
 	//memory is uninitilized, and you are responsible for destroy any constructed objects
 	template<typename T,typename Allocator,bool noexcept_move=true>
@@ -51,7 +47,7 @@ namespace exlib {
 		using reference=typename Traits::reference;
 	private:
 		pointer _base;
-		std::size_t _capacity;
+		size_t _capacity;
 	public:
 		void release()
 		{
@@ -59,24 +55,23 @@ namespace exlib {
 		}
 		void reset() noexcept(noexcept_move)
 		{
-			Traits::deallocate(this->get(),_base,_capacity);
-			_base=nullptr;
+			reset(nullptr,0);
 		}
-		void reset(pointer p,std::size_t capacity) noexcept(noexcept_move)
+		void reset(pointer p,size_t capacity) noexcept(noexcept_move)
 		{
 			Traits::deallocate(this->get(),_base,_capacity);
 			_base=p;
 			_capacity=capacity;
 		}
-		allocator_ptr(std::size_t n,Allocator const& alloc=Allocator()):Base(alloc),_base(Allocator::allocate(n)),_capacity(n)
+		allocator_ptr(size_t n,Allocator const& alloc=Allocator()):Base(alloc),_base(Allocator::allocate(n)),_capacity(n)
 		{}
-		allocator_ptr(Allocator const& alloc=Allocator()) noexcept(std::is_nothrow_constructible<Allocator>::value):Base(alloc),_base(nullptr),_capacity(0)
+		allocator_ptr(Allocator const& alloc=Allocator()) noexcept(std::is_nothrow_copy_constructible<Allocator>::value):Base(alloc),_base(nullptr),_capacity(0)
 		{}
 		allocator_ptr(allocator_ptr&& o) noexcept(noexcept_move):Base(std::move(o)),_base(o._base),_capacity(o._capacity)
 		{
 			o.release();
 		}
-		std::size_t capacity() const noexcept
+		size_t capacity() const noexcept
 		{
 			return _capacity;
 		}
@@ -1179,6 +1174,206 @@ namespace exlib {
 		FORCEINLINE void insert(const_iterator pos,T const& val);
 
 	};
+
+	//A buffer to hold a virtual object using small object optimization
+	template<typename Base,std::size_t buffer_size=sizeof(Base),std::size_t alignment=alignof(Base)>
+	class virtual_buffer;
+	//A buffer that might hold a virtual object using small object optimization
+	template<typename Base,std::size_t buffer_size=sizeof(Base),std::size_t alignment=alignof(Base)>
+	class nullable_virtual_buffer;
+
+	namespace virtual_buffer_detail {
+		template<bool val>
+		using bool_constant=std::integral_constant<bool,val>;
+		struct self_freer {
+			void* _location;
+		public:
+			self_freer(char* location) noexcept:_location{location} {}
+			~self_freer() noexcept
+			{
+				std::free(_location);
+			}
+		};
+		template<typename Base,typename Allocator>
+		class seppukuer:self_freer,public Base  {
+		public:
+			template<typename... Args>
+			seppukuer(void* location,Args&&... args):self_freer{location,sizeof(seppukuer)},Base(std::forward<Args>(args)...) {}
+			~seppukuer() override = default;
+		};
+		template<typename Base,std::size_t buffer_size,std::size_t alignment,typename Derived>
+		class virtual_buffer_base {
+			static_assert(std::has_virtual_destructor<Base>::value,"Virtual destructor required");
+			friend class exlib::virtual_buffer<Base,buffer_size,alignment>;
+			friend class exlib::nullable_virtual_buffer<Base,buffer_size,alignment>;
+			typename std::aligned_storage<buffer_size,alignment>::type _data;
+			Base* _object;
+			template<typename T,typename... Args>
+			static void construct(std::true_type,void* location,Args&&... args) noexcept
+			{
+				new (data) T(data, std::forward<Args>(args)...);
+			}
+			template<typename T,typename... Args>
+			static void construct(std::false_type, void* location, Args&& ... args)
+			{
+				try
+				{
+					new (data) T(data,std::forward<Args>(args)...);
+				}
+				catch (...)
+				{
+					free(data);
+					throw;
+				}
+			}
+			template<typename T,typename... Args>
+			void init_help(std::false_type,Args&&... args)
+			{
+				using AllocType=seppukuer<T>;
+				static_assert(alignof(T)<=alignof(std::max_align_t), "No overalignment allowed");
+				char* const data=std::malloc(sizeof(AllocType));
+				if (data)
+				{
+					construct<AllocType>(bool_constant<std::is_nothrow_constructible<T,Args&&...>{},std::forward<Args>(args)...);
+					_object=static_cast<Base*>(reinterpret_cast<AllocType*>(data));
+				}
+				else
+				{
+					throw std::bad_alloc{};
+				}
+			}
+			template<typename T,typename... Args>
+			void init_help(std::true_type,Args&&... args)
+			{
+				new (&_data) T(std::forward<Args>(args)...);
+				_object=static_cast<Base*>(reinterpret_cast<T*>(&_data));
+			}
+			template<typename Type>
+			using fits=typename Derived::fits;
+			template<typename T,typename... Args>
+			void init(Args&&... args)
+			{
+				init_help<T>(fits<T>{},std::forward<Args>(args)...);
+			}
+		public:
+			template<typename Child,typename... Args>
+			virtual_buffer_base(exlib::in_place_type_t<Child>,Args&&... args) noexcept(std::is_nothrow_constructible<Child,Args&&...>::value&&fits<Child>::value)
+			{
+				init<Child>(std::forward<Args>(args)...);
+			}
+			template<typename Child,typename U,typename... Args>
+			virtual_buffer_base(exlib::in_place_type_t<Child>,std::initializer_list<U> list,Args&&... args) noexcept(std::is_nothrow_constructible<Child,std::initializer_list<U>,Args&&...>::value&& fits<Child>::value)
+			{
+				init<Child>(list,std::forward<Args>(args)...);
+			}
+			template<typename T,typename... Args>
+			auto emplace(Args&&... args) -> typename std::enable_if<std::is_convertible<T*, Base*>::value, decltype(T(std::forward<Args>(args)...),*_object)>::type
+			{
+				static_cast<Derived&>(*this).reset();
+				init<T>(std::forward<Args>(args)...);
+				return *_object;
+			}
+			Base* operator->()
+			{
+				return _object;
+			}
+			Base& operator*()
+			{
+				return *_object;
+			}
+			Base const* operator->() const
+			{
+				return _object;
+			}
+			Base const& operator*() const
+			{
+				return *_object;
+			}
+		};
+	}
+
+	template<typename Base,std::size_t buffer_size,std::size_t alignment>
+	class virtual_buffer:public virtual_buffer_detail::virtual_buffer_base<Base,buffer_size,alignment,virtual_buffer<Base,buffer_size,alignment>> {
+		using Super=virtual_buffer_detail::virtual_buffer_base<Base,buffer_size,alignment,virtual_buffer<Base,buffer_size,alignment>>;
+	public:
+		template<typename Type>
+		struct fits:bool_constant<sizeof(Type)<=decltype(_data)&&alignof(Type)<=decltype(_data)>{};
+		using Super::Super;
+		template<typename... Args>
+		virtual_buffer(Args&&... args) noexcept(std::is_nothrow_constructible<Base,Args&&...>::value)
+		{
+			Super::init<Base>(std::forward<Args>(args)...);
+		}
+		template<typename U,typename... Args>
+		virtual_buffer(std::initializer_list<U> list,Args&&... args) noexcept(std::is_nothrow_constructible<Base,std::initializer_list<U>,Args&&...>::value)
+		{
+			Super::init<Base>(list,std::forward<Args>(args)...);
+		}
+		virtual_buffer(virtual_buffer&)=delete;
+		virtual_buffer(virtual_buffer const&)=delete;
+		virtual_buffer(virtual_buffer&&)=delete;
+		virtual_buffer(virtual_buffer const&&)=delete;
+		void reset() noexcept(noexcept(this->_object->~Base()))
+		{
+			this->_object->~Base();
+		}
+		~virtual_buffer() noexcept(noexcept(reset()))
+		{
+			reset();
+		}
+	};
+	template<typename Base,std::size_t buffer_size,std::size_t alignment>
+	class nullable_virtual_buffer:public virtual_buffer_detail::virtual_buffer_base<Base,buffer_size,alignment,nullable_virtual_buffer<Base,buffer_size,alignment>> {
+		using Super=virtual_buffer_detail::virtual_buffer_base<Base,buffer_size,alignment,nullable_virtual_buffer<Base,buffer_size,alignment>>;
+	public:
+		template<typename Type>
+		struct fits:bool_constant<sizeof(Type)<=decltype(_data)&&alignof(Type)<=decltype(_data)&&std::is_nothrow_move_constructible<Type>::value>{};
+		nullable_virtual_buffer() noexcept
+		{
+			this->_object=nullptr;
+		}
+		using Super::Super;
+		
+		void reset() noexcept(noexcept(this->_object->~Base()))
+		{
+			if(this->_object)
+			{
+				this->_object->~Base();
+				this->_object=nullptr;
+			}
+		}
+
+		~nullable_virtual_buffer() noexcept(noexcept(reset()))
+		{
+			if(this->_object)
+			{
+				this->_object->~Base();
+			}
+		}
+		
+		nullable_virtual_buffer(nullable_virtual_buffer&& other) noexcept
+		{
+			auto const oobj=reinterpret_cast<std::size_t>(other._object);
+			auto const lo=reinterpret_cast<std::size_t>(&other._data);
+			auto const up=reinterpret_cast<std::size_t>(&other._data+1);
+			if(oobj>=lo&&oobj<up)
+			{
+				std::memcpy(&this->_data,&other._data,sizeof(this->_data));
+				this->_object=reinterpret_cast<Base*>(reinterpret_cast<char*>(&this->_data)+oobj-lo);
+			}
+			else
+			{
+				this->_object=other._object;
+			}
+		}
+		nullable_virtual_buffer& operator=(nullable_virtual_buffer&& other) noexcept
+		{
+			this->~nullable_virtual_buffer();
+			new (this) nullable_virtual_buffer(std::move(other));
+			return *this;
+		}
+	};
 }
 #undef IFCONSTEXPR
+#endif
 #endif

@@ -20,18 +20,20 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <array>
 #include <cstdlib>
 #include <assert.h>
-#if defined(_CONSTEXPR17)
-#define EX_CONSTEXPR _CONSTEXPR17
-#elif defined(_HAS_CXX17) || __cplusplus>201100L
-#define EX_CONSTEXPR constexpr
+#include <cmath>
+#ifdef _MSVC_LANG
+#define _EXMATH_HAS_CPP_20 (_MSVC_LANG>=202000l)
+#define _EXMATH_HAS_CPP_17 (_MSVC_LANG>=201700l)
+#define _EXMATH_HAS_CPP_14 (_MSVC_LANG>=201400l)
 #else
-#define EX_CONSTEXPR
+#define _EXMATH_HAS_CPP_20 (__cplusplus>=202000l)
+#define _EXMATH_HAS_CPP_17 (__cplusplus>=201700l)
+#define _EXMATH_HAS_CPP_14 (__cplusplus>=201400l)
 #endif
 
-#define CONSTEXPR
-#ifdef _CONSTEXPR_IF
-#define EX_CONSTIF _CONSTEXPR_IF
-#elif defined(_HAS_CXX17) || __cplusplus>201700L
+#define EX_CONSTEXPR constexpr
+
+#if _EXMATH_HAS_CPP_17
 #define EX_CONSTIF constexpr
 #else
 #define EX_CONSTIF
@@ -123,19 +125,15 @@ namespace exlib {
 			}
 			return mod_ring{mod-(o._val-_val),no_mod_tag{}};
 		}
-
-	};
-
-#define cassmd(op) template<typename B,unsigned long long p> static constexpr mod_ring<B,p> operator op(mod_ring<B,p>&& a,mod_ring<B,p> const& o) { return std::move(a+=o);}
-	cassmd(+)
+#define cassmd(op) constexpr mod_ring operator op(mod_ring const& o)&& { mod_ring ret(std::move(*this)); ret op ## =o; return ret;}
+		cassmd(+)
 		cassmd(-)
 		cassmd(*)
 		cassmd(/)
 #undef cassmd
+	};
 
-
-
-		template<typename T>
+	template<typename T>
 	constexpr T additive_identity()
 	{
 		return T{0};
@@ -179,31 +177,15 @@ namespace exlib {
 	}
 
 	template<typename T>
-	constexpr T abs(T const& a)
+	constexpr T abs(T a)
 	{
 		if(a<0)
 		{
-			return -a;
+			return -std::move(a);
 		}
-		return a;
+		return std::move(a);
 	}
 
-	template<typename T>
-	struct get_signed {
-		typedef T type;
-	};
-
-#define _def_get_signed(ntype)\
-	template<>\
-	struct get_signed<unsigned ntype> {\
-		typedef signed ntype type;\
-	}
-	_def_get_signed(char);
-	_def_get_signed(short);
-	_def_get_signed(int);
-	_def_get_signed(long);
-	_def_get_signed(long long);
-#undef _def_get_signed
 	namespace detail {
 		template<typename R,typename T,typename U,typename V,typename W>
 		struct min_modular_distance_type {
@@ -211,7 +193,7 @@ namespace exlib {
 		};
 		template<typename T,typename U,typename V,typename W>
 		struct min_modular_distance_type<void,T,U,V,W> {
-			typedef typename get_signed<typename std::common_type<T,U,V,W>::type>::type type;
+			typedef typename std::make_signed<typename std::common_type<T,U,V,W>::type>::type type;
 		};
 	}
 	/*
@@ -262,7 +244,7 @@ namespace exlib {
 	}
 
 	template<typename T,typename U>
-	constexpr typename std::decay<U>::type clamp(T val,U&& min,U&& max)
+	constexpr typename std::decay<U>::type clamp(T&& val,U&& min,U&& max)
 	{
 		assert(min<=max);
 		if(val>max)
@@ -273,7 +255,7 @@ namespace exlib {
 		{
 			return std::forward<U>(min);
 		}
-		return std::move(val);
+		return static_cast<typename std::decay<U>::type>(std::forward<T>(val));
 	}
 
 	template<typename U,typename T>
@@ -290,8 +272,8 @@ namespace exlib {
 		return std::move(val);
 	}
 
-	template<typename T1,typename T2> constexpr auto abs_dif(T1 x,T2 y) ->
-		decltype(x-y)
+	template<typename T1,typename T2>
+	constexpr auto abs_dif(T1 x,T2 y) -> decltype(x-y)
 	{
 		return (x>y?x-y:y-x);
 	}
@@ -347,7 +329,7 @@ namespace exlib {
 		}
 		//if the value is fixed, returns that fixed value. Otherwises returns bases[index()]*variant().
 		//index value checked
-		template<size_t N>
+		template<std::size_t N>
 		constexpr FixedType value(std::array<FixedType,N> const& bases) const
 		{
 			if(_index==fixed_index)
@@ -372,7 +354,7 @@ namespace exlib {
 
 		//if the value is fixed, returns that fixed value. Otherwises returns bases[index()]*variant().
 		//index value unchecked
-		template<size_t N>
+		template<std::size_t N>
 		constexpr FixedType operator()(std::array<FixedType,N> const& bases) const
 		{
 			if(_index==fixed_index)
@@ -399,7 +381,7 @@ namespace exlib {
 		}
 
 		//does nothing if value is already fixed, otherwises fixes the value to bases[index]*variant()
-		template<size_t N>
+		template<std::size_t N>
 		constexpr void fix_from(std::array<FixedType,N> const& bases)
 		{
 			if(_index==fixed_index) return;
@@ -546,10 +528,23 @@ namespace exlib {
 		return {conv_error::none,end};
 	}
 
+
+	namespace detail {
+		template<typename Target,typename Base,bool is_unsigned=std::is_unsigned<Target>::value>
+		struct bring_unsignedness {
+			using type=Base;
+		};
+
+		template<typename Target,typename Base>
+		struct bring_unsignedness<Target,Base,true> {
+			using type=typename std::make_unsigned<Base>::type;
+		};
+	}
+
+#if _EXMATH_HAS_CPP_14
 	template<typename T>
-	EX_CONSTEXPR unsigned int num_digits(T num,unsigned int base=10)
+	constexpr unsigned int num_digits(T num,typename detail::bring_unsignedness<T,int>::type base=10)
 	{
-		assert(base>1);
 		//static_assert(std::is_integral<T>::value,"Requires integral type");
 		unsigned int num_digits=1;
 		while((num/=base)!=0)
@@ -558,15 +553,21 @@ namespace exlib {
 		}
 		return num_digits;
 	}
-
-#if __cplusplus>201700L
+#else
+	template<typename T>
+	constexpr unsigned int num_digits(T num,typename detail::bring_unsignedness<T,int>::type base=10)
+	{
+		return num<0?num_digits(-num):((num<base)?1:(1+num_digits(num/base)));
+	}
+#endif
+#if _EXMATH_HAS_CPP_14
 
 	namespace detail {
 		template<typename CharType>
 		constexpr auto make_digit_array()
 		{
 			std::array<CharType,'9'-'0'+1+'z'-'a'+1> arr{{}};
-			size_t pos=0;
+			std::size_t pos=0;
 			for(CharType i='0';i<='9';++pos,++i)
 			{
 				arr[pos]=i;
@@ -578,132 +579,149 @@ namespace exlib {
 			return arr;
 		}
 
-		/*template<typename CharType>
-		constexpr auto const& digit_array()
-		{
-			static constexpr auto arr=make_digit_array<CharType>();
-			return arr;
-		}*/
-
-		template<typename CharType>
-		struct digits_holder {
-			static constexpr CharType digits[]=
-			{'0','1','2','3','4','5','6','7','8','9',
-			 'a','b','c','d','e','f','g','h','i','j',
-			 'k','l','m','n','o','p','q','r','s','t',
-			 'u','v','w','x','y','z'};
+		template<typename Char>
+		struct digit_array_holder {
+			constexpr static auto digits=make_digit_array<Char>();
 		};
-	}
 
-	template<auto val,int base,typename CharType=char>
-	constexpr auto to_string()
-	{
-		using T=decltype(val);
-		static_assert(std::is_integral_v<T>,"Integer type required");
-		if constexpr(std::is_unsigned_v<T>||val>=0)
+		template<typename Iter>
+		using iter_val_t=typename std::iterator_traits<Iter>::value_type;
+
+		template<typename Iter,typename Num,typename DigitsIter>
+		constexpr Iter fill_num_array_unchecked_positive(Iter end,Num num,int base,DigitsIter digits)
 		{
-			std::array<CharType,num_digits(val,base)+1> number{{}};
-			auto v=val;
-			number.back()='\0';
-			auto it=number.end()-2;
+			--end;
 			while(true)
 			{
-				*it=detail::digits_holder<CharType>::digits[v%base];
-				v/=base;
-				if(v==0)
+				*end=digits[num%base];
+				num/=base;
+				if(num==0)
 				{
-					break;
+					return end;
 				}
-				--it;
+				--end;
 			};
-			return number;
+		}
+	}
+
+	//fills in a range working backwards from end and returns the start iter written to
+	//unchecked, make sure your range can fit
+	template<typename Iter,typename Num,typename DigitsIter=detail::iter_val_t<Iter> const*>
+	constexpr Iter fill_num_array_unchecked(Iter end,Num num,int base=10,DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
+	{
+		if(num>=0)
+		{
+			return detail::fill_num_array_unchecked_positive(end,num,base,digits);
 		}
 		else
 		{
-			std::array<CharType,num_digits(val,base)+2> number{{}};
-			auto v=val;
-			number.back()='\0';
-			number.front()='-';
-			auto it=number.end()-2;
-			while(true)
-			{
-				if constexpr(-1%base==-1)
-				{
-					*it=digits[(-(v%base))];
-				}
-				else
-				{
-					*it=digits[base-(v%base)];
-				}
-				v/=base;
-				if(v==0)
-				{
-					break;
-				}
-				--it;
-			}
-			return number;
+			auto it=detail::fill_num_array_unchecked_positive(end,-num,base,digits);
+			*--it='-';
+			return it;
 		}
 	}
+	namespace detail {
+		template<typename T,T val,unsigned int base,typename CharType,bool positive=(val>=0)>
+		struct to_string_helper {
+			template<typename DigitsIter>
+			constexpr static auto get(DigitsIter digits)
+			{
+				std::array<CharType,num_digits(val,base)+1> number{{}};
+				number.back()='\0';
+				fill_num_array_unchecked(number.end()-1,val,base,digits);
+				return number;
+			}
+		};
 
-	template<auto val,typename CharType,int base=10>
-	constexpr auto to_string()
+		template<typename T,T val,unsigned int base,typename CharType>
+		struct to_string_helper<T,val,base,CharType,false> {
+			template<typename DigitsIter>
+			constexpr static auto get(DigitsIter digits)
+			{
+				std::array<CharType,num_digits(val,base)+2> number{{}};
+				number.back()='\0';
+				fill_num_array_unchecked(number.end()-1,val,base,digits);
+				number.front()='-';
+				return number;
+			}
+		};
+
+		template<typename T,T val,unsigned int base,typename CharType,typename DigitsIter>
+		constexpr auto to_string(DigitsIter digits)
+		{
+			return to_string_helper<T,val,base,CharType>::get(digits);
+		}
+	}
+#endif
+#if _EXMATH_HAS_CPP_17
+	//converts to a compile-time const array of digits representing the number
+	template<auto val,unsigned int base=10,typename CharType=char,typename DigitsIter=CharType const*>
+	constexpr auto to_string(DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
 	{
-		return to_string<val,base,CharType>();
+		return detail::to_string<decltype(val),val,base,CharType>(digits);
 	}
 
-	template<auto val>
-	constexpr auto to_string()
+	//converts to a compile-time const array of digits representing the number
+	template<auto val,typename CharType,unsigned int base=10,typename DigitsIter=CharType const*>
+	constexpr auto to_string(DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
 	{
-		return to_string<val,10,char>();
+		return to_string<val,base,CharType>(digits);
 	}
 
-	template<unsigned long long val,typename CharType=char>
-	[[deprecated]] constexpr auto to_string_unsigned()
+	//converts to a compile-time const array of digits representing the number
+	template<auto val,typename DigitsIter=char const*>
+	constexpr auto to_string(DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
 	{
-		return to_string<val,CharType>();
+		return to_string<val,10,char>(digits);
 	}
-
+#endif
+#if _EXMATH_HAS_CPP_14
+	//converts to a compile-time const array of digits representing the number
+	template<long long val,unsigned int base=10,typename CharType=char,typename DigitsIter=CharType const*>
+	constexpr auto to_string_signed(DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
+	{
+		return detail::to_string<decltype(val),val,base,CharType>(digits);
+	}
+	//converts to a compile-time const array of digits representing the number
+	template<unsigned long long val,unsigned int base=10,typename CharType=char,typename DigitsIter=CharType const*>
+	constexpr auto to_string_unsigned(DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
+	{
+		return detail::to_string<decltype(val),val,base,CharType>(digits);
+	}
+#endif
 
 	namespace detail {
-		/*
-			Used because MSVC doesn't allow weak orderings in debug mode and get_fatten is more efficient
-			if you choose the last least element.
-		*/
-		template<typename Iter,typename Comp>
+#ifdef NDEBUG
+		using std::min_element;
+#else
+		template<typename Iter,typename Comp> //in debug mode msvc complains about using <= as a comparison operator
 		constexpr Iter min_element(Iter begin,Iter end,Comp c)
 		{
-#ifdef DEBUG
 			if(begin==end)
 			{
-				return end;
+				return begin;
 			}
-			auto smallest=begin;
-			for(++begin!=end)
+			auto min_el=begin;
+			++begin;
+			for(; begin!=end; ++begin)
 			{
-				if(c(*begin,*smallest))
+				if(c(*begin,*min_el))
 				{
-					smallest=begin;
+					min_el=begin;
 				}
 			}
-			return smallest;
-#endif // DEBUG
-			return std::min_element(begin,end,c);
+			return min_el;
 		}
-	}
-
 #endif
-	namespace detail {
-
 		template<typename Iter,typename Comp>
-		constexpr auto get_end_swap_if(Iter it,Iter end,size_t radius,Iter& el,Comp c)
+		constexpr Iter get_end_swap_if(Iter it,Iter end,std::size_t radius,Iter& current_min,Comp c)
 		{
-			if(static_cast<size_t>(end-it)>radius)
+			if(static_cast<std::size_t>(end-it)>radius)
 			{
 				auto const before_range_end=it+radius;
-				if(c(*before_range_end,*el))
+				if(c(*before_range_end,*current_min))
 				{
-					el=before_range_end;
+					current_min=before_range_end;
 				}
 				return before_range_end+1;
 			}
@@ -713,33 +731,33 @@ namespace exlib {
 			}
 		}
 		template<typename InputIter,typename OutputIter,typename Comp>
-		constexpr auto get_fatten(InputIter begin,InputIter end,size_t radius,OutputIter out,Comp c,std::random_access_iterator_tag)
+		constexpr auto get_fatten(InputIter begin,InputIter end,std::size_t radius,OutputIter out,Comp c) -> typename std::enable_if<std::is_convertible<typename std::iterator_traits<InputIter>::iterator_category&,std::random_access_iterator_tag&>::value,OutputIter>::type
 		{
-			auto el=std::min_element(begin,begin+radius,c);
-			for(auto it=begin;it<end;++it,++out)
+			auto current_min=std::min_element(begin,begin+radius,c);
+			for(auto it=begin; it<end; ++it,++out)
 			{
 				//[) boundaries of search_range
-				auto const range_begin=(static_cast<size_t>(it-begin))<=radius?begin:it-radius;
+				auto const range_begin=(static_cast<std::size_t>(it-begin))<=radius?begin:it-radius;
 				//comparison to last element done with this function
-				auto const range_end=get_end_swap_if(it,end,radius,el,c);
-				if(el<range_begin)
+				auto const range_end=get_end_swap_if(it,end,radius,current_min,c);
+				if(current_min<range_begin)
 				{
-					el=std::min_element(range_begin,range_end,c);
+					current_min=min_element(range_begin,range_end,c);
 				}
-				*out=*el;
+				*out=*current_min;
 			}
 			return out;
 		}
 
-		template<typename InputIter,typename OutputIter,typename Comp>
-		auto get_fatten(InputIter begin,InputIter end,size_t radius,OutputIter out,Comp c,std::input_iterator_tag)
+		template<typename InputIter,typename OutputIter,typename Comp,typename... Extra>
+		auto get_fatten(InputIter begin,InputIter end,std::size_t radius,OutputIter out,Comp c,Extra...)
 		{
 			auto range_begin=begin;
 			auto range_end=begin;
 			std::advance(range_end,radius);
 			auto el=std::min_element(range_begin,range_end,c);
-			size_t forepadding=0;
-			for(auto it=begin;it!=end;++it)
+			std::size_t forepadding=0;
+			for(auto it=begin; it!=end; ++it)
 			{
 				if(range_end!=end)
 				{
@@ -754,7 +772,7 @@ namespace exlib {
 					if(el==range_begin)
 					{
 						++range_begin;
-						el=std::min_element(range_begin,range_end,c);
+						el=min_element(range_begin,range_end,c);
 					}
 					else
 					{
@@ -777,7 +795,7 @@ namespace exlib {
 		Ranges should not overlap
 	*/
 	template<typename InputIter,typename OutputIter,typename Comp=std::less_equal<typename std::iterator_traits<InputIter>::value_type>>
-	constexpr OutputIter get_fatten(InputIter begin,InputIter end,size_t radius,OutputIter out,Comp c={})
+	constexpr OutputIter get_fatten(InputIter begin,InputIter end,std::size_t radius,OutputIter out,Comp c={})
 	{
 		if(begin==end)
 		{
@@ -787,20 +805,20 @@ namespace exlib {
 		{
 			return std::copy(begin,end,out);
 		}
-		size_t const distance=std::distance(begin,end);
+		std::size_t const distance=std::distance(begin,end);
 		if(distance<radius+1) //all elements in the radius of every element
 		{
 			auto min=std::min_element(begin,end,c);
 			return std::fill_n(out,distance,*min);
 		}
-		return detail::get_fatten(begin,end,radius,out,c,std::iterator_traits<InputIter>::iterator_category{});
+		return detail::get_fatten(begin,end,radius,out,c);
 	}
 
 	/*
 		Makes a container in which each element becomes the minimum element within hp of its index
 	*/
 	template<typename RandomAccessContainer,typename Comp>
-	RandomAccessContainer fattened_profile(RandomAccessContainer const& prof,size_t hp,Comp comp)
+	RandomAccessContainer fattened_profile(RandomAccessContainer const& prof,std::size_t hp,Comp comp)
 	{
 		RandomAccessContainer res(prof.size());
 		get_fatten(prof.begin(),prof.end(),hp,res.begin(),comp);
@@ -808,14 +826,10 @@ namespace exlib {
 	}
 
 	template<typename RandomAccessContainer>
-	RandomAccessContainer fattened_profile(RandomAccessContainer const& prof,size_t hp)
+	RandomAccessContainer fattened_profile(RandomAccessContainer const& prof,std::size_t hp)
 	{
-		typedef std::decay<decltype(*prof.begin())>::type T;
-		if
-#if __cplusplus > 201700L
-			constexpr
-#endif
-			(std::is_trivially_copyable<T>::value&&sizeof(T)<=sizeof(size_t))
+		typedef typename std::decay<decltype(*prof.begin())>::type T;
+		if EX_CONSTIF(std::is_trivially_copyable<T>::value&&sizeof(T)<=sizeof(std::size_t))
 		{
 			return fattened_profile(prof,hp,[](auto a,auto b)
 			{
@@ -849,7 +863,7 @@ namespace exlib {
 	public:
 		LimitedSet(size_t s):_max_size(s)
 		{
-			this->reserve(s);
+			_data.reserve(s);
 		}
 		LimitedSet():LimitedSet(0)
 		{}
@@ -910,7 +924,7 @@ namespace exlib {
 		}
 	public:
 		template<typename Compare=std::less<T>>
-		void insert(T&& in,Compare comp={})
+		void insert(T&&in,Compare comp={})
 		{
 			_insert(std::move(in),comp);
 		}
@@ -920,109 +934,6 @@ namespace exlib {
 			_insert(in,comp);
 		}
 	};
-	/*
-		Little-endian arbitrarily sized 2's complement integer.
-	*/
-	class BigInteger {
-		std::vector<int64_t> data;
-	public:
-		struct div_t;
-
-		BigInteger(int64_t);
-
-		template<typename T>
-		friend void operator<<(std::basic_ostream<T>,BigInteger const&);
-
-		size_t size() const;
-		size_t capacity() const;
-		void reserve(size_t);
-
-		bool operator==(BigInteger const&) const;
-		bool operator<(BigInteger const&) const;
-		bool operator>(BigInteger const&) const;
-
-		BigInteger operator+(BigInteger const&) const;
-		BigInteger& operator+=(BigInteger const&);
-		BigInteger operator-(BigInteger const&) const;
-		BigInteger& operator-=(BigInteger const&);
-		BigInteger operator-() const;
-		BigInteger& negate();
-		BigInteger operator*(BigInteger const&) const;
-		BigInteger& operator*=(BigInteger const&);
-		BigInteger operator/(BigInteger const&) const;
-		BigInteger& operator/=(BigInteger const&);
-		BigInteger operator%(BigInteger const&) const;
-		BigInteger& operator%=(BigInteger const&);
-		static div_t div(BigInteger const&,BigInteger const&);
-
-		BigInteger operator>>(size_t) const;
-		BigInteger& operator>>=(size_t);
-		BigInteger operator<<(size_t) const;
-		BigInteger& operator<<=(size_t);
-		BigInteger operator&(BigInteger const&) const;
-		BigInteger& operator&=(BigInteger const&);
-		BigInteger operator|(BigInteger const&) const;
-		BigInteger& operator|=(BigInteger const&);
-		BigInteger operator^(BigInteger const&) const;
-		BigInteger& operator^=(BigInteger const&);
-		BigInteger operator~() const;
-		BigInteger& bitwise_negate();
-
-		int signum() const;
-
-		operator int64_t() const;
-		operator double() const;
-	};
-
-	struct BigInteger::div_t {
-		BigInteger quot;
-		BigInteger rem;
-	};
-}
-
-namespace std {
-	template<>
-	exlib::BigInteger const& max<exlib::BigInteger>(exlib::BigInteger const&,exlib::BigInteger const&);
-
-	template<>
-	struct is_integral<exlib::BigInteger>:public std::true_type {};
-
-	template<>
-	struct is_signed<exlib::BigInteger>:public std::true_type {};
-}
-
-namespace exlib {
-	inline BigInteger::BigInteger(int64_t val):data(5)
-	{
-		data.back()|=val;
-		data.back()&=0x8000'0000'0000'0000;
-		data.front()=val&0x7FFF'FFFF'FFFF'FFFF;
-	}
-	inline size_t BigInteger::size() const
-	{
-		return data.size();
-	}
-	inline size_t BigInteger::capacity() const
-	{
-		return data.capacity();
-	}
-	inline void BigInteger::reserve(size_t n)
-	{
-		auto old_back_val=data.back();
-		auto& old_back=data.back();
-		data.reserve(n);
-		old_back&=0x7FFF'FFFF'FFFF'FFFF;
-		data.back()|=old_back_val;
-		data.back()&=0x8000'0000'0000'0000;
-	}
-	inline bool BigInteger::operator==(BigInteger const& other) const
-	{
-		if(signum()!=other.signum())
-		{
-			return false;
-		}
-		size_t limit=std::min(other.size(),size());
-	}
 }
 #undef EX_CONSTIF
 #undef EX_CONSTEXPR
