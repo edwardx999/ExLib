@@ -667,13 +667,6 @@ namespace exlib {
 	{
 		return to_string<val,base,CharType>(digits);
 	}
-
-	//converts to a compile-time const array of digits representing the number
-	template<auto val,typename DigitsIter=char const*>
-	constexpr auto to_string(DigitsIter digits=detail::digit_array_holder<detail::iter_val_t<DigitsIter>>::digits.data())
-	{
-		return to_string<val,10,char>(digits);
-	}
 #endif
 #if _EXMATH_HAS_CPP_14
 	//converts to a compile-time const array of digits representing the number

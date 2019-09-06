@@ -47,7 +47,7 @@
     </ClInclude>
     <ClInclude Include="exboundview.h">
       <Filter>Header Files</Filter>
-	</ClInclude>
+    </ClInclude>
     <ClInclude Include="exretype.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -64,6 +64,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="exfunc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="extags.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="exvirtbuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
