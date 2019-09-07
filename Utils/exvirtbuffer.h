@@ -43,6 +43,8 @@ namespace exlib {
 		static_assert(std::has_virtual_destructor<Base>::value,"Base class must have virtual constructor");
 		Base* _data;
 		typename std::aligned_storage<BufferSize,Alignment>::type _storage;
+		template<typename B,std::size_t BS,std::size_t A>
+		friend class virtual_buffer;
 		template<typename T,typename... Args>
 		Base* construct(std::integral_constant<bool,true>,Args&&... args)
 		{
@@ -88,8 +90,8 @@ namespace exlib {
 			auto const odatap=reinterpret_cast<char*>(other._data);
 			auto const ostors=reinterpret_cast<char*>(&other._storage);
 			auto const ostore=ostors+sizeof(other._storage);
-			auto const data=(odatap>=&ostors&&odatap<&ostore)? //in place
-				reinterpret_cast<Base*>(reinterpret_cast<char*>(&_storage)+odatap-ostors):
+			auto const data=(odatap>=ostors&&odatap<ostore)? //in place
+				reinterpret_cast<Base*>(reinterpret_cast<char*>(&_storage)+(odatap-ostors)):
 				other._data;
 			other._data=nullptr;
 			return data;
@@ -180,6 +182,7 @@ namespace exlib {
 			catch(...)
 			{
 				_data=nullptr;
+				throw;
 			}
 		}
 
