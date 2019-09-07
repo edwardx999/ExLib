@@ -112,7 +112,7 @@ namespace exlib {
 	public:
 		virtual_buffer() noexcept:_data{}
 		{}
-		virtual_buffer(virtual_buffer&& other) noexcept(std::is_nothrow_destructible<Base>::value):_data{move(other)}
+		virtual_buffer(virtual_buffer&& other) noexcept:_data{move(other)}
 		{
 		}
 		virtual_buffer& operator=(virtual_buffer&& other) noexcept(std::is_nothrow_destructible<Base>::value)
