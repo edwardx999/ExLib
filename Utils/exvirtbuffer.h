@@ -109,6 +109,20 @@ namespace exlib {
 				_data->~Base();
 			}
 		}
+		template<typename T,typename... Args>
+		void do_emplace(Args&& ... args)
+		{
+			destruct();
+			try
+			{
+				_data=construct<T>(fits<T>{},std::forward<Args>(args)...);
+			}
+			catch(...)
+			{
+				_data=nullptr;
+				throw;
+			}
+		}
 	public:
 		virtual_buffer() noexcept:_data{}
 		{}
@@ -135,13 +149,16 @@ namespace exlib {
 		template<typename T,typename RCT=virtbuffdet::remove_cvref_t<T>,typename=typename std::enable_if<std::is_convertible<RCT*,Base*>::value>::type>
 		virtual_buffer(T&& derived_type):virtual_buffer(in_place_type_t<RCT>{},std::forward<T>(derived_type)) {}
 		template<typename T,typename... Args>
-		virtual_buffer(in_place_type_t<T>,Args&& ... args):_data{construct<T>(
+		virtual_buffer(in_place_type_t<T>,Args&&... args):_data{construct<T>(
 				fits<T>{},
-				std::forward<Args>(args)...);}
+				std::forward<Args>(args)...)}
 		{}
 
 		template<typename T,typename U,typename... Args>
-		virtual_buffer(in_place_type_t<T> t,std::initializer_list<U> list,Args&&... args):virtual_buffer(t,list,std::forward<Args>(args)...)
+		virtual_buffer(in_place_type_t<T> t,std::initializer_list<U> list,Args&&... args):_data{construct<T>(
+				fits<T>{},
+				list,
+				std::forward<Args>(args)...)}
 		{}
 
 		Base* operator->() noexcept
@@ -172,22 +189,13 @@ namespace exlib {
 		template<typename T,typename... Args>
 		void emplace(Args&&... args)
 		{
-			destruct();
-			try
-			{
-				_data=construct<T>(fits<T>{},std::forward<Args>(args)...);
-			}
-			catch(...)
-			{
-				_data=nullptr;
-				throw;
-			}
+			do_emplace(std::forward<Args>(args)...);
 		}
 
 		template<typename T,typename U,typename... Args>
 		void emplace(std::initializer_list<U> list,Args&&... args)
 		{
-			emplace<T>(list,std::forward<Args>(args)...);
+			do_emplace<T>(list,std::forward<Args>(args)...);
 		}
 
 		void reset()  noexcept(std::is_nothrow_destructible<Base>::value)
