@@ -122,10 +122,8 @@ namespace exlib {
 			return *this;
 		}
 		template<std::size_t S,std::size_t A,typename=typename std::enable_if<S<=BufferSize&&A<=Alignment>::type>
-		virtual_buffer(virtual_buffer<Base,S,A>&& other) noexcept(std::is_nothrow_destructible<Base>::value)
-		{
-			_data=move(other);
-		}
+		virtual_buffer(virtual_buffer<Base,S,A>&& other) noexcept:_data{move(other)}
+		{}
 		template<std::size_t S,std::size_t A>
 		auto operator=(virtual_buffer<Base,S,A>&& other) noexcept(std::is_nothrow_destructible<Base>::value) -> typename std::enable_if<S<=BufferSize&&A<=Alignment,virtual_buffer&>::type
 		{
