@@ -14,6 +14,10 @@ namespace exlib {
 		using remove_cvref_t=typename std::remove_cv<typename std::remove_reference<T>::type>::type;
 	}
 
+	/*
+		Small object optimization for virtual types.
+		Has similar interface to unique_ptr
+	*/
 	template<typename Base,std::size_t BufferSize=sizeof(Base),std::size_t Alignment=alignof(Base)>
 	class virtual_buffer {
 		static_assert(std::has_virtual_destructor<Base>::value,"Base class must have virtual constructor");
@@ -22,7 +26,7 @@ namespace exlib {
 		template<typename B,std::size_t BS,std::size_t A>
 		friend class virtual_buffer;
 		template<typename T,typename... Args>
-		Base* construct(std::integral_constant<bool,true>,Args&&... args)
+		Base* construct(std::integral_constant<bool,true>,Args&&... args) noexcept(std::is_nothrow_constructible<T,Args&&...>::value)
 		{
 			return new (&_storage) T(std::forward<Args>(args)...);
 		}
@@ -70,15 +74,28 @@ namespace exlib {
 		void do_emplace(Args&&... args)
 		{
 			destruct();
-			try
+#define _do_emplace_construct_call_ construct<T>(fits<T>{},std::forward<Args>(args)...)
+			if
+#ifdef __cpp_if_constexpr
+				constexpr
+#endif
+				(noexcept(_do_emplace_construct_call_))
 			{
-				_data=construct<T>(fits<T>{},std::forward<Args>(args)...);
+				_data=_do_emplace_construct_call_;
 			}
-			catch(...)
+			else
 			{
-				_data=nullptr;
-				throw;
+				try
+				{
+					_data=_do_emplace_construct_call_;
+				}
+				catch(...)
+				{
+					_data=nullptr;
+					throw;
+				}
 			}
+#undef _do_emplace_construct_call_
 		}
 	public:
 		virtual_buffer() noexcept:_data{}
@@ -108,6 +125,10 @@ namespace exlib {
 
 		template<typename T,typename RCT=virtbufdet::remove_cvref_t<T>,typename=typename std::enable_if<std::is_convertible<RCT*,Base*>::value>::type>
 		virtual_buffer(T&& derived_type):virtual_buffer(in_place_type_t<RCT>{},std::forward<T>(derived_type))
+		{}
+
+		template<typename T,typename=typename std::enable_if<std::is_convertible<T*,Base*>::value>::type>
+		explicit virtual_buffer(T* own_me) noexcept:_data{own_me}
 		{}
 
 		template<typename T,typename... Args>
@@ -160,10 +181,16 @@ namespace exlib {
 			do_emplace<T>(list,std::forward<Args>(args)...);
 		}
 
-		void reset() noexcept(std::is_nothrow_destructible<Base>::value)
+		template<typename T>
+		auto reset(T* own_me) noexcept(std::is_nothrow_destructible<Base>::value) -> typename std::enable_if<std::is_convertible<T*,Base*>::value>::type
 		{
 			destruct();
-			_data=nullptr;
+			_data=own_me;
+		}
+
+		void reset() noexcept(std::is_nothrow_destructible<Base>::value)
+		{
+			reset(nullptr);
 		}
 
 		operator bool() const noexcept
