@@ -229,8 +229,8 @@ namespace exlib {
 	/*
 		Call the member function as if it is a global function.
 	*/
-	template<typename T,typename Ret,typename... Args>
-	constexpr Ret apply_mem_fn(T* obj,Ret(T::* mem_fn)(Args...),Args&&... args)
+	template<typename T,typename MemFn,typename... Args>
+	constexpr auto apply_mem_fn(T* obj,MemFn mem_fn,Args&&... args) -> decltype((obj->*mem_fn)(std::forward<Args>(args)...))
 	{
 		return (obj->*mem_fn)(std::forward<Args>(args)...);
 	}
@@ -240,7 +240,7 @@ namespace exlib {
 		MemFn is a member function pointer of T
 	*/
 	template<auto MemFn,typename T,typename... Args>
-	constexpr decltype(auto) apply_mem_fn(T* obj,Args&&... args)
+	constexpr auto apply_mem_fn(T* obj,Args&&... args) -> decltype((obj->*MemFn)(std::forward<Args>(args)...))
 	{
 		return (obj->*MemFn)(std::forward<Args>(args)...);
 	}

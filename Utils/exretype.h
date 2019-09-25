@@ -907,6 +907,19 @@ namespace exlib {
 	struct function_return_type<R(Args...) noexcept> {
 		using type=R;
 	};
+
+	template<typename F>
+	struct remove_noexcept;
+
+	template<typename R,typename... Args>
+	struct remove_noexcept<R(Args...) noexcept> {
+		using type=R(Args...);
+	};
+
+	template<typename R,typename... Args>
+	struct remove_noexcept<R(Args...)> {
+		using type=R(Args...);
+	};
 #endif
 
 	template<typename T>
