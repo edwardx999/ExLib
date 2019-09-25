@@ -231,7 +231,7 @@ namespace exlib {
 		Call the member function as if it is a global function.
 	*/
 	template<typename T,typename MemFn,typename... Args>
-	constexpr auto apply_mem_fn(T&& obj,MemFn mem_fn,Args&&... args) -> decltype(_EXALG_MEM_FN_BODY)
+	constexpr auto apply_mem_fn(T&& obj,MemFn mem_fn,Args&&... args) noexcept(noexcept(_EXALG_MEM_FN_BODY)) -> decltype(_EXALG_MEM_FN_BODY)
 	{
 		return _EXALG_MEM_FN_BODY;
 	}
@@ -239,7 +239,7 @@ namespace exlib {
 		Call the member function as if it is a global function.
 	*/
 	template<typename MemFn,MemFn mem_fn,typename T,typename... Args>
-	constexpr auto apply_mem_fn(T&& obj,Args&& ... args) -> decltype(_EXALG_MEM_FN_BODY)
+	constexpr auto apply_mem_fn(T&& obj,Args&& ... args) noexcept(noexcept(_EXALG_MEM_FN_BODY)) -> decltype(_EXALG_MEM_FN_BODY)
 	{
 		return _EXALG_MEM_FN_BODY;
 	}
@@ -249,7 +249,7 @@ namespace exlib {
 		MemFn is a member function pointer of T
 	*/
 	template<auto mem_fn,typename T,typename... Args>
-	constexpr auto apply_mem_fn(T&& obj,Args&&... args) -> decltype(_EXALG_MEM_FN_BODY)
+	constexpr auto apply_mem_fn(T&& obj,Args&&... args) noexcept(noexcept(_EXALG_MEM_FN_BODY)) -> decltype(_EXALG_MEM_FN_BODY)
 	{
 		return _EXALG_MEM_FN_BODY;
 	}
