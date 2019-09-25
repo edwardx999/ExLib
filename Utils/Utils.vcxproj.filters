@@ -72,5 +72,8 @@
     <ClInclude Include="exvirtbuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="exmacro.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
