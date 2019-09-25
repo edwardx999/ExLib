@@ -254,6 +254,41 @@ namespace exlib {
 		return _EXALG_MEM_FN_BODY;
 	}
 #endif
+
+#define _EXALG_MEM_FN_BODY2(quals) (static_cast<T quals>(obj).*mem_fn)(std::forward<Args>(args)...)
+
+#define _EXALG_DEFINE_APPLY_MEM_FN(name_suffix,ref_quals,func_quals)\
+	template<typename T,typename Ret,typename B,typename... Args>\
+	constexpr auto apply_mem_fn ## _ ## name_suffix(T ref_quals obj,Ret(B::* mem_fn)(Args...) func_quals,Args&&... args)  noexcept(noexcept(_EXALG_MEM_FN_BODY2(ref_quals))) -> decltype(_EXALG_MEM_FN_BODY2(ref_quals)) \
+	{\
+		return _EXALG_MEM_FN_BODY2(ref_quals);\
+	}\
+
+	_EXALG_DEFINE_APPLY_MEM_FN(mutable,&,)
+
+	_EXALG_DEFINE_APPLY_MEM_FN(const,const&,const)
+#if _EXALG_HAS_CPP_20
+	_EXALG_DEFINE_APPLY_MEM_FN(const,const&,const&)
+#endif
+
+	_EXALG_DEFINE_APPLY_MEM_FN(volatile,volatile&,volatile)
+
+	_EXALG_DEFINE_APPLY_MEM_FN(const_volatile,const volatile&,const volatile)
+
+
+#if _EXALG_ENABLE_REF_QUALIFIED_FUNCTION_PTRS
+	_EXALG_DEFINE_APPLY_MEM_FN(mutable,&,&)
+	_EXALG_DEFINE_APPLY_MEM_FN(volatile,volatile&,volatile&)
+	_EXALG_DEFINE_APPLY_MEM_FN(const_volatile,const volatile&,const volatile&)
+		
+	_EXALG_DEFINE_APPLY_MEM_FN(rvalue,&&,&&)
+	_EXALG_DEFINE_APPLY_MEM_FN(const_rvalue,const&&,const&&)
+	_EXALG_DEFINE_APPLY_MEM_FN(volatile_rvalue,volatile&&,volatile&&)
+	_EXALG_DEFINE_APPLY_MEM_FN(const_volatile_rvalue,const volatile&&,const volatile&&)
+#endif
+
+#undef _EXALG_DEFINE_APPLY_MEM_FN
+#undef _EXALG_MEM_FN_BODY2
 #undef _EXALG_MEM_FN_BODY
 }
 namespace exlib_swap_detail {
