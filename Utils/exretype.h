@@ -800,44 +800,61 @@ namespace exlib {
 #endif
 
 #ifdef __cpp_lib_integer_sequence
+	using std::integer_sequence;
+
 	using std::index_sequence;
 
+	using std::integer_sequence;
+
 	using std::make_index_sequence;
+
+	using std::make_index_sequence_for;
 #else
+
+	template<typename T,T... Is>
+	struct integer_sequence {};
+
 	template<size_t... Is>
-	struct index_sequence {};
+	using index_sequence=integer_sequence<std::size_t,Is...>;
 
 	namespace detail{
 		template<typename T,typename U>
-		struct concat_index_sequence;
+		struct concat_integer_sequence;
 
-		template<size_t... I,size_t... J>
-		struct concat_index_sequence<index_sequence<I...>,index_sequence<J...>> {
-			using type=index_sequence<I...,J...>;
+		template<typename T,T... I,T... J>
+		struct concat_integer_sequence<integer_sequence<T,I...>,integer_sequence<T,J...>> {
+			using type=integer_sequence<T,I...,J...>;
 		};
 
 		template<typename T,typename U>
-		using concat_index_sequence_t=typename concat_index_sequence<T,U>::type;
+		using concat_integer_sequence_t=typename concat_integer_sequence<T,U>::type;
 
-		template<size_t I,size_t J,bool adjacent=I+1==J>
-		struct make_index_sequence_h {
-			static constexpr size_t H=I+(J-I)/2;
-			using type=concat_index_sequence_t<typename make_index_sequence_h<I,H>::type,typename make_index_sequence_h<H,J>::type>;
+		template<typename T,T I,T J,bool adjacent=I+1==J>
+		struct make_integer_sequence_h {
+			static constexpr T H=I+(J-I)/2;
+			using type=concat_integer_sequence_t<typename make_integer_sequence_h<T,I,H>::type,typename make_integer_sequence_h<T,H,J>::type>;
 		};
 
-		template<size_t I>
-		struct make_index_sequence_h<I,I,false> {
-			using type=index_sequence<>;
+		template<typename T,T I>
+		struct make_integer_sequence_h<T,I,I,false> {
+			using type=integer_sequence<T>;
 		};
 
-		template<size_t I,size_t J>
-		struct make_index_sequence_h<I,J,true> {
-			using type=index_sequence<I>;
+		template<typename T,T I,T J>
+		struct make_integer_sequence_h<T,I,J,true> {
+			using type=integer_sequence<T,I>;
 		};
 	}
 
-	template<size_t N>
-	using make_index_sequence=typename detail::make_index_sequence_h<0,N>::type;
+
+	template<typename T,T N>
+	using make_integer_sequence=typename detail::make_integer_sequence_h<T,0,N>::type;
+
+	template<std::size_t N>
+	using make_index_sequence=make_integer_sequence<std::size_t,N>;
+
+	template<class... T>
+	using index_sequence_for=make_index_sequence<sizeof...(T)>;
 #endif
 
 	template<typename T>
