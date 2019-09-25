@@ -169,25 +169,52 @@ namespace exlib {
 		return static_cast<apply_value_category_t<Model,Orig>>(orig);
 	}
 
-	//Given two types, gets the type that would make Original have the same const reference qualifiers as Model
+	//Given two types, gets the type that would make Child have the same const qualifiers as Model
+	//T const, U -> U const
+	template<typename Model,typename Child>
+	struct const_value_like {
+		using type=typename std::remove_const<Child>::type;
+	};
+
+	template<typename Model,typename Child>
+	struct const_value_like<Model const,Child> {
+		using type=Child const;
+	};
+
+	template<typename Model,typename Child>
+	using const_value_like_t=typename const_value_like<Model,Child>::type;
+
+	//Given two types, gets the type that would make Child have the same const reference qualifiers as Model
 	//T const&, U& -> U const&
+	template<typename Model,typename Child>
+	struct const_like;
+
+	template<typename Model,typename Child>
+	struct const_like<Model&,Child&> {
+		using type=typename const_value_like<Model,Child>::type&;
+	};
+
+	template<typename Model,typename Child>
+	using const_like_t=typename const_like<Model,Child>::type;
+
 	template<typename Model,typename Original>
-	struct const_like {
-		using type=Original;
+	using const_ref_like=const_like<Model,Original>;
+
+	template<typename Model,typename Original>
+	using const_ref_like_t=const_like_t<Model,Original>;
+
+	//Given two types, gets the type that would make Child have the same const pointer qualifiers as Model
+	//T const&, U& -> U const&
+	template<typename Model,typename Child>
+	struct const_pointer_like;
+
+	template<typename Model,typename Child>
+	struct const_pointer_like<Model*,Child*> {
+		using type=typename const_value_like<Model,Child>::type*;
 	};
 
-	template<typename T,typename U>
-	struct const_like<T&,U&> {
-		using type=U&;
-	};
-
-	template<typename T,typename U>
-	struct const_like<T const&,U&> {
-		using type=U const&;
-	};
-
-	template<typename T,typename U>
-	using const_like_t=typename const_like<T,U>::type;
+	template<typename Model,typename Child>
+	using const_pointer_like_t=typename const_pointer_like<Model,Child>::type;
 
 	//Strips cv qualifiers from reference and value types
 	template<typename T>
