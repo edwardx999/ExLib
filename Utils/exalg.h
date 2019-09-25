@@ -68,9 +68,9 @@ namespace exlib {
 	{
 		if(begin==end) return;
 		auto copy_begin=begin;
+		*begin=std::move(val);
 		++begin;
-		fill_detail::fill_with_copy(begin,end,val);
-		*copy_begin=std::move(val);
+		fill_detail::fill_with_copy(begin,end,*copy_begin);
 	}
 
 	template<typename Iter,typename Val=typename std::iterator_traits<Iter>::value_type>
