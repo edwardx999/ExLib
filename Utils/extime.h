@@ -24,7 +24,7 @@ namespace exlib {
 		Res result;
 		operator std::pair<Measure,Res>() const&
 		{
-			return std::pair<Measure,Res>(time,std::forward<typename std::add_const<Res>::type>(result));
+			return std::pair<Measure,Res>(time,static_cast<Res>(result));
 		}
 		operator std::pair<Measure,Res>() &&
 		{
