@@ -44,7 +44,7 @@ namespace exlib {
 			static timing<M,Res> get(Op&& op,Args&&... args)
 			{
 				auto b=std::chrono::steady_clock::now();
-				Res res=op(std::forward<Args>(args)...);
+				Res res=std::forward<Op>(op)(std::forward<Args>(args)...);
 				auto e=std::chrono::steady_clock::now();
 				M p=std::chrono::duration_cast<M>(e-b);
 				return {p,std::forward<Res>(res)};
@@ -56,7 +56,7 @@ namespace exlib {
 			static timing<M,void> get(Op&& op,Args&&... args)
 			{
 				auto b=std::chrono::steady_clock::now();
-				op(std::forward<Args>(args)...);
+				std::forward<Op>(op)(std::forward<Args>(args)...);
 				auto e=std::chrono::steady_clock::now();
 				M p=std::chrono::duration_cast<M>(e-b);
 				return {p};
