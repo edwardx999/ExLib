@@ -226,33 +226,35 @@ namespace exlib {
 		return get_impl::do_get<I>(std::forward<Container>(cont));
 	}
 
+#define _EXALG_MEM_FN_BODY (std::forward<T>(obj).*mem_fn)(std::forward<Args>(args)...)
 	/*
 		Call the member function as if it is a global function.
 	*/
 	template<typename T,typename MemFn,typename... Args>
-	constexpr auto apply_mem_fn(T* obj,MemFn mem_fn,Args&&... args) -> decltype((obj->*mem_fn)(std::forward<Args>(args)...))
+	constexpr auto apply_mem_fn(T&& obj,MemFn mem_fn,Args&&... args) -> decltype(_EXALG_MEM_FN_BODY)
 	{
-		return (obj->*mem_fn)(std::forward<Args>(args)...);
+		return _EXALG_MEM_FN_BODY;
 	}
 	/*
 		Call the member function as if it is a global function.
 	*/
 	template<typename MemFn,MemFn mem_fn,typename T,typename... Args>
-	constexpr auto apply_mem_fn(T* obj,Args&& ... args) -> decltype((obj->*mem_fn)(std::forward<Args>(args)...))
+	constexpr auto apply_mem_fn(T&& obj,Args&& ... args) -> decltype(_EXALG_MEM_FN_BODY)
 	{
-		return (obj->*mem_fn)(std::forward<Args>(args)...);
+		return _EXALG_MEM_FN_BODY;
 	}
 #if	_EXALG_HAS_CPP_17
 	/*
 		Version that has the member function constexpr bound to it,
 		MemFn is a member function pointer of T
 	*/
-	template<auto MemFn,typename T,typename... Args>
-	constexpr auto apply_mem_fn(T* obj,Args&&... args) -> decltype((obj->*MemFn)(std::forward<Args>(args)...))
+	template<auto mem_fn,typename T,typename... Args>
+	constexpr auto apply_mem_fn(T&& obj,Args&&... args) -> decltype(_EXALG_MEM_FN_BODY)
 	{
-		return (obj->*MemFn)(std::forward<Args>(args)...);
+		return _EXALG_MEM_FN_BODY;
 	}
 #endif
+#undef _EXALG_MEM_FN_BODY
 }
 namespace exlib_swap_detail {
 
