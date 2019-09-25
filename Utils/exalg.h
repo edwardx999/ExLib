@@ -234,6 +234,14 @@ namespace exlib {
 	{
 		return (obj->*mem_fn)(std::forward<Args>(args)...);
 	}
+	/*
+		Call the member function as if it is a global function.
+	*/
+	template<typename MemFn,MemFn mem_fn,typename T,typename... Args>
+	constexpr auto apply_mem_fn(T* obj,Args&& ... args) -> decltype((obj->*mem_fn)(std::forward<Args>(args)...))
+	{
+		return (obj->*mem_fn)(std::forward<Args>(args)...);
+	}
 #if	_EXALG_HAS_CPP_17
 	/*
 		Version that has the member function constexpr bound to it,
