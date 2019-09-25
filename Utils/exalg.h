@@ -275,6 +275,12 @@ namespace exlib {
 
 	_EXALG_DEFINE_APPLY_MEM_FN(const_volatile,const volatile&,const volatile)
 
+#if __cpp_noexcept_function_type
+	_EXALG_DEFINE_APPLY_MEM_FN(mutable,&,noexcept)
+	_EXALG_DEFINE_APPLY_MEM_FN(const,const&,const noexcept)
+	_EXALG_DEFINE_APPLY_MEM_FN(volatile,volatile&,volatile noexcept)
+	_EXALG_DEFINE_APPLY_MEM_FN(const_volatile,const volatile&,const volatile noexcept)
+#endif
 
 #if _EXALG_ENABLE_REF_QUALIFIED_FUNCTION_PTRS
 	_EXALG_DEFINE_APPLY_MEM_FN(mutable,&,&)
