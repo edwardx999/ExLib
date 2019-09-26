@@ -416,11 +416,6 @@ namespace exlib {
 			{
 
 			}
-			template<typename Tpl,typename Func,std::size_t I>
-			constexpr static void apply(Tpl&& tpl,Func& f,index_sequence<I>)
-			{
-				f(generic_get<I>(std::forward<Tpl>(tpl)));
-			}
 			template<typename Tpl,typename Func,std::size_t I,std::size_t... Rest>
 			constexpr static void apply(Tpl&& tpl,Func& f,index_sequence<I,Rest...>)
 			{

@@ -35,7 +35,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 namespace exlib {
 
 	//A smart ptr that uses the given allocator to allocate and delete
-	//memory is uninitilized, and you are responsible for destroy any constructed objects
+	//memory is uninitilized, and you are responsible for destroying any constructed objects
 	template<typename T,typename Allocator>
 	class allocator_ptr:private empty_store<Allocator> {
 	private:
@@ -376,7 +376,7 @@ namespace exlib {
 		class mvector;
 
 		/*
-			Provide a allocator that allocates n bytes given n as an argument to allocate
+			Provide a allocator that allocates n*sum_of_sizes bytes given n as an argument to allocate
 		*/
 		template<typename... Types,typename Allocator>
 		class mvector<std::tuple<Types...>,Allocator> {
@@ -483,15 +483,15 @@ namespace exlib {
 #undef iterator_comp
 				reference operator[](size_t s) const
 				{
-					return (*_parent)[s];
+					return (*_parent)[s+_index];
 				}
 				reference operator*() const
 				{
-					return (*_parent)[0];
+					return (*_parent)[_index];
 				}
-				reference operator->()const
+				pointer operator->()const
 				{
-					return wrap_pointerlike((*_parent)[0]);
+					return wrap_pointerlike((*_parent)[_index]);
 				}
 #define iterator_ment(op) iterator& operator ##op##() {##op##_index;return *this;} iterator operator ##op##(int) {iterator copy(*this);##op##_index;return copy;} 
 				iterator_ment(++)
@@ -755,7 +755,7 @@ namespace exlib {
 			{
 				for(size_type i=0;i<n;++i)
 				{
-					do_destroy<I>(data+n);
+					do_destroy<I>(data+i);
 				}
 			}
 
@@ -963,14 +963,14 @@ namespace exlib {
 				auto const loc=data<I>()+first;
 				size_type const dist=last-first;
 				size_type const off_end=size()-last;
+				auto const near_end=loc+dist;
 				if(dist<=off_end)
 				{
-					auto const near_end=loc+dist;
 					for(size_type i=0;i<dist;++i)
 					{
 						loc[i]=std::move(near_end[i]);
 					}
-					destroy_range(near_end,off_end-dist);
+					destroy_range<I>(near_end,off_end-dist);
 				}
 				else
 				{
@@ -978,7 +978,8 @@ namespace exlib {
 					{
 						loc[i]=std::move(near_end[i]);
 					}
-					destroy_range(loc+off_end,loc+last);
+					auto const start=loc+off_end;
+					destroy_range<I>(start,near_end-start);
 				}
 				erase_impl(first,last,index_sequence<Is...>{});
 			}
@@ -987,7 +988,7 @@ namespace exlib {
 		public:
 			size_type erase(size_type index)
 			{
-				erase(index,index+1);
+				return erase(index,index+1);
 			}
 
 			size_type erase(size_type first,size_t last)
@@ -1093,7 +1094,7 @@ namespace exlib {
 	template<typename Type1,typename... Types>
 	using multi_vector=detail::mvector<
 		std::tuple<Type1,Types...>,
-		buffer_allocator<1,alignof(std::tuple<Type1,Types...>)>>;
+		buffer_allocator<detail::tuple_size_sum<std::tuple<Type1,Types...>>::value,alignof(std::tuple<Type1,Types...>)>>;
 
 	namespace stack_array_detail {
 
