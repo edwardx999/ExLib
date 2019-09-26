@@ -16,6 +16,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #define EXITERATOR_H
 #include <iterator>
 #include "exretype.h"
+#include "exmacro.h"
 #include <assert.h>
 #include <utility>
 #include <tuple>
@@ -117,13 +118,8 @@ namespace exlib {
 		{
 			return _base[s];
 		}
-#define comp(op) constexpr bool operator##op##(Derived other) const { return _base ## op ## other.base() ;}
-		comp(<)
-			comp(>)
-			comp(==)
-			comp(>=)
-			comp(<=)
-			comp(!=)
+#define iterator_base_comp(op) constexpr bool operator op(Derived other) const { return _base op other.base() ;}
+		EXLIB_FOR_ALL_COMP_OPS(iterator_base_comp)
 #undef comp
 	};
 
@@ -212,13 +208,8 @@ namespace exlib {
 		{
 			return *(_base-s-1);
 		}
-#define comp(op) constexpr bool operator##op##(Derived other){ return other.base() ## op ## _base ;}
-		comp(<)
-			comp(>)
-			comp(==)
-			comp(>=)
-			comp(<=)
-			comp(!=)
+#define riterator_base_comp(op) constexpr bool operator op(Derived other){ return other.base() op _base ;}
+		EXLIB_FOR_ALL_COMP_OPS(riterator_base_comp)
 #undef comp
 	};
 
@@ -460,7 +451,7 @@ namespace exlib {
 			T _val;
 		public:
 			template<typename... Args>
-			constexpr ptr_wrapper(Args&& ... args) noexcept(noexcept(T(std::forward<Args>(args)...))):_val(std::forward<Args>(args)...)
+			constexpr ptr_wrapper(Args&&... args) noexcept(noexcept(T(std::forward<Args>(args)...))):_val(std::forward<Args>(args)...)
 			{}
 			constexpr T& operator*() const noexcept
 			{
@@ -534,19 +525,7 @@ namespace exlib {
 	};
 
 #define make_comp_op_for_gi(op) template<typename Base,typename Functor> constexpr auto operator op(transform_iterator<Base,Functor> const& a,transform_iterator<Base,Functor> const& b) noexcept(noexcept(a.base() op b.base())) -> decltype(a.base() op b.base()) {return a.base() op b.base();}
-	make_comp_op_for_gi(==)
-		make_comp_op_for_gi(!=)
-		make_comp_op_for_gi(<)
-		make_comp_op_for_gi(>)
-		make_comp_op_for_gi(<=)
-		make_comp_op_for_gi(>=)
-#if _EXITERATOR_HAS_CPP20
-		template<typename Base,typename Functor>
-	constexpr auto operator<=>(transform_iterator<Base,Functor> const& a,transform_iterator<Base,Functor> const& b) noexcept(a.base()<=>b.base()) -> decltype(a.base()<=>b.base())
-	{
-		return a.base()<=>b.base();
-	}
-#endif
+	EXLIB_FOR_ALL_COMP_OPS(make_comp_op_for_gi)
 #undef make_comp_op_for_gi
 
 	template<typename Base,typename Functor>
@@ -660,19 +639,7 @@ namespace exlib {
 	}
 
 #define make_comp_op_for_gi(op) template<typename Integral,Integral Increment> constexpr bool operator op(count_iterator<Integral,Increment> a,count_iterator<Integral,Increment> b) noexcept {return *a op *b;}
-	make_comp_op_for_gi(==)
-		make_comp_op_for_gi(!=)
-		make_comp_op_for_gi(<)
-		make_comp_op_for_gi(>)
-		make_comp_op_for_gi(<=)
-		make_comp_op_for_gi(>=)
-#if _EXITERATOR_HAS_CPP20
-		template<typename Integral,Integral Increment>
-	constexpr auto operator<=>(count_iterator<Integral,Increment> a,count_iterator<Integral,Increment> b) noexcept
-	{
-		return *a<=>*b;
-	}
-#endif
+	EXLIB_FOR_ALL_COMP_OPS(make_comp_op_for_gi)
 #undef make_comp_op_for_gi
 
 	using index_iterator=count_iterator<std::size_t>;
@@ -720,7 +687,7 @@ namespace exlib {
 		using reference=typename Traits::reference;
 		using iterator_category=std::forward_iterator_tag;
 
-		constexpr filter_iterator(Base iter,Base end,Functor f={}) noexcept(std::is_nothrow_move_constructible<Functor>::value):_base(iter),_end(end),empty_store<Functor>	(std::move(f))
+		constexpr filter_iterator(Base iter,Base end,Functor f={}) noexcept(std::is_nothrow_move_constructible<Functor>::value):_base(iter),_end(end),empty_store<Functor>(std::move(f))
 		{
 			advance_until_satisfied();
 		}
@@ -1019,6 +986,43 @@ namespace exlib {
 	//		return {std::forward<Container>(cont).end(),std::forward<Container>(cont).size()};
 	//	}
 
+	template<typename... References>
+	class multi_rvalue_reference;
+	template<typename... References>
+	class multi_reference;
+
+	template<typename... References>
+	constexpr multi_rvalue_reference<References...> move(multi_reference<References...> const& ref) noexcept;
+	template<typename... References>
+	constexpr multi_rvalue_reference<References...> move(multi_reference<References...> const&& ref) noexcept;
+	template<typename... References>
+	constexpr multi_rvalue_reference<References...> move(multi_reference<References...>&& ref) noexcept;
+	template<typename... References>
+	constexpr multi_rvalue_reference<References...> move(multi_reference<References...>& ref) noexcept;
+}
+namespace std {
+	template<typename... References>
+	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...>&& ref)
+	{
+		return exlib::move(ref);
+	}
+	template<typename... References>
+	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...>& ref)
+	{
+		return exlib::move(ref);
+	}
+	template<typename... References>
+	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...> const&& ref)
+	{
+		return exlib::move(ref);
+	}
+	template<typename... References>
+	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...> const& ref)
+	{
+		return exlib::move(ref);
+	}
+}
+namespace exlib {
 
 	template<typename... References>
 	class multi_rvalue_reference {
@@ -1032,7 +1036,8 @@ namespace exlib {
 		constexpr multi_rvalue_reference(multi_rvalue_reference&& args)=default;
 
 		template<typename... Args>
-		constexpr multi_rvalue_reference(Args&&... refs):refs(std::forward<Args>(refs)...) {}
+		constexpr multi_rvalue_reference(Args&&... refs):refs(std::forward<Args>(refs)...)
+		{}
 
 		template<typename... Types>
 		constexpr operator std::tuple<Types...>() const noexcept(std::is_nothrow_move_constructible<std::tuple<Types...>>::value)
@@ -1051,7 +1056,6 @@ namespace exlib {
 	class multi_reference {
 		std::tuple<References...> refs;
 	public:
-
 		decltype(refs) const & base() const noexcept
 		{
 			return refs;
@@ -1065,7 +1069,8 @@ namespace exlib {
 		{}
 
 		template<typename... Args>
-		constexpr multi_reference(Args&& ... refs) noexcept:refs(std::forward<Args>(refs)...) {}
+		constexpr multi_reference(Args&&... refs) noexcept:refs(std::forward<Args>(refs)...)
+		{}
 
 		template<typename... Types>
 		constexpr multi_reference& operator=(multi_reference<Types...> const& args)
@@ -1117,29 +1122,32 @@ namespace exlib {
 		}
 	};
 
-#define make_multi_reference_compare(op)\
+#define make_multi_reference_compare_base(rtype,op)\
 	template<typename... Types,typename... Types2>\
-	constexpr bool operator op(multi_reference<Types...> const& a,multi_reference<Types2...> const& b)\
+	constexpr bool operator op(rtype<Types...> const& a,rtype<Types2...> const& b)\
 	{\
 		return a.base() op b.base();\
 	}\
 	template<typename... Types,typename... Types2>\
-	constexpr bool operator op(std::tuple<Types...> const& a,multi_reference<Types2...> const& b)\
+	constexpr bool operator op(std::tuple<Types...> const& a,rtype<Types2...> const& b)\
 	{\
 		return a op b.base();\
 	}\
 	template<typename... Types,typename... Types2>\
-	constexpr bool operator op(multi_reference<Types...> const& a,std::tuple<Types2...> const& b)\
+	constexpr bool operator op(rtype<Types...> const& a,std::tuple<Types2...> const& b)\
 	{\
 		return a.base() op b;\
 	}
-	make_multi_reference_compare(!=)
-	make_multi_reference_compare(<)
-	make_multi_reference_compare(>)
-	make_multi_reference_compare(<=)
-	make_multi_reference_compare(>=)
-	make_multi_reference_compare(==)
+#define make_multi_reference_compare(op) make_multi_reference_compare_base(multi_reference,op)
+#define make_multi_rvalue_reference_compare(op) make_multi_reference_compare_base(multi_rvalue_reference,op)
+
+	EXLIB_FOR_ALL_COMP_OPS(make_multi_reference_compare)
+	EXLIB_FOR_ALL_COMP_OPS(make_multi_rvalue_reference_compare)
+
+#undef make_multi_reference_compare_base
+#undef make_multi_rvalue_reference_compare
 #undef make_multi_reference_compare
+
 	namespace multi_reference_detail {
 		template<typename T>
 		constexpr T const& as_const(T const& a) noexcept
@@ -1173,30 +1181,7 @@ namespace exlib {
 	{
 		return move(multi_reference_detail::as_const(ref));
 	}
-}
-namespace std {
-	template<typename... References>
-	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...>&& ref)
-	{
-		return exlib::move(ref);
-	}
-	template<typename... References>
-	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...>& ref)
-	{
-		return exlib::move(ref);
-	}
-	template<typename... References>
-	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...> const&& ref)
-	{
-		return exlib::move(ref);
-	}
-	template<typename... References>
-	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...> const& ref)
-	{
-		return exlib::move(ref);
-	}
-}
-namespace exlib {
+
 #define multi_reference_get(qualifier)\
 	template<std::size_t I,typename... Types>\
 	constexpr auto get(multi_reference<Types...> qualifier ref) -> decltype(std::get<I>(ref.base()))\
@@ -1215,6 +1200,7 @@ namespace exlib {
 	multi_reference_get(const&&)
 
 #undef multi_reference_get
+
 	namespace combined_iterator_detail {
 		template<typename RandIter,typename T>
 		constexpr std::size_t find_index(RandIter iter,std::size_t len,T const& target)
@@ -1334,7 +1320,7 @@ namespace exlib {
 		using rvalue_reference=multi_rvalue_reference<typename std::iterator_traits<Iters>::reference...>;
 		using pointer=iterator_detail::ptr_wrapper<reference>;
 		using iterator_category=typename std::common_type<typename std::iterator_traits<Iters>::iterator_category...>::type;
-		constexpr combined_iterator(Iters const& ... iters) noexcept:_iters(iters...)
+		constexpr combined_iterator(Iters const&... iters) noexcept:_iters(iters...)
 		{}
 		constexpr combined_iterator(combined_iterator const&)=default;
 		constexpr combined_iterator& operator=(combined_iterator const&)=default;
@@ -1446,11 +1432,11 @@ namespace exlib {
 			return std::get<0>(_iters) op std::get<0>(other._iters);\
 		}
 		make_comp_op_for_combined_iter(==,has_equal)
-			make_comp_op_for_combined_iter(<,has_less)
-			make_comp_op_for_combined_iter(>,has_greater)
-			make_comp_op_for_combined_iter(!=,has_not_equal)
-			make_comp_op_for_combined_iter(<=,has_less_equal)
-			make_comp_op_for_combined_iter(>=,has_greater_equal)
+		make_comp_op_for_combined_iter(<,has_less)
+		make_comp_op_for_combined_iter(>,has_greater)
+		make_comp_op_for_combined_iter(!=,has_not_equal)
+		make_comp_op_for_combined_iter(<=,has_less_equal)
+		make_comp_op_for_combined_iter(>=,has_greater_equal)
 #undef make_comp_op_for_combined_iter
 	private:
 	public:
@@ -1512,7 +1498,7 @@ namespace exlib {
 		return iter+-n;
 	}
 	template<typename... Iters>
-	constexpr combined_iterator<Iters...> make_combined_iterator(Iters const& ... iters)
+	constexpr combined_iterator<Iters...> make_combined_iterator(Iters const&... iters)
 	{
 		return {iters...};
 	}

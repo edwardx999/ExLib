@@ -25,6 +25,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include "extags.h"
 #include "exretype.h"
 #include "exiterator.h"
+#include "exfinally.h"
 #define FORCEINLINE __forceinline
 #if (__cplusplus>=201700l)
 #define IFCONSTEXPR constexpr
@@ -35,43 +36,68 @@ namespace exlib {
 
 	//A smart ptr that uses the given allocator to allocate and delete
 	//memory is uninitilized, and you are responsible for destroy any constructed objects
-	template<typename T,typename Allocator,bool noexcept_move=true>
+	template<typename T,typename Allocator>
 	class allocator_ptr:private empty_store<Allocator> {
 	private:
 		using Base=empty_store<Allocator>;
 		using Traits=std::allocator_traits<Allocator>;
+		using pocca=typename Traits::propagate_on_container_copy_assignment;
+		using pocma=typename Traits::propagate_on_container_copy_assignment;
+		using pocs=typename Traits::propagate_on_container_swap;
 	public:
 		using pointer=typename Traits::pointer;
 		using element_type=typename Traits::value_type;
 		using allocator_type=Allocator;
-		using reference=typename Traits::reference;
+		using reference=typename std::add_lvalue_reference<element_type>::type;
+		using size_type=typename Traits::size_type;
 	private:
 		pointer _base;
-		size_t _capacity;
+		size_type _capacity;
+		Allocator select_on_move(Allocator& a,std::false_type)
+		{
+			return Allocator();
+		}
+		Allocator&& select_on_move(Allocator& a,std::true_type)
+		{
+			return std::move(a);
+		}
 	public:
+		allocator_type& get_allocator_ref() noexcept
+		{
+			return Base::get();
+		}
+		allocator_type get_allocator() const noexcept
+		{
+			return Base::get();
+		}
 		void release()
 		{
 			_base=nullptr;
+			_capacity=0;
 		}
-		void reset() noexcept(noexcept_move)
+		void reset() noexcept
 		{
 			reset(nullptr,0);
 		}
-		void reset(pointer p,size_t capacity) noexcept(noexcept_move)
+		void reset(pointer p,std::size_t capacity,Allocator a=Allocator()) noexcept
 		{
-			Traits::deallocate(this->get(),_base,_capacity);
+			Traits::deallocate(this->get_allocator_ref(),_base,_capacity);
 			_base=p;
 			_capacity=capacity;
+			if(pocma::value)
+			{
+				this->get_allocator_ref()=std::move(a);
+			}
 		}
-		allocator_ptr(size_t n,Allocator const& alloc=Allocator()):Base(alloc),_base(Allocator::allocate(n)),_capacity(n)
+		allocator_ptr(std::size_t n,Allocator const& alloc=Allocator()):Base(alloc),_base(Traits::allocate(this->get_allocator_ref(),n)),_capacity(n)
 		{}
-		allocator_ptr(Allocator const& alloc=Allocator()) noexcept(std::is_nothrow_copy_constructible<Allocator>::value):Base(alloc),_base(nullptr),_capacity(0)
+		allocator_ptr(Allocator const& alloc=Allocator()) noexcept:Base(Traits::select_on_container_copy_construction(alloc)),_base(nullptr),_capacity(0)
 		{}
-		allocator_ptr(allocator_ptr&& o) noexcept(noexcept_move):Base(std::move(o)),_base(o._base),_capacity(o._capacity)
+		allocator_ptr(allocator_ptr&& o) noexcept:Base(select_on_move(o.get_allocator_ref(),typename Traits::propagate_on_move_assignment{})),_base(o._base),_capacity(o._capacity)
 		{
 			o.release();
 		}
-		size_t capacity() const noexcept
+		size_type capacity() const noexcept
 		{
 			return _capacity;
 		}
@@ -79,33 +105,40 @@ namespace exlib {
 		{
 			return _base;
 		}
-		void swap(allocator_ptr& o) noexcept(noexcept_move)
+		void swap(allocator_ptr& o) noexcept
 		{
 			using std::swap;
+			if(pocs::value&&this->get_allocator_ref()!=o.get_allocator_ref())
+			{
+				swap(this->get_allocator_ref(),o.get_allocator_ref());
+			}
 			swap(_base,o._base);
 			swap(_capacity,o._capacity);
 		}
-		friend void swap(allocator_ptr& a,allocator_ptr& b) noexcept(noexcept_move)
+		friend void swap(allocator_ptr& a,allocator_ptr& b) noexcept
 		{
 			a.swap(b);
 		}
-		allocator& operator=(allocator_ptr&& o) noexcept(noexcept_move)
+		allocator_ptr& operator=(allocator_ptr&& o) noexcept
 		{
-			reset(o._base,o._capacity);
+			reset(o._base,o._capacity,o.get_allocator_ref());
 			o.release();
 			return *this;
 		}
-		~allocator_ptr() noexcept(noexcept_move)
-		{
-			Traits::deallocate(this->get(),_base,_capacity);
-		}
-		reference operator[](size_t s) const noexcept
+		reference operator[](size_type s) const noexcept
 		{
 			return _base[s];
 		}
 		reference operator*() const noexcept
 		{
 			return *_base;
+		}
+		~allocator_ptr() noexcept
+		{
+			if(this->get())
+			{
+				Traits::deallocate(this->get_allocator_ref(),_base,_capacity);
+			}
 		}
 	};
 
@@ -118,7 +151,8 @@ namespace exlib {
 		T* _base;
 	public:
 		using type=T;
-		uninitialized_reference(T& base):_base(std::addressof(base)) {}
+		uninitialized_reference(T& base):_base(std::addressof(base))
+		{}
 		T& operator=(T const& t) noexcept(noexcept(T(t)))
 		{
 			new (_base)(t);
@@ -135,7 +169,7 @@ namespace exlib {
 			new (_base)(std::forward<Args>(args)...);
 			return *_base;
 		}
-		explicit operator T&() const noexcept
+		explicit operator T& () const noexcept
 		{
 			return *_base;
 		}
@@ -183,6 +217,14 @@ namespace exlib {
 			new (place) T;
 		}
 		using Base::construct;
+		constexpr bool operator==(default_init_allocator const&) const noexcept
+		{
+			return true;
+		}
+		constexpr bool operator!=(default_init_allocator const&) const noexcept
+		{
+			return false;
+		}
 	};
 
 	template<typename T,typename Base=std::allocator<T>>
@@ -192,6 +234,14 @@ namespace exlib {
 		template<typename... Args>
 		void construct(T* place,Args&&... args)
 		{}
+		constexpr bool operator==(no_init_allocator const&) const noexcept
+		{
+			return true;
+		}
+		constexpr bool operator!=(no_init_allocator const&) const noexcept
+		{
+			return false;
+		}
 	};
 
 	namespace detail {
@@ -199,7 +249,6 @@ namespace exlib {
 		template<typename T>
 		struct tuple_size_sum;
 #if	EXMEM_HAS_CPP_17
-
 		template<typename...Types>
 		struct tuple_size_sum<std::tuple<Types...>>:std::integral_constant<size_t,(...+sizeof(Types))> {};
 #else
@@ -209,7 +258,7 @@ namespace exlib {
 		struct tuple_size_sum<std::tuple<T>>:std::integral_constant<size_t,sizeof(T)> {};
 
 		template<typename First,typename... Rest>
-		struct tuple_size_sum<std::tuple<First,Rest...>>:std::integral_constant<size_t,sizeof(First)+tuple_size_sum<Rest...>::value> {};
+		struct tuple_size_sum<std::tuple<First,Rest...>>:std::integral_constant<std::size_t,sizeof(First)+tuple_size_sum<std::tuple<Rest...>>::value> {};
 #endif
 		template<std::size_t N>
 		class mvector_to_alloc {
@@ -217,17 +266,13 @@ namespace exlib {
 		};
 	}
 
-	template<typename... Types>
-	struct types:std::tuple<Types...> {
-		using types=std::tuple<Types...>;
-	};
-
 	template<typename T>
 	struct pointerlike_wrapper {
 	private:
-		T _value;
+		T mutable _value;
 	public:
-		pointerlike_wrapper(T v):_value(std::move(v))
+		template<typename... Args>
+		pointerlike_wrapper(Args&&... v):_value(std::forward<Args>(v)...)
 		{}
 		T& operator*() const
 		{
@@ -245,6 +290,83 @@ namespace exlib {
 		return {std::forward<T>(arg)};
 	}
 
+	enum memory_constants:std::size_t {
+		malloc_alignment=
+#if defined(_WIN32)||defined(__GNUC__)
+#if defined(_WIN64)||defined(__x86_64__)  
+		16
+#else
+		8
+#endif
+#else
+		alignof(std::max_align_t)
+#endif
+	};
+
+	namespace exmem_detail {
+		struct basic_allocator_types {
+			using value_type=void;
+			using pointer=void*;
+			using const_pointer=void const*;
+			using void_pointer=void*;
+			using difference_type=std::ptrdiff_t;
+			using propagate_on_container_copy_assignment=std::false_type;
+			using propagate_on_container_move_assignment=std::false_type;
+			using propagate_on_container_swap=std::false_type;
+			using is_always_equal=std::true_type;
+
+		};
+		template<std::size_t ItemSize,std::size_t Alignment,bool Overaligned=(Alignment>memory_constants::malloc_alignment)>
+		class buffer_allocator:public basic_allocator_types {
+		public:
+			pointer allocate(std::size_t n) const
+			{
+				return new char[n*ItemSize];
+			}
+			void deallocate(pointer p,std::size_t) const noexcept
+			{
+				delete[] p;
+			}
+		};
+
+		template<std::size_t ItemSize,std::size_t Alignment>
+		class buffer_allocator<ItemSize,Alignment,true>:public basic_allocator_types {
+		public:
+			pointer allocate(std::size_t n) const
+			{
+				auto const ptr=
+#ifdef _WIN32
+					_aligned_malloc(n*ItemSize,Alignment);
+#else
+					aligned_alloc(Alignment,n*ItemSize);
+#endif
+				if(!ptr) throw std::bad_alloc{};
+			}
+			void deallocate(pointer p,std::size_t) const noexcept
+			{
+#ifdef _WIN32
+				_aligned_free(p);
+#else
+				free(ptr);
+#endif
+			}
+		};
+
+		template<std::size_t IS,std::size_t A,bool OA>
+		constexpr bool operator==(buffer_allocator<IS,A,OA> a,buffer_allocator<IS,A,OA> b) noexcept
+		{
+			return true;
+		}
+		template<std::size_t IS,std::size_t A,bool OA>
+		constexpr bool operator!=(buffer_allocator<IS,A,OA> a,buffer_allocator<IS,A,OA> b) noexcept
+		{
+			return false;
+		}
+	}
+
+	template<std::size_t ItemSize=1,std::size_t Alignment=alignof(std::max_align_t)>
+	using buffer_allocator=exmem_detail::buffer_allocator<ItemSize,Alignment>;
+
 	/*
 		Add subrange (alias for span) method to iterator each subrange
 		Fix constructors to use constructors
@@ -253,62 +375,91 @@ namespace exlib {
 		template<typename Types,typename Allocator>
 		class mvector;
 
+		/*
+			Provide a allocator that allocates n bytes given n as an argument to allocate
+		*/
 		template<typename... Types,typename Allocator>
-		class mvector<types<Types...>,Allocator> {
+		class mvector<std::tuple<Types...>,Allocator> {
+			static_assert(exlib::value_conjunction<!std::is_reference<Types>::value...>::value,"No references");
 		protected:
 			using TypeTuple=std::tuple<Types...>;
 		public:
-			static constexpr size_t type_count=std::tuple_size<TypeTuple>::value;
+			static constexpr std::size_t type_count=std::tuple_size<TypeTuple>::value;
+			using allocator_type=Allocator;
 		private:
-			template<size_t I>
-			using get_t=typename std::tuple_element<TypeTuple>::type;
+			using AllocTraits=std::allocator_traits<allocator_type>;
+			template<std::size_t I>
+			using get_t=typename std::tuple_element<I,TypeTuple>::type;
 
-			using idx_seq=std::make_index_sequence<type_count>;
+			static constexpr auto noexcept_movable=exlib::value_conjunction<std::is_nothrow_move_constructible<Types>::value...>::value;
+		public:
+			using size_type=typename AllocTraits::size_type;
+			using difference_type=typename AllocTraits::difference_type;
 
-			template<size_t I,size_t... Is>
-			static constexpr size_t get_alignment(std::index_sequence<I,Is...>)
+			using value_type=std::tuple<Types...>;
+			using reference=multi_reference<Types& ...>;
+			using const_reference=multi_reference<Types const& ...>;
+			using pointer=pointerlike_wrapper<reference>;
+			using const_pointer=pointerlike_wrapper<const_reference>;
+		private:
+			using _DataM=allocator_ptr<void,Allocator>;
+			_DataM _data;
+			size_type _size;
+
+			constexpr static auto total_size=exlib::detail::tuple_size_sum<TypeTuple>::value;
+
+			using idx_seq=make_index_sequence<type_count>;
+
+			template<std::size_t I,std::size_t... Is>
+			static constexpr size_type get_alignment(index_sequence<I,Is...>)
 			{
-				return std::max(alignof(get_t<I>),get_alignment(std::index_sequence<Is...>()));
+				return std::max<size_type>(alignof(get_t<I>),get_alignment(index_sequence<Is...>()));
 			}
-			static constexpr size_t get_alignment(std::index_sequence<>)
+
+			static constexpr size_type get_alignment(index_sequence<>)
 			{
 				return 1;
 			}
-			using AllocBase=std::allocator_traits<Allocator>::rebind_alloc<mvector_to_alloc<tuple_size_sum<Types...>::value>>;
-			using AllocTraits=std::allocator_traits<AllocBase>;
-
-			template<size_t I>
-			using get_construct_t=typename std::tuple_element<ConstructorsTuple>::type;
-			template<size_t I>
-			using get_construct_traits_t=constructor_traits<get_consstruct_t<I>>;
 		protected:
-			static constexpr size_t alignment=get_alignment(idx_seq{});
+			static constexpr size_type alignment=get_alignment(idx_seq{});
+		private:
+			template<typename Ret,typename MV,std::size_t... Is>
+			friend Ret subscript_impl(size_type s,MV& ref,std::index_sequence<Is...>)
+			{
+				return {ref.data<Is>()[s]...};
+			}
 		public:
-			template<size_t I>
+			reference operator[](size_type s)
+			{
+				return subscript_impl<reference>(s,*this,idx_seq{});
+			}
+			const_reference operator[](size_type s) const
+			{
+				return subscript_impl<const_reference>(s,*this,idx_seq{});
+			}
+			template<std::size_t I>
 			using subrange_value_type=get_t<I>;
-			template<size_t I>
-			using subrange_reference=get_t<I>&;
-			template<size_t I>
+			template<std::size_t I>
+			using subrange_reference=get_t<I> &;
+			template<std::size_t I>
 			using const_subrange_reference=get_t<I> const&;
-			template<size_t I>
+			template<std::size_t I>
 			using subrange_pointer=get_t<I>*;
-			template<size_t I>
+			template<std::size_t I>
 			using const_subrange_pointer=get_t<I> const*;
-
-			using const_reference=std::tuple<Types const&...>;
-			using reference=std::tuple<Types&...>;
-			using value_type=std::tuple<Types&...>;
 
 			class const_iterator;
 
 			class iterator {
 			public:
-				friend class class_iterator;
+				friend class const_iterator;
 				using iterator_category=std::random_access_iterator_tag;
 				using value_type=typename mvector::value_type;
 				using difference_type=std::ptrdiff_t;
-				using pointer=pointerlike_wrapper<value_type>;
 				using reference=typename mvector::reference;
+				using pointer=pointerlike_wrapper<reference>;
+				using const_reference=typename mvector::const_reference;
+				using const_pointer=pointerlike_wrapper<const_reference>;
 				friend class multi_vector;
 			private:
 				mvector* _parent;
@@ -316,21 +467,21 @@ namespace exlib {
 			public:
 				iterator(mvector& parent,size_t index):_parent(&parent),_index(index)
 				{}
-				iterator(iterator const&)=default;
-				iterator& operator=(iterator const&)=default;
-#define iterator_op(op) iterator operator op(size_t s) const {return iterator(*_parent,_index##op##s);} iterator& operator ##op##=(size_t s){return _index##op##=s,*this;} 
+				iterator(iterator const&) noexcept=default;
+				iterator& operator=(iterator const&) noexcept=default;
+#define iterator_op(op) iterator operator op(size_t s) const {return iterator(*_parent,_index op s);} iterator& operator op##=(size_t s){ _index op##= s; return *this;} 
 				iterator_op(+)
-					iterator_op(-)
+				iterator_op(-)
 #undef iterator_op
-#define iterator_comp(op) bool operator op(iterator const& o) const {assert(_parent==o._parent);return _index##op##o._index;}
-					iterator_comp(<)
-					iterator_comp(>)
-					iterator_comp(!=)
-					iterator_comp(<=)
-					iterator_comp(>=)
-					iterator_comp(<=)
+#define iterator_comp(op) bool operator op(iterator const& o) const {assert(_parent==o._parent);return _index op o._index;}
+				iterator_comp(<)
+				iterator_comp(>)
+				iterator_comp(!=)
+				iterator_comp(==)
+				iterator_comp(>=)
+				iterator_comp(<=)
 #undef iterator_comp
-					reference operator[](size_t s) const
+				reference operator[](size_t s) const
 				{
 					return (*_parent)[s];
 				}
@@ -351,10 +502,12 @@ namespace exlib {
 			class const_iterator {
 			public:
 				using iterator_category=std::random_access_iterator_tag;
-				using value_type=typename mvector::const_reference;
-				using difference_type=std::ptrdiff_t;
-				using pointer=pointerlike_wrapper<const_reference>;
-				using reference=typename mvector::const_reference;
+				using value_type=typename mvector::value_type;
+				using difference_type=typename mvector::difference_type;
+				using const_reference=typename mvector::mvector;
+				using const_pointer=pointerlike_wrapper<const_reference>;
+				using pointer=const_pointer;
+				using reference=const_reference;
 				friend class multi_vector;
 			private:
 				mvector const* _parent;
@@ -366,15 +519,15 @@ namespace exlib {
 				{}
 				const_iterator(const_iterator const&)=default;
 				const_iterator& operator=(const_iterator const&)=default;
-#define iterator_op(op) const_iterator operator op(size_t s) const {return const_iterator(*_parent,_index##op##s);} const_iterator& operator ##op##=(size_t s){return _index##op##=s,*this;} 
+#define iterator_op(op) const_iterator operator op(size_t s) const {return const_iterator(*_parent,_index op s);} const_iterator& operator op##=(size_t s){return _index op##= s,*this;} 
 				iterator_op(+)
 					iterator_op(-)
 #undef iterator_op
-#define iterator_comp(op) bool operator op(const_iterator const& o) const {assert(_parent==o._parent);return _index##op##o._index;}
+#define iterator_comp(op) bool operator op(const_iterator const& o) const {assert(_parent==o._parent);return _index op o._index;}
 					iterator_comp(<)
 					iterator_comp(>)
 					iterator_comp(!=)
-					iterator_comp(<=)
+					iterator_comp(==)
 					iterator_comp(>=)
 					iterator_comp(<=)
 #undef iterator_comp
@@ -390,7 +543,7 @@ namespace exlib {
 				{
 					return wrap_pointerlike((*_parent)[0]);
 				}
-#define iterator_ment(op) const_iterator& operator ##op##() {##op##_index;return *this;} const_iterator operator ##op##(int) {const_iterator copy(*this);##op##_index;return copy;} 
+#define iterator_ment(op) const_iterator& operator op () { op##_index;return *this;} const_iterator operator op(int) {const_iterator copy(*this); op##_index;return copy;} 
 				iterator_ment(++)
 					iterator_ment(--)
 #undef iterator_ment
@@ -399,66 +552,58 @@ namespace exlib {
 			using reverse_iterator=std::reverse_iterator<iterator>;
 			using const_reverse_iterator=std::reverse_iterator<const_iterator>;
 
-			template<size_t I>
-			struct const_subrange_iterator:iterator_base<get_t<I> const,const_iterator<I>> {
+			template<std::size_t I>
+			struct const_subrange_iterator:iterator_base<get_t<I> const,const_subrange_iterator<I>> {
 				using iterator_base::iterator_base;
 			};
-			template<size_t I>
-			struct subrange_iterator:iterator_base<get_t<I>,iterator<I>> {
+			template<std::size_t I>
+			struct subrange_iterator:iterator_base<get_t<I>,subrange_iterator<I>> {
 				using iterator_base::iterator_base;
 			};
 
-			template<size_t I>
-			struct reverse_subrange_iterator:riterator_base<get_t<I>,reverse_iterator<I>> {
+			template<std::size_t I>
+			struct reverse_subrange_iterator:riterator_base<get_t<I>,reverse_subrange_iterator<I>> {
 				using riterator_base::riterator_base;
 			};
-			template<size_t I>
-			struct const_reverse_subrange_iterator:riterator_base<get_t<I> const,const_reverse_iterator<I>> {
+			template<std::size_t I>
+			struct const_reverse_subrange_iterator:riterator_base<get_t<I> const,const_reverse_subrange_iterator<I>> {
 				using riterator_base::riterator_base;
 			};
 
-			using size_type=size_t;
-			using difference_type=std::ptrdiff_t;
-
-		public:
-			using allocator_type=AllocBase;
 		protected:
-			using _DataM=allocator_ptr<void,allocator_type>;
 
-			template<size_t I,typename... Args>
+			template<std::size_t I,typename... Args>
 			void do_construct(get_t<I>* location,Args&&... args)
 			{
-				AllocTraits::construct(_data.get_allocator(),location,std::forward<Args>(args)...);
+				AllocTraits::construct(_data.get_allocator_ref(),location,std::forward<Args>(args)...);
 			}
-			template<size_t I>
+			template<std::size_t I>
 			void do_destroy(get_t<I>* location)
 			{
-				AllocTraits::destroy(_data.get_allocator(),location);
+				AllocTraits::destroy(_data.get_allocator_ref(),location);
 			}
 
-			_DataM _data;
-			size_t _size;
 		private:
-			template<size_t B,size_t E>
+			template<std::size_t B,std::size_t E>
 			struct size_up_to_h:std::integral_constant<size_t,sizeof(get_t<B>)+size_up_to_h<B+1,E>::value> {};
 
-			template<size_t N>
+			template<std::size_t N>
 			struct size_up_to_h<N,N>:std::integral_constant<size_t,0> {};
 
-			template<size_t I>
+			template<std::size_t I>
 			using size_up_to=size_up_to_h<0,I>;
 		public:
-			size_t capacity() const noexcept
+			size_type capacity() const noexcept
 			{
 				return _data.capacity();
 			}
-			static constexpr size_t max_size() noexcept
+			static constexpr size_type max_size() noexcept
 			{
-				return std::numeric_limits<size_t>::max()/sizeof(_AllocType);
+				return std::numeric_limits<size_type>::max()/TotalSize;
 			}
 		protected:
-			template<size_t I>
-			size_t type_offset() const
+			template<std::size_t I>
+			size_type type_offset() const
 			{
 				return size_up_to<I>::value*capacity();
 			}
@@ -472,7 +617,7 @@ namespace exlib {
 			{
 				return _data.get();
 			}
-			size_t size() const noexcept
+			size_type size() const noexcept
 			{
 				return _size;
 			}
@@ -481,74 +626,74 @@ namespace exlib {
 				return size==0;
 			}
 
-			template<size_t I>
+			template<std::size_t I>
 			get_t<I> const* data() const noexcept
 			{
 				return reinterpret_cast<get_t<I> const*>(static_cast<char*>(data())+type_offset<I>());
 			}
-			template<size_t I>
+			template<std::size_t I>
 			get_t<I>* data() noexcept
 			{
 				return reinterpret_cast<get_t<I>*>(static_cast<char*>(data())+type_offset<I>());
 			}
 
-			template<size_t I>
+			template<std::size_t I>
 			subrange_iterator<I> begin() noexcept
 			{
 				return data<I>();
 			}
-			template<size_t I>
+			template<std::size_t I>
 			const_subrange_iterator<I> begin() const noexcept
 			{
 				return data<I>();
 			}
-			template<size_t I>
+			template<std::size_t I>
 			const_subrange_iterator<I> cbegin() const noexcept
 			{
 				return begin<I>();
 			}
-			template<size_t I>
+			template<std::size_t I>
 			subrange_iterator<I> end() noexcept
 			{
 				return data<I>()+size();
 			}
-			template<size_t I>
+			template<std::size_t I>
 			const_subrange_iterator<I> end() const noexcept
 			{
 				return data<I>()+size();
 			}
-			template<size_t I>
+			template<std::size_t I>
 			const_subrange_iterator<I> cend() const noexcept
 			{
 				return end<I>();
 			}
 
-			template<size_t I>
+			template<std::size_t I>
 			reverse_subrange_iterator<I> rbegin() noexcept
 			{
 				return end();
 			}
-			template<size_t I>
+			template<std::size_t I>
 			const_reverse_subrange_iterator<I> rbegin() const noexcept
 			{
 				return end();
 			}
-			template<size_t I>
+			template<std::size_t I>
 			const_reverse_subrange_iterator<I> crbegin() const noexcept
 			{
 				return end();
 			}
-			template<size_t I>
+			template<std::size_t I>
 			reverse_subrange_iterator<I> rend() noexcept
 			{
 				return begin();
 			}
-			template<size_t I>
+			template<std::size_t I>
 			const_reverse_subrange_iterator<I> rend() const noexcept
 			{
 				return begin();
 			}
-			template<size_t I>
+			template<std::size_t I>
 			const_reverse_subrange_iterator<I> crend() const noexcept
 			{
 				return rend<I>();
@@ -604,71 +749,98 @@ namespace exlib {
 				return {begin()};
 			}
 		protected:
-			template<size_t I>
-			void move_range(void* new_buffer,size_t new_cap)
+
+			template<std::size_t I>
+			void destroy_range(get_t<I>* data,size_type n)
+			{
+				for(size_type i=0;i<n;++i)
+				{
+					do_destroy<I>(data+n);
+				}
+			}
+
+			template<std::size_t I,std::size_t... Is>
+			void destroy_ranges(size_type first,size_type last,index_sequence<I,Is...>)
+			{
+				destroy_range<I>(data<I>()+first,last-first);
+				destroy_ranges(first,last,index_sequence<Is...>{});
+			}
+
+			void destroy_ranges(size_type,size_type,index_sequence<>)
+			{}
+
+			template<std::size_t I>
+			void move_range(void* new_buffer,size_type new_cap)
 			{
 				using type=get_t<I>;
 				constexpr auto offset_unit=size_up_to<I>::value;
-				type* old=reinterpret_cast<type*>(data()+capacity()*offset_unit);
-				type* nb=reinterpret_cast<type*>(new_buffer+new_cap*offset_unit);
+				type* old=data<I>();
+				type* nb=reinterpret_cast<type*>(reinterpret_cast<char*>(new_buffer)+new_cap*offset_unit);
 				for(size_t i=0;i<size();++i)
 				{
 					do_construct<I>(nb+i,std::move(old[i]));
 				}
 			}
 
-			void move_ranges(void* new_buffer,size_t new_cap,std::index_sequence<>)
+			void move_ranges(void* new_buffer,size_type new_cap,index_sequence<>)
 			{}
-			template<size_t I,size_t... Is>
-			void move_ranges(void* new_buffer,size_t new_cap,std::index_sequence<I,Is...>)
+
+			template<std::size_t I,std::size_t... Is>
+			void move_ranges(void* new_buffer,size_type new_cap,index_sequence<I,Is...>)
 			{
 				move_range<I>(new_buffer,new_cap);
 				move_ranges(new_buffer,new_cap,std::index_sequence<Is...>());
 			}
 
-			template<size_t I>
-			void copy_range(void const* src,size_t src_offset)
+			template<std::size_t I>
+			void copy_range(void const* src,size_type src_offset)
 			{
 				using type=get_t<I>;
 				constexpr size_t offset=size_up_to<I>::value;
 				type* odst=data<I>();
-				type const* osrc=reinterpret_cast<type const*>(src+offset*src_offset);
+				type const* osrc=reinterpret_cast<type const*>(reinterpret_cast<char const*>(src)+offset*src_offset);
 				for(size_t i=0;i<_size;++i)
 				{
 					try
 					{
-						do_construct<I>(odst+i,type(osrc[i]));
+						do_construct<I>(odst+i,osrc[i]);
 					}
 					catch(...)
 					{
-						destroy_range(0,i);
+						destroy_range<I>(odst,i);
 						throw;
 					}
 				}
 			}
-			template<size_t I,size_t... Is>
-			void copy_range(void const* src,size_t src_offset,std::index_sequence<I,Is...>)
+			template<std::size_t I,std::size_t... Is>
+			void copy_ranges(void const* src,size_type src_offset,index_sequence<I,Is...>)
 			{
 				copy_range<I>(src,src_offset);
 				try
 				{
-					copy_range(src,src_offset,std::index_sequence<Is...>());
+					copy_ranges(src,src_offset,std::index_sequence<Is...>());
 				}
 				catch(...)
 				{
-					destroy_range(data<I>(),0,size());
+					destroy_range<I>(data<I>(),size());
 					throw;
 				}
 			}
-			void copy_range(void const* src,size_t src_offset,std::index_sequence<>)
+			void copy_ranges(void const* src,size_type src_offset,index_sequence<>)
 			{}
 
-			void realloc(size_t new_cap)
+			void realloc(size_type new_cap)
 			{
 				assert(new_cap%alignment==0);
 				_DataM temp(new_cap);
-				move_ranges(temp,new_cap,std::make_index_sequence<type_count>());
-				//@@ NEED CHECK NOEXCEPT MOVE@@
+				if(noexcept_movable)
+				{
+					move_ranges(temp.get(),new_cap,idx_seq{});
+				}
+				else
+				{
+					copy_ranges(temp.get(),new_cap,idx_seq{});
+				}
 				temp.swap(_data);
 			}
 
@@ -677,70 +849,77 @@ namespace exlib {
 			{
 				copy_range(other.data(),other.capacity(),idx_seq<type_count>());
 			}
-			mvector(mvector&& other):_data(std::move(other._data)),_size(other._size)
+			mvector(mvector&& other) noexcept:_data(std::move(other._data)),_size(other._size)
 			{
 				other._size=0;
 			}
-			mvector():_data(),_size(0)
+			mvector() noexcept:_data(),_size(0)
 			{}
 		private:
-			template<typename Ret,typename MV,size_t... Is>
-			friend Ret subscript_impl(size_t s,MV&& ref,std::index_sequence<Is...>)
+			static constexpr size_t fix_alignment(size_t count)
 			{
-				return {static_cast<get_t<I>*>(ref.data()+ref.type_offset<I>())[s]...};
-			}
-		public:
-			reference operator[](size_t s)
-			{
-				return subscript_impl<reference>(s,*this,idx_seq<type_count>{});
-			}
-			const_reference operator[](size_t s) const
-			{
-				return subscript_impl<const_reference>(s,*this,idx_seq<type_count>{});
-			}
-		private:
-			static constexpr size_t fix_alignment(size_t s)
-			{
-				auto const rem=s%alignment;
-				return rem?s+(alignment-rem):s;
+				auto const space=s*total_size;
+				auto const rem=space%alignment;
+				return rem?space+(alignment-rem):space;
 			}
 
-			template<size_t I,size_t E>
-			struct constructor {
-				template<typename... Rest>
-				static void construct(size_t begin,size_t end,char* data,size_t cap,get_t<I>&& val,Rest&&... rest)
+			template<std::size_t I,typename... Args>
+			void construct_range(size_type first,size_type last,Args&&... args)
+			{
+				auto const loc=data<I>();
+				for(size_type i=first;i<last;++i)
 				{
-					get_t<I>* o=reinterpret_cast<get_t<I>*>(data+size_up_to<I>::value*cap);
-					for(size_t i=begin;i<end;++i)
+					try
 					{
-						do_construct<I>(o+i,std::forward<get_t<I>>(val));
+						do_construct<I>(loc+i,std::forward<Args>(args)...);
 					}
-					constructor<I+1,E>::construct(begin,end,data,cap,std::forward<Rest>(rest)...);
+					catch(...)
+					{
+						destroy_range<I>(loc+first,last-i);
+						throw;
+					}
 				}
-				static void construct(size_t begin,size_t end,char* data,size_t cap)
+			}
+
+			template<std::size_t I,std::size_t... Is,typename Arg1,typename... Args>
+			void construct_ranges(size_type first,size_type last,index_sequence<I,Is...>,Arg1&& arg,Args&&... args)
+			{
+				construct_range<I>(first,last,std::forward<Arg1>(arg));
+				try
 				{
-					get_t<I>* o=reinterpret_cast<get_t<I>*>(data+size_up_to<I>::value*cap);
-					for(size_t i=begin;i<end;++i)
-					{
-						do_construct<I>(o+i);
-					}
-					constructor<I+1,E>::construct(begin,end,data,cap);
+					construct_ranges(first,last,index_sequence<Is...>{},std::forward<Args>(args)...);
 				}
-			};
-			template<size_t I>
-			struct constructor<I,I> {
-				static void construct(size_t,size_t s,char* data,size_t cap)
-				{}
-			};
+				catch(...)
+				{
+					destroy_range<I>(data<I>()+first,last-first);
+				}
+			}
+			template<std::size_t I,std::size_t... Is>
+			void construct_ranges(size_type first,size_type last,index_sequence<I,Is...>)
+			{
+				construct_range<I>(first,last);
+				try
+				{
+					construct_ranges(first,last,index_sequence<Is...>{});
+				}
+				catch(...)
+				{
+					destroy_range<I>(data<I>()+first,last-first);
+				}
+			}
+
+			template<typename... Args>
+			void construct_ranges(size_type first,size_type last,index_sequence<>,Args const&... args)
+			{}
 
 		public:
 			template<typename... Args>
-			mvector(size_t s,Args const&... args):_data(fix_alignment(s)),_size(s)
+			mvector(size_type s,Args const&... args):_data(fix_alignment(s)),_size(s)
 			{
-				static_assert(sizeof...(Args)<=type_count);
-				constructor<0,type_count>::construct(s,data(),capacity(),args);
+				static_assert(sizeof...(Args)<=type_count,"Too many arguments");
+				construct_ranges(0,size(),idx_seq{},args...);
 			}
-			void reserve(size_t s)
+			void reserve(size_type s)
 			{
 				if(s>capacity())
 				{
@@ -749,223 +928,157 @@ namespace exlib {
 			}
 			void shrink_to_fit()
 			{
-				realloc(fix_alignment(_size));
+				auto const new_cap=fix_alignment(_size);
+				if(new_cap<capacity())
+				{
+					realloc(new_cap);
+				}
 			}
+
 			template<typename... Args>
 			void push_back(Args&&... args)
 			{
 				static_assert(sizeof...(args)<=type_count,"Too many arguments");
-				size_t new_size=_size+1;
+				auto const new_size=_size+1;
 				if(new_size>capacity())
 				{
 					realloc(2*capacity()+alignment);
 				}
-				constructor<0,type_count>::construct(_size,new_size,data(),capacity(),std::forward<Args>(args)...);
-				_size=new_size;
-			}
-
-		protected:
-			template<size_t B,size_t E>
-			struct inserter {
-				template<typename First,typename... Args>
-				static void insert(size_t pos,size_t remaining,size_t count,char* base,size_t cap,First&& f,Args&&... args)
-				{
-					size_t offset=size_up_to<B>::value*cap;
-					using Type=get_t<B>;
-					Type* data=reinterpret_cast<Type*>(base+offset)+pos;
-					std::memmove(data+count,data,remaining*sizeof(Type));
-					for(size_t i=0;i<count;++i)
-					{
-						do_construct<B>(data+i,std::forward<First>(f));
-					}
-					inserter<B+1,E>::insert(pos,remaining,count,base,cap,std::forward<Args>(args)...);
-				}
-				static void insert(size_t pos,size_t remaining,size_t count,char* base,size_t cap)
-				{
-					size_t offset=size_up_to<B>::value*cap;
-					using Type=get_t<B>;
-					Type* data=reinterpret_cast<Type*>(base+offset)+pos;
-					std::memmove(data+count,data,remaining*sizeof(Type));
-					for(size_t i=0;i<count;++i)
-					{
-						do_construct<B>(data+i);
-					}
-					inserter<B+1,E>::insert(pos,remaining,count,base,cap);
-				}
-			};
-			template<size_t B>
-			struct inserter<B,B> {
-				static void insert(size_t,size_t,size_t,char*,size_t)
-				{}
-			};
-
-		public:
-			template<size_t I,typename Iter,typename... Args>
-			void insert_index(size_t index,size_t count,Args&&... args)
-			{
-				size_t remaining=size()-index;
-				size_t new_size=_size+count;
-				if(new_size>capacity())
-				{
-					realloc(fix_alignment(new_size));
-				}
-				_size=new_size;
-				inserter<0,type_count>::insert(index,remaining,count,data(),capacity(),std::forward<Args>(args)...);
-			}
-		private:
-
-			template<size_t I,typename Iter,typename... Args>
-			void insert_impl(Iter pos,size_t count,Args&&... args)
-			{
-				insert_index(pos-begin<I>,count,std::forward<Args>(args)...);
-			}
-		public:
-			template<size_t I,typename... Args>
-			void insert_n(subrange_iterator<I> pos,size_t count,Args const&... args)
-			{
-				insert_impl<I>(pos,count,args...);
-			}
-			template<size_t I,typename... Args>
-			void insert_n(subrange_iterator<I> pos,size_t count,Args const&... args)
-			{
-				insert_impl<I>(pos,count,args...);
-			}
-			template<size_t I,typename... Args>
-			void insert(subrange_iterator<I> pos,Args&&... args)
-			{
-				insert_impl<I>(pos,1,std::forward<Args>(args)...);
-			}
-			template<size_t I,typename... Args>
-			void insert(subrange_iterator<I> pos,Args&&... args)
-			{
-				insert_impl<I>(pos,1,std::forward<Args>(args)...);
+				push_back_unchecked(std::forward<Args>(args)...);
 			}
 
 			template<typename... Args>
-			void insert(iterator pos,Args&&... args)
+			void push_back_unchecked(Args&&... args)
 			{
-				insert_index(pos._index,1,std::forward<Args>(args)...);
-			}
-			template<typename... Args>
-			void insert(const_iterator pos,Args&&... args)
-			{
-				insert_index(pos._index,1,std::forward<Args>(args)...);
+				static_assert(sizeof...(args)<=type_count,"Too many arguments");
+				auto const new_size=_size+1;
+				construct_ranges(_size,new_size,idx_seq{},std::forward<Args>(args)...);
+				_size=new_size;
 			}
 
 		private:
-			template<size_t B,size_t E>
-			struct eraser {
-				static void erase(size_t pos,size_t remaining,size_t count,char* data,size_t cap)
+			template<std::size_t I,std::size_t... Is>
+			void erase_impl(size_type first,size_type last,index_sequence<I,Is...>)
+			{
+				auto const loc=data<I>()+first;
+				size_type const dist=last-first;
+				size_type const off_end=size()-last;
+				if(dist<=off_end)
 				{
-					using T=get_t<B>;
-					T* o=reinterpret_cast<T*>(data+size_up_to<B>::value*cap)+pos;
-					if IFCONSTEXPR(!std::is_trivially_destructible<T>::value)
+					auto const near_end=loc+dist;
+					for(size_type i=0;i<dist;++i)
 					{
-						for(size_t i=0;pos<count;++i)
-						{
-							o[i].~T();
-						}
+						loc[i]=std::move(near_end[i]);
 					}
-					std::memmove(o,o+count,remaining*sizeof(T));
-					eraser<B+1,E>::erase(pos,remaining,count,data,cap);
+					destroy_range(near_end,off_end-dist);
 				}
-			};
-			template<size_t E>
-			struct eraser<E,E> {
-				static void erase(size_t,size_t,size_t,char*,size_t)
-				{}
-			};
+				else
+				{
+					for(size_type i=0;i<off_end;++i)
+					{
+						loc[i]=std::move(near_end[i]);
+					}
+					destroy_range(loc+off_end,loc+last);
+				}
+				erase_impl(first,last,index_sequence<Is...>{});
+			}
+			void erase_impl(size_type first,size_type last,index_sequence<>)
+			{}
 		public:
-			void erase_index(size_t first,size_t last)
+			size_type erase(size_type index)
 			{
-				size_t remaining=size()-last;
-				size_t count=last-first;
-				eraser<0,type_count>::erase(first,remaining,count,data(),capacity());
-				_size-=count;
+				erase(index,index+1);
 			}
-		private:
-			template<size_t I,typename Iter>
-			void erase_impl(Iter first,Iter last)
+
+			size_type erase(size_type first,size_t last)
 			{
-				erase_index(first-begin<I>(),last-begin<I>());
+				erase_impl(first,last,idx_seq{});
+				_size-=(last-first);
+				return first;
 			}
-		public:
-			template<size_t I>
-			void erase(subrange_iterator<I> first,subrange_iterator<I> last)
+
+			template<std::size_t I>
+			subrange_iterator<I> erase(const_subrange_iterator<I> first,const_subrange_iterator<I> last)
 			{
-				erase_impl<I>(first,last);
+				auto const dist=erase(dist,last-cbegin<I>());
+				return begin<I>()+dist;
 			}
-			template<size_t I>
-			void erase(const_subrange_iterator<I> first,const_subrange_iterator<I> last)
+			template<std::size_t I>
+			subrange_iterator<I> erase(subrange_iterator<I> first,subrange_iterator<I> last)
 			{
-				erase_impl<I>(first,last);
+				auto const dist=erase(first-begin<I>(),last-begin<I>());
+				return begin<I>()+dist;
 			}
-			template<size_t I>
-			void erase(subrange_iterator<I> first)
+			iterator erase(const_iterator first,const_iterator last)
 			{
-				erase_impl<I>(first,first+1);
+				auto const dist=erase(first-cbegin(),last-cbegin());
+				return begin()+dist;
 			}
-			template<size_t I>
-			void erase(const_subrange_iterator<I> first)
+			iterator erase(iterator first,iterator last)
 			{
-				erase_impl<I>(first,first+1);
+				auto const dist=erase(first-begin(),last-begin());
+				return begin()+dist;
 			}
-			void erase(iterator first)
+
+			template<std::size_t I>
+			subrange_iterator<I> erase(const_subrange_iterator<I> first)
 			{
-				erase_index(first._index);
+				return erase(first,first+1);
 			}
-			void erase(iterator first,iterator last)
+			template<std::size_t I>
+			subrange_iterator<I> erase(subrange_iterator<I> first)
 			{
-				erase_index(first._index,last._index);
+				return erase(first,first+1);
 			}
-			void erase(const_iterator first)
+			iterator erase(const_iterator first)
 			{
-				erase_index(first._index);
+				return erase(first,first+1);
 			}
-			void erase(const_iterator first,const_iterator last)
+			iterator erase(iterator first)
 			{
-				erase_index(first._index,last._index);
+				return erase(first,first+1);
 			}
+
 			void pop_back()
 			{
-				erase(end()-1);
+				erase(size()-1,size());
 			}
-			void clear()
+			
+			template<typename... Args>
+			void resize(size_t s,Args const&... args)
 			{
-				erase(begin(),end());
-			}
-		private:
-			template<size_t... Is>
-			void resize_grow(size_t s,std::index_sequence<Is...>)
-			{
-				insert_n(end(),s-_size);
-			}
-		public:
-			void resize(size_t s)
-			{
-				if(s<_size)
+				if(s<size())
 				{
 					erase(begin()+s,end());
 				}
-				if(s>_size)
+				if(s>size())
 				{
-					resize_grow(s,idx_seq{});
+					if(s>capacity())
+					{
+						realloc(fix_aligment(2*capacity()+1));
+					}
+					construct_ranges(size(),s,idx_seq{},args...);
+					_size=s;
 				}
 			}
+
 			mvector& operator=(mvector const& other)
 			{
-				clear();
+				destroy_ranges(0,size());
 				reserve(other.size());
 				copy_range(other.data(),other.capacity(),idx_seq{});
+				_size=other._size;
 				return *this;
 			}
+
 			~mvector() noexcept
 			{
-				eraser<0,type_count>::erase(0,0,size(),data(),capacity());
+				destroy_ranges(0,size(),idx_seq{});
 			}
+
 			mvector& operator=(mvector&& other) noexcept
 			{
-				eraser<0,type_count>::erase(0,0,_size,data(),capacity());
+				destroy_ranges(0,size());
 				_data=std::move(other._data);
 				_size=other._size;
 				other._size=0;
@@ -978,207 +1091,179 @@ namespace exlib {
 	//as an array of type1 next to array of type2 next to array of type3...
 	//all of the same size
 	template<typename Type1,typename... Types>
-	using multi_vector=detail::mvector<std::tuple<Type1,Types...>,std::allocator<std::tuple<std::allocator<Type1,Types...>>;
+	using multi_vector=detail::mvector<
+		std::tuple<Type1,Types...>,
+		buffer_allocator<1,alignof(std::tuple<Type1,Types...>)>>;
 
-	template<typename T,std::size_t size>
-	class stack_buffer {
-	private:
-		std::size_t num;
-		char data_buffer[size*sizeof(T)];
-	public:
-		typedef T& reference;
-		typedef T const& const_reference;
-		typedef typename std::vector<typename T>::iterator iterator;
-		typedef typename std::vector<typename T>::const_iterator const_iterator;
+	namespace stack_array_detail {
 
-		stack_buffer() noexcept:num(0)
-		{}
-		~stack_buffer()
-		{
-			if(!std::is_trivially_destructible<T>::value)
+		template<typename T>
+		class stack_array {
+		private:
+			T* _data;
+			std::size_t _size;
+		public:
+			static void* operator new(std::size_t count)=delete;
+			static void* operator new[](std::size_t count)=delete;
+#if __cpp_aligned_new
+			static void* operator new(std::size_t count,std::align_val_t)=delete;
+			static void* operator new[](std::size_t count,std::align_val_t)=delete;
+#endif
+			using value_type=T;
+			using size_type=std::size_t;
+			using difference_type=std::ptrdiff_t;
+			using reference=T&;
+			using const_reference=T const&;
+			using pointer=T*;
+			using const_pointer=T const*;
+			using iterator=pointer;
+			using const_iterator=const_pointer;
+			using reverse_iterator=std::reverse_iterator<iterator>;
+			using const_reverse_iterator=std::reverse_iterator<const_iterator>;
+
+			FORCEINLINE stack_array(std::size_t s,T const& val) noexcept(std::is_nothrow_copy_constructible<T>::value):_data(static_cast<T*>(alloca(s*sizeof(T)))),_size(s)
 			{
-				for(std::size_t i=0;i<num;++i)
+				for(std::size_t i=0;i<_size;++i)
 				{
-					reinterpret_cast<T*>(data_buffer)[i].~T();
+					new (reinterpret_cast<T*>(data)+i) T(args...);
 				}
 			}
-		}
-		reference front()
-		{
-			return *reinterpret_cast<T*>(data_buffer);
-		}
-		reference back()
-		{
-			return *(reinterpret_cast<T*>(data_buffer)+num-1);
-		}
-		reference operator[](size_t i)
-		{
-			return *(reinterpret_cast<T*>(data_buffer)+i);
-		}
-		reference at(size_t i)
-		{
-			if(i>=num)
+			FORCEINLINE stack_array(std::size_t s,default_init_t) noexcept(std::is_nothrow_default_constructible<T>::value):_data(static_cast<T*>(alloca(s*sizeof(T)))),_size(s)
 			{
-				throw std::out_of_range();
+				if(!std::is_trivial<T>::value)
+				{
+					new (reinterpret_cast<T*>(data)+i) T;
+				}
 			}
-			return (*this)[i];
-		}
-		iterator begin() noexcept
-		{
-			return iterator(reinterpret_cast<T*>(data_buffer));
-		}
-		iterator end() noexcept
-		{
-			return iterator(reinterpret_cast<T*>(data_buffer)+num);
-		}
-		void pop_back()
-		{
-			back().~T();
-			--num;
-		}
-		void push_back_checked(T const& val)
-		{
-			if(num>=size)
+			reference operator[](std::size_t s) noexcept
 			{
-				throw std::out_of_range();
+				return (reinterpret_cast<T*>(data))[s];
 			}
-			(reinterpret_cast<T*>(data_buffer))[num++]=val;
-		}
-		void push_back(T const& val) noexcept
-		{
-			(reinterpret_cast<T*>(data_buffer))[num++]=val;
-		}
-		std::size_t size() const noexcept
-		{
-			return num;
-		}
-		std::size_t max_size() const noexcept
-		{
-			return size;
-		}
-		template<typename... Args>
-		void emplace_back(Args&&... args)
-		{
-			new (reinterpret_cast<T*>(data_buffer)+num++) T(std::forward<Args>(args)...);
-		}
-		template<typename... Args>
-		void emplace_back_checked(Args&&... args)
-		{
-			if(num>=size)
+			const_reference operator[](std::size_t s) const noexcept
 			{
-				throw std::out_of_range();
+				return (reinterpret_cast<T*>(data))[s];
 			}
-			new (reinterpret_cast<T*>(data_buffer)+num++) T(std::forward<Args>(args)...);
-		}
-		T* data() noexcept
-		{
-			return reinterpret_cast<T*>(data_buffer);
-		}
-	};
+			reference at(std::size_t s)
+			{
+				if(s>=_size)
+				{
+					throw std::out_of_range();
+				}
+				return (*this)[s];
+			}
+			const_reference at(std::size_t s) const
+			{
+				if(s>=_size)
+				{
+					throw std::out_of_range();
+				}
+				return (*this)[s];
+			}
+			reference front() noexcept
+			{
+				return (*this)[0];
+			}
+			reference back() noexcept
+			{
+				return (*this)[_size-1];
+			}
+			T* data() noexcept
+			{
+				return _data;
+			}
+			T const* data() const noexcept
+			{
+				return _data;
+			}
+			iterator begin() noexcept
+			{
+				return data();
+			}
+			iterator end() noexcept
+			{
+				return data()+size();
+			}
+			const_iterator begin() const noexcept
+			{
+				return data();
+			}
+			const_iterator end() const noexcept
+			{
+				return data()+size();
+			}
+			const_iterator cbegin() const noexcept
+			{
+				return begin();
+			}
+			const_iterator cend() const noexcept
+			{
+				return end();
+			}
 
+			reverse_iterator rbegin() noexcept
+			{
+				return {end()};
+			}
+			reverse_iterator rend() noexcept
+			{
+				return {begin()};
+			}
+			const_reverse_iterator rbegin() const noexcept
+			{
+				return {end()};
+			}
+			const_reverse_iterator rend() const noexcept
+			{
+				return {begin()};
+			}
+			const_reverse_iterator crbegin() const noexcept
+			{
+				return {end()};
+			}
+			const_reverse_iterator crend() const noexcept
+			{
+				return {begin()};
+			}
 
-	namespace stack_array_det {
-
+			bool empty() const noexcept
+			{
+				return _size==0;
+			}
+			std::size_t size() const noexcept
+			{
+				return _size;
+			}
+			std::size_t capacity() const noexcept
+			{
+				return _size;
+			}
+			std::size_t max_size() const noexcept
+			{
+				return ~0;
+			}
+			void fill(T const& val) noexcept(std::is_nothrow_copy_assignable<T>::value)
+			{
+				for(std::size_t i=0;i<_size;++i)
+				{
+					_data[i]=val;
+				}
+			}
+			~stack_array() noexcept
+			{
+				if(!std::is_trivially_destructible<T>::value)
+				{
+					for(auto& val:*this)
+					{
+						val.~T();
+					}
+				}
+			}
+		};
 	}
-	
-	template<typename T>
-	class stack_array {
-	private:
-		char* _data;
-		std::size_t _size;
-		std::size_t _capacity;
-	public:
-		typedef T& reference;
-		typedef T const& const_reference;
-		typedef T* iterator;
-		typedef T const* const_iterator;
-		FORCEINLINE stack_vector(size_t s):_data(alloca(s)),_size(s),_capacity(s)
-		{
-			for(size_t i=0;i<_size;++i)
-			{
-				new (reinterpret_cast<T*>(data)+i) T();
-			}
-		}
-		reference operator[](size_t s)
-		{
-			return (reinterpret_cast<T*>(data))[s];
-		}
-		reference at(size_t s)
-		{
-			if(s>=_size)
-			{
-				throw std::out_of_range();
-			}
-			return (*this)[s];
-		}
-		reference front()
-		{
-			return (*this)[0];
-		}
-		reference back()
-		{
-			return (*this)[_size-1];
-		}
-		T* data()
-		{
-			return _data;
-		}
-		iterator begin()
-		{
-			return (reinterpret_cast<T*>(data));
-		}
-		iterator end()
-		{
-			return (reinterpret_cast<T*>(data))+_size;
-		}
-		bool empty()
-		{
-			return _size==0;
-		}
-		std::size_t size() const
-		{
-			return _size;
-		}
-		std::size_t max_size() const
-		{
-			return ~0;
-		}
-		FORCEINLINE void reserve(size_t s)
-		{
-			if(s>_capacity)
-			{
-				alloca(s-_capacity);
-			}
-			_capacity=s;
-		}
-		std::size_t capacity() const
-		{
-			return _capacity;
-		}
-		void clear()
-		{
-			for(size_t i=0;i<_size;++i)
-			{
-				(reinterpret_cast<T*>(data))[i].~T();
-			}
-			_size=0;
-		}
-		~stack_vector()
-		{
-			clear();
-		}
-		template<typename... Args>
-		FORCEINLINE void emplace(const_iterator pos,Args&&... args)
-		{
-			if(_size==_capacity)
-			{
-				reserve(2*_size);
-			}
-			++_size;
-		}
-		FORCEINLINE void insert(const_iterator pos,T const& val);
 
-	};
+	template<typename T>
+	using stack_array=stack_array_detail::stack_array<T>;
+
 }
 #undef IFCONSTEXPR
 #endif
