@@ -1002,22 +1002,22 @@ namespace exlib {
 }
 namespace std {
 	template<typename... References>
-	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...>&& ref)
+	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...>&& ref) noexcept
 	{
 		return exlib::move(ref);
 	}
 	template<typename... References>
-	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...>& ref)
+	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...>& ref) noexcept
 	{
 		return exlib::move(ref);
 	}
 	template<typename... References>
-	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...> const&& ref)
+	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...> const&& ref) noexcept
 	{
 		return exlib::move(ref);
 	}
 	template<typename... References>
-	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...> const& ref)
+	constexpr exlib::multi_rvalue_reference<References...> move(exlib::multi_reference<References...> const& ref) noexcept
 	{
 		return exlib::move(ref);
 	}
