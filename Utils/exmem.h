@@ -42,7 +42,7 @@ namespace exlib {
 		using Base=empty_store<Allocator>;
 		using Traits=std::allocator_traits<Allocator>;
 		using pocca=typename Traits::propagate_on_container_copy_assignment;
-		using pocma=typename Traits::propagate_on_container_copy_assignment;
+		using pocma=typename Traits::propagate_on_container_move_assignment;
 		using pocs=typename Traits::propagate_on_container_swap;
 	public:
 		using pointer=typename Traits::pointer;
@@ -93,7 +93,7 @@ namespace exlib {
 		{}
 		allocator_ptr(Allocator const& alloc=Allocator()) noexcept:Base(Traits::select_on_container_copy_construction(alloc)),_base(nullptr),_capacity(0)
 		{}
-		allocator_ptr(allocator_ptr&& o) noexcept:Base(select_on_move(o.get_allocator_ref(),typename Traits::propagate_on_move_assignment{})),_base(o._base),_capacity(o._capacity)
+		allocator_ptr(allocator_ptr&& o) noexcept:Base(select_on_move(o.get_allocator_ref(),pocma{})),_base(o._base),_capacity(o._capacity)
 		{
 			o.release();
 		}
@@ -847,7 +847,7 @@ namespace exlib {
 		public:
 			mvector(mvector const& other):_data(other.capacity()),_size(other._size)
 			{
-				copy_range(other.data(),other.capacity(),idx_seq<type_count>());
+				copy_ranges(other.data(),other.capacity(),idx_seq{});
 			}
 			mvector(mvector&& other) noexcept:_data(std::move(other._data)),_size(other._size)
 			{
