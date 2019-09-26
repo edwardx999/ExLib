@@ -864,7 +864,7 @@ namespace exlib {
 		private:
 			static constexpr size_t fix_alignment(size_t count)
 			{
-				auto const space=count*total_size;
+				auto const space=count;
 				auto const rem=space%alignment;
 				return rem?space+(alignment-rem):space;
 			}
@@ -931,6 +931,11 @@ namespace exlib {
 				{
 					realloc(fix_alignment(s));
 				}
+			}
+			// directly change size count, no adjustments made
+			void force_set_size(size_type s) noexcept
+			{
+				_size=s;
 			}
 			void shrink_to_fit()
 			{
