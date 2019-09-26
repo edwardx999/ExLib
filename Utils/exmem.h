@@ -986,12 +986,12 @@ namespace exlib {
 			void erase_impl(size_type first,size_type last,index_sequence<>)
 			{}
 		public:
-			size_type erase(size_type index)
+			size_type erase(size_type index) noexcept
 			{
 				return erase(index,index+1);
 			}
 
-			size_type erase(size_type first,size_t last)
+			size_type erase(size_type first,size_t last) noexcept
 			{
 				erase_impl(first,last,idx_seq{});
 				_size-=(last-first);
@@ -999,48 +999,48 @@ namespace exlib {
 			}
 
 			template<std::size_t I>
-			subrange_iterator<I> erase(const_subrange_iterator<I> first,const_subrange_iterator<I> last)
+			subrange_iterator<I> erase(const_subrange_iterator<I> first,const_subrange_iterator<I> last) noexcept
 			{
 				auto const dist=erase(dist,last-cbegin<I>());
 				return begin<I>()+dist;
 			}
 			template<std::size_t I>
-			subrange_iterator<I> erase(subrange_iterator<I> first,subrange_iterator<I> last)
+			subrange_iterator<I> erase(subrange_iterator<I> first,subrange_iterator<I> last) noexcept
 			{
 				auto const dist=erase(first-begin<I>(),last-begin<I>());
 				return begin<I>()+dist;
 			}
-			iterator erase(const_iterator first,const_iterator last)
+			iterator erase(const_iterator first,const_iterator last) noexcept
 			{
 				auto const dist=erase(first-cbegin(),last-cbegin());
 				return begin()+dist;
 			}
-			iterator erase(iterator first,iterator last)
+			iterator erase(iterator first,iterator last) noexcept
 			{
 				auto const dist=erase(first-begin(),last-begin());
 				return begin()+dist;
 			}
 
 			template<std::size_t I>
-			subrange_iterator<I> erase(const_subrange_iterator<I> first)
+			subrange_iterator<I> erase(const_subrange_iterator<I> first) noexcept
 			{
 				return erase(first,first+1);
 			}
 			template<std::size_t I>
-			subrange_iterator<I> erase(subrange_iterator<I> first)
+			subrange_iterator<I> erase(subrange_iterator<I> first) noexcept
 			{
 				return erase(first,first+1);
 			}
-			iterator erase(const_iterator first)
+			iterator erase(const_iterator first) noexcept
 			{
 				return erase(first,first+1);
 			}
-			iterator erase(iterator first)
+			iterator erase(iterator first) noexcept
 			{
 				return erase(first,first+1);
 			}
 
-			void pop_back()
+			void pop_back() noexcept
 			{
 				erase(size()-1,size());
 			}
