@@ -858,7 +858,7 @@ namespace exlib {
 		private:
 			static constexpr size_t fix_alignment(size_t count)
 			{
-				auto const space=s*total_size;
+				auto const space=count*total_size;
 				auto const rem=space%alignment;
 				return rem?space+(alignment-rem):space;
 			}
@@ -1065,9 +1065,9 @@ namespace exlib {
 
 			mvector& operator=(mvector const& other)
 			{
-				destroy_ranges(0,size());
+				destroy_ranges(0,size(),idx_seq{});
 				reserve(other.size());
-				copy_range(other.data(),other.capacity(),idx_seq{});
+				copy_ranges(other.data(),other.capacity(),idx_seq{});
 				_size=other._size;
 				return *this;
 			}
@@ -1079,7 +1079,7 @@ namespace exlib {
 
 			mvector& operator=(mvector&& other) noexcept
 			{
-				destroy_ranges(0,size());
+				destroy_ranges(0,size(),idx_seq{});
 				_data=std::move(other._data);
 				_size=other._size;
 				other._size=0;
