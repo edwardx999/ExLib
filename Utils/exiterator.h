@@ -1028,7 +1028,7 @@ namespace exlib {
 	class multi_rvalue_reference {
 		std::tuple<decltype(std::move(std::declval<References>()))...> mutable refs;
 	public:
-		decltype(refs) const & base() const noexcept
+		decltype(refs) const& base() const noexcept
 		{
 			return refs;
 		}
@@ -1056,32 +1056,39 @@ namespace exlib {
 	class multi_reference {
 		std::tuple<References...> refs;
 	public:
-		decltype(refs) const & base() const noexcept
+		decltype(refs) const& base() const noexcept
 		{
 			return refs;
 		}
 
-		constexpr multi_reference(multi_reference const& args)=default;
-		constexpr multi_reference(multi_reference&& args)=default;
+		constexpr multi_reference(multi_reference const& args) noexcept=default;
+		constexpr multi_reference(multi_reference&& args) noexcept=default;
 
 		template<typename... Refs>
 		constexpr multi_reference(multi_rvalue_reference<Refs...> const& rrefs) noexcept:refs(rrefs.base())
 		{}
 
 		template<typename... Args>
-		constexpr multi_reference(Args&&... refs) noexcept:refs(std::forward<Args>(refs)...)
+		constexpr multi_reference(Args&&... refs) noexcept:refs(refs...)
 		{}
+		
+		constexpr multi_reference& operator=(multi_reference const& args)
+		{
+			assign_help(make_index_sequence<sizeof...(References)>{},args.base());
+			return *this;
+		}
 
 		template<typename... Types>
 		constexpr multi_reference& operator=(multi_reference<Types...> const& args)
 		{
-			assign_help(make_index_sequence<sizeof...(References)>{},args.refs);
+			assign_help(make_index_sequence<sizeof...(References)>{},args.base());
 			return *this;
 		}
+
 		template<typename... Types>
-		constexpr multi_reference& operator=(multi_reference<Types...>&& args)
+		constexpr multi_reference& operator=(multi_rvalue_reference<Types...> const& args)
 		{
-			assign_help(make_index_sequence<sizeof...(References)>{},std::move(args.refs));
+			assign_help(make_index_sequence<sizeof...(References)>{},std::move(args.base()));
 			return *this;
 		}
 
@@ -1098,6 +1105,7 @@ namespace exlib {
 			assign_help(make_index_sequence<sizeof...(References)>{},args);
 			return *this;
 		}
+
 		template<typename... Types>
 		constexpr operator std::tuple<Types...>() const noexcept(std::is_nothrow_copy_constructible<std::tuple<Types...>>::value)
 		{
@@ -1169,17 +1177,17 @@ namespace exlib {
 	template<typename... References>
 	constexpr multi_rvalue_reference<References...> move(multi_reference<References...> const&& ref) noexcept
 	{
-		return move(multi_reference_detail::as_const(ref));
+		return exlib::move(multi_reference_detail::as_const(ref));
 	}
 	template<typename... References>
 	constexpr multi_rvalue_reference<References...> move(multi_reference<References...>&& ref) noexcept
 	{
-		return move(multi_reference_detail::as_const(ref));
+		return exlib::move(multi_reference_detail::as_const(ref));
 	}
 	template<typename... References>
 	constexpr multi_rvalue_reference<References...> move(multi_reference<References...>& ref) noexcept
 	{
-		return move(multi_reference_detail::as_const(ref));
+		return exlib::move(multi_reference_detail::as_const(ref));
 	}
 
 #define multi_reference_get(qualifier)\

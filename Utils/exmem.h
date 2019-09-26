@@ -397,8 +397,8 @@ namespace exlib {
 			using difference_type=typename AllocTraits::difference_type;
 
 			using value_type=std::tuple<Types...>;
-			using reference=multi_reference<Types& ...>;
-			using const_reference=multi_reference<Types const& ...>;
+			using reference=multi_reference<Types&...>;
+			using const_reference=multi_reference<Types const&...>;
 			using pointer=pointerlike_wrapper<reference>;
 			using const_pointer=pointerlike_wrapper<const_reference>;
 		private:
@@ -469,33 +469,32 @@ namespace exlib {
 				{}
 				iterator(iterator const&) noexcept=default;
 				iterator& operator=(iterator const&) noexcept=default;
-#define iterator_op(op) iterator operator op(size_t s) const {return iterator(*_parent,_index op s);} iterator& operator op##=(size_t s){ _index op##= s; return *this;} 
+#define iterator_op(op) iterator operator op(size_t s) const noexcept {return iterator(*_parent,_index op s);} iterator& operator op##=(size_t s) noexcept { _index op##= s; return *this;} 
 				iterator_op(+)
 				iterator_op(-)
 #undef iterator_op
 #define iterator_comp(op) bool operator op(iterator const& o) const {assert(_parent==o._parent);return _index op o._index;}
-				iterator_comp(<)
-				iterator_comp(>)
-				iterator_comp(!=)
-				iterator_comp(==)
-				iterator_comp(>=)
-				iterator_comp(<=)
+				EXLIB_FOR_ALL_COMP_OPS(iterator_comp)
 #undef iterator_comp
-				reference operator[](size_t s) const
+				reference operator[](size_t s) const noexcept
 				{
 					return (*_parent)[s+_index];
 				}
-				reference operator*() const
+				reference operator*() const noexcept
 				{
 					return (*_parent)[_index];
 				}
-				pointer operator->()const
+				pointer operator->() const noexcept
 				{
 					return wrap_pointerlike((*_parent)[_index]);
 				}
-#define iterator_ment(op) iterator& operator ##op##() {##op##_index;return *this;} iterator operator ##op##(int) {iterator copy(*this);##op##_index;return copy;} 
+				difference_type operator-(iterator const& other) const noexcept
+				{
+					return _index-other._index;
+				}
+#define iterator_ment(op) iterator& operator ##op##() noexcept { op##_index;return *this;} iterator operator op(int) noexcept {iterator copy(*this); op##_index;return copy;} 
 				iterator_ment(++)
-					iterator_ment(--)
+				iterator_ment(--)
 #undef iterator_ment
 			};
 
@@ -513,39 +512,46 @@ namespace exlib {
 				mvector const* _parent;
 				size_t _index;
 			public:
-				const_iterator(mvector const& parent,size_t index):_parent(&parent),_index(index)
+				const_iterator(mvector const& parent,size_t index) noexcept:_parent(&parent),_index(index)
 				{}
-				const_iterator(iterator const& o):const_iterator(o._parent,o._index)
+				const_iterator(iterator const& o) noexcept:const_iterator(o._parent,o._index)
 				{}
-				const_iterator(const_iterator const&)=default;
-				const_iterator& operator=(const_iterator const&)=default;
+				const_iterator(const_iterator const&) noexcept=default;
+				const_iterator& operator=(const_iterator const&) noexcept=default;
 #define iterator_op(op) const_iterator operator op(size_t s) const {return const_iterator(*_parent,_index op s);} const_iterator& operator op##=(size_t s){return _index op##= s,*this;} 
 				iterator_op(+)
-					iterator_op(-)
+				iterator_op(-)
 #undef iterator_op
-#define iterator_comp(op) bool operator op(const_iterator const& o) const {assert(_parent==o._parent);return _index op o._index;}
-					iterator_comp(<)
-					iterator_comp(>)
-					iterator_comp(!=)
-					iterator_comp(==)
-					iterator_comp(>=)
-					iterator_comp(<=)
+#define iterator_comp(op) bool operator op(const_iterator const& o) const noexcept {assert(_parent==o._parent);return _index op o._index;}
+				EXLIB_FOR_ALL_COMP_OPS(iterator_comp)
 #undef iterator_comp
-					reference operator[](size_t s) const
+				reference operator[](size_t s) const noexcept
 				{
 					return (*_parent)[s];
 				}
-				reference operator*() const
+				reference operator*() const noexcept
 				{
 					return (*_parent)[0];
 				}
-				reference operator->()const
+				reference operator->() const noexcept
 				{
 					return wrap_pointerlike((*_parent)[0]);
 				}
-#define iterator_ment(op) const_iterator& operator op () { op##_index;return *this;} const_iterator operator op(int) {const_iterator copy(*this); op##_index;return copy;} 
+				difference_type operator-(const_iterator const& other) const noexcept
+				{
+					return _index-other._index;
+				}
+				friend difference_type operator-(iterator const& a,const_iterator const& b) noexcept
+				{
+					return a._index-b._index;
+				}
+				friend difference_type operator-(const_iterator const& a,iterator const& b) noexcept
+				{
+					return a._index-b._index;
+				}
+#define iterator_ment(op) const_iterator& operator op () noexcept { op##_index;return *this;} const_iterator operator op(int) noexcept {const_iterator copy(*this); op##_index;return copy;} 
 				iterator_ment(++)
-					iterator_ment(--)
+				iterator_ment(--)
 #undef iterator_ment
 			};
 
