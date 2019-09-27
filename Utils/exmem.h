@@ -1184,9 +1184,14 @@ namespace exlib {
 		private:
 			std::size_t _size;
 			T* _data;
+			static std::size_t aligned_alloc_amount(std::size_t byte_count)
+			{
+				return byte_count+(alignof(T)-malloc_alignment);
+			}
 			_EXMEM_FORCE_INLINE static T* allocate(std::size_t n) noexcept
 			{
-				auto const to_alloc=n*sizeof(T);
+				auto const raw_amount=n*sizeof(T);
+				auto const to_alloc=(alignof(T)<=malloc_alignment)?raw_amount:aligned_alloc_amount(raw_amount);
 				auto const ptr=static_cast<T*>(
 #ifdef NDEBUG
 					alloca(to_alloc)
@@ -1195,6 +1200,16 @@ namespace exlib {
 #endif
 					);
 				assert(ptr);
+				if(alignof(T)>malloc_alignment)
+				{
+					auto const normalized=reinterpret_cast<std::size_t>(ptr);
+					auto const rem=normalized%alignof(T);
+					if(rem==0)
+					{
+						return ptr;
+					}
+					return reinterpret_cast<T*>(normalized+alignof(T)-rem);
+				}
 				return ptr;
 			}
 		public:
