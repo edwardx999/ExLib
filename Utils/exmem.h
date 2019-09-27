@@ -27,11 +27,12 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include "exiterator.h"
 #include "exfinally.h"
 #if defined(_WIN32)
+#include <malloc.h>
 #define _EXMEM_FORCE_INLINE __forceinline
 #elif defined(__GNUC__)
+#include <alloca.h>
 #define _EXMEM_FORCE_INLINE __attribute__((always_inline))
 #endif
-
 #if (__cplusplus>=201700l)
 #define IFCONSTEXPR constexpr
 #else
