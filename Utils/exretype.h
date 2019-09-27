@@ -924,5 +924,8 @@ namespace exlib {
 
 	template<typename T>
 	using function_return_type_t=typename function_return_type<T>::type;
+
+	template<typename T>
+	struct noop_destructor_after_move:std::true_type{};
 }
 #endif

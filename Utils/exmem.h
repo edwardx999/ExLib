@@ -34,6 +34,36 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #endif
 namespace exlib {
 
+	template<typename Allocator>
+	class extra_allocator_traits:public std::allocator_traits<Allocator> {
+		template<typename T>
+		static auto destroy_moved_impl(Allocator& a,T* data) -> decltype(a.destroy(data))
+		{
+			a.destroy_moved(data);
+		}
+		template<typename T,typename... Extra>
+		static void destroy_moved_impl(Allocator& a,T* data,Extra...)
+		{
+			destroy_moved_impl2(a,data,noop_destructor_after_move<T>{});
+		}
+
+		template<typename T>
+		static void destroy_moved_impl2(Allocator& a,T* data,std::true_type)
+		{}
+
+		template<typename T>
+		static void destroy_moved_impl2(Allocator& a,T* data,std::false_type)
+		{
+			data->~T();
+		}
+	public:
+		template<typename T>
+		static void destroy_moved(Allocator& a,T* data) noexcept
+		{
+			destroy_moved_impl(a,data);
+		}
+	};
+
 	//A smart ptr that uses the given allocator to allocate and delete
 	//memory is uninitilized, and you are responsible for destroying any constructed objects
 	template<typename T,typename Allocator>
@@ -387,7 +417,7 @@ namespace exlib {
 			static constexpr std::size_t type_count=std::tuple_size<TypeTuple>::value;
 			using allocator_type=Allocator;
 		private:
-			using AllocTraits=std::allocator_traits<allocator_type>;
+			using AllocTraits=extra_allocator_traits<allocator_type>;
 			template<std::size_t I>
 			using get_t=typename std::tuple_element<I,TypeTuple>::type;
 
@@ -589,6 +619,11 @@ namespace exlib {
 				AllocTraits::destroy(_data.get_allocator_ref(),location);
 			}
 
+			template<std::size_t I>
+			void do_destroy_moved(get_t<I>* location)
+			{
+				AllocTraits::destroy_moved(_data.get_allocator_ref(),location);
+			}
 		private:
 			template<std::size_t B,std::size_t E>
 			struct size_up_to_h:std::integral_constant<size_t,sizeof(get_t<B>)+size_up_to_h<B+1,E>::value> {};
@@ -776,6 +811,25 @@ namespace exlib {
 			{}
 
 			template<std::size_t I>
+			void destroy_moved_range(get_t<I>* data,size_type n)
+			{
+				for(size_type i=0;i<n;++i)
+				{
+					do_destroy_moved<I>(data+i);
+				}
+			}
+
+			template<std::size_t I,std::size_t... Is>
+			void destroy_moved_ranges(size_type first,size_type last,index_sequence<I,Is...>)
+			{
+				destroy_moved_range<I>(data<I>()+first,last-first);
+				destroy_moved_ranges(first,last,index_sequence<Is...>{});
+			}
+
+			void destroy_moved_ranges(size_type,size_type,index_sequence<>)
+			{}
+
+			template<std::size_t I>
 			void move_range(void* new_buffer,size_type new_cap)
 			{
 				using type=get_t<I>;
@@ -785,6 +839,7 @@ namespace exlib {
 				for(size_t i=0;i<size();++i)
 				{
 					do_construct<I>(nb+i,std::move(old[i]));
+					do_destroy_moved<I>(old+i);
 				}
 			}
 
@@ -862,11 +917,18 @@ namespace exlib {
 			mvector() noexcept:_data(),_size(0)
 			{}
 		private:
-			static constexpr size_t fix_alignment(size_t count)
+			static size_t fix_alignment(size_t count)
 			{
-				auto const space=count;
-				auto const rem=space%alignment;
-				return rem?space+(alignment-rem):space;
+				if (type_count<2)
+				{
+					return count;
+				}
+				else
+				{
+					auto const space=count;
+					auto const rem=space%alignment;
+					return rem?space+(alignment-rem):space;
+				}
 			}
 
 			template<std::size_t I,typename... Args>
@@ -1076,6 +1138,7 @@ namespace exlib {
 
 			mvector& operator=(mvector const& other)
 			{
+				if(&other==this) return*this;
 				destroy_ranges(0,size(),idx_seq{});
 				reserve(other.size());
 				copy_ranges(other.data(),other.capacity(),idx_seq{});
@@ -1090,6 +1153,7 @@ namespace exlib {
 
 			mvector& operator=(mvector&& other) noexcept
 			{
+				if(&other==this) return*this;
 				destroy_ranges(0,size(),idx_seq{});
 				_data=std::move(other._data);
 				_size=other._size;
