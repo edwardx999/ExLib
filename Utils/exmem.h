@@ -1208,6 +1208,7 @@ namespace exlib {
 					{
 						return ptr;
 					}
+					assert(false);
 					return reinterpret_cast<T*>(normalized+alignof(T)-rem);
 				}
 				return ptr;
