@@ -1197,11 +1197,19 @@ namespace exlib {
 			using reverse_iterator=std::reverse_iterator<iterator>;
 			using const_reverse_iterator=std::reverse_iterator<const_iterator>;
 
-			FORCEINLINE stack_array(std::size_t s,T const& val) noexcept(std::is_nothrow_copy_constructible<T>::value):_data(static_cast<T*>(alloca(s*sizeof(T)))),_size(s)
+			FORCEINLINE stack_array(std::initializer_list<T> list) noexcept(std::is_nothrow_copy_constructible<T>::value):_data(static_cast<T*>(alloca(list.size()*sizeof(T)))),_size(list.size())
 			{
 				for(std::size_t i=0;i<_size;++i)
 				{
-					new (reinterpret_cast<T*>(data)+i) T(args...);
+					new (_data+i) T(list.begin()[i]);
+				}
+			}
+
+			FORCEINLINE stack_array(std::size_t s,T const& val=T()) noexcept(std::is_nothrow_copy_constructible<T>::value):_data(static_cast<T*>(alloca(s*sizeof(T)))),_size(s)
+			{
+				for(std::size_t i=0;i<_size;++i)
+				{
+					new (_data+i) T(args...);
 				}
 			}
 			FORCEINLINE stack_array(std::size_t s,default_init_t) noexcept(std::is_nothrow_default_constructible<T>::value):_data(static_cast<T*>(alloca(s*sizeof(T)))),_size(s)
