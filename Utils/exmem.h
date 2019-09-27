@@ -187,7 +187,7 @@ namespace exlib {
 		T* _base;
 	public:
 		using type=T;
-		uninitialized_reference(T& base):_base(std::addressof(base))
+		uninitialized_reference(T& base) noexcept:_base(std::addressof(base))
 		{}
 		T& operator=(T const& t) noexcept(noexcept(T(t)))
 		{
@@ -200,7 +200,7 @@ namespace exlib {
 			return *_base;
 		}
 		template<typename... Args>
-		T& emplace(Args&&... args)
+		T& emplace(Args&&... args) noexcept(std::is_nothrow_constructible<T,Args&&...>::value)
 		{
 			new (_base)(std::forward<Args>(args)...);
 			return *_base;
@@ -211,11 +211,11 @@ namespace exlib {
 		}
 		uninitialized_reference& operator=(uninitialized_reference const&) noexcept=default;
 		uninitialized_reference& operator=(uninitialized_reference&&) noexcept=default;
-		void swap(uninitialized_reference& other)
+		void swap(uninitialized_reference& other) noexcept
 		{
 			std::swap(_base,other._base);
 		}
-		friend void swap(uninitialized_reference& a,uninitialized_reference& b)
+		friend void swap(uninitialized_reference& a,uninitialized_reference& b) noexcept
 		{
 			a.swap(b);
 		}
@@ -228,17 +228,17 @@ namespace exlib {
 		using pointer=T*;
 		using reference=uninitialized_reference<T>;
 		using iterator_base<T,uninitialized_iterator<T>>::iterator_base;
-		constexpr uninitialized_reference<T> operator*() const
+		constexpr uninitialized_reference<T> operator*() const noexcept
 		{
 			return *base();
 		}
 	private:
-		constexpr T* operator->() const
+		constexpr T* operator->() const noexcept
 		{
 			return base();
 		}
 	public:
-		constexpr uninitialized_reference<T> operator[](size_t s) const
+		constexpr uninitialized_reference<T> operator[](size_t s) const noexcept
 		{
 			return base()[s];
 		}
