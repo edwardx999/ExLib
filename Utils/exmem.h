@@ -1188,6 +1188,16 @@ namespace exlib {
 			{
 				return byte_count+(alignof(T)-malloc_alignment);
 			}
+			static T* aligned(T* ptr)
+			{
+				auto const normalized=reinterpret_cast<std::size_t>(ptr);
+				auto const rem=normalized%alignof(T);
+				if(rem==0)
+				{
+					return ptr;
+				}
+				return reinterpret_cast<T*>(normalized+alignof(T)-rem);
+			}
 			_EXMEM_FORCE_INLINE static T* allocate(std::size_t n) noexcept
 			{
 				auto const raw_amount=n*sizeof(T);
@@ -1200,17 +1210,12 @@ namespace exlib {
 #endif
 					);
 				assert(ptr);
+#ifdef NDEBUG
 				if(alignof(T)>malloc_alignment)
 				{
-					auto const normalized=reinterpret_cast<std::size_t>(ptr);
-					auto const rem=normalized%alignof(T);
-					if(rem==0)
-					{
-						return ptr;
-					}
-					assert(false);
-					return reinterpret_cast<T*>(normalized+alignof(T)-rem);
+					return aligned(ptr);
 				}
+#endif
 				return ptr;
 			}
 		public:
@@ -1244,9 +1249,9 @@ namespace exlib {
 				_size{static_cast<std::size_t>(std::distance(begin,end))},
 				_data{allocate(_size)}
 			{
-				for(auto data=_data;begin!=end;++begin,++data)
+				for(auto write_me=data();begin!=end;++begin,++write_me)
 				{
-					new (data) T(*begin);
+					new (write_me) T(*begin);
 				}
 			}
 
@@ -1257,7 +1262,7 @@ namespace exlib {
 			{
 				for(std::size_t i=0;i<_size;++i)
 				{
-					new (_data+i) T(list.begin()[i]);
+					new (data()+i) T(list.begin()[i]);
 				}
 			}
 
@@ -1268,7 +1273,7 @@ namespace exlib {
 			{
 				for(std::size_t i=0;i<_size;++i)
 				{
-					new (_data+i) T(val);
+					new (data()+i) T(val);
 				}
 			}
 			_EXMEM_FORCE_INLINE stack_array(std::size_t s,default_init_t) 
@@ -1278,7 +1283,7 @@ namespace exlib {
 			{
 				if(!std::is_trivial<T>::value)
 				{
-					new (reinterpret_cast<T*>(data)+i) T;
+					new (data()+i) T;
 				}
 			}
 			reference operator[](std::size_t s) noexcept
@@ -1315,11 +1320,19 @@ namespace exlib {
 			}
 			T* data() noexcept
 			{
+#ifdef NDEBUG
 				return _data;
+#else
+				return aligned(_data);
+#endif
 			}
 			T const* data() const noexcept
 			{
+#ifdef NDEBUG
 				return _data;
+#else
+				return aligned(_data);
+#endif
 			}
 			iterator begin() noexcept
 			{
@@ -1389,9 +1402,9 @@ namespace exlib {
 			}
 			void fill(T const& val) noexcept(std::is_nothrow_copy_assignable<T>::value)
 			{
-				for(std::size_t i=0;i<_size;++i)
+				for(auto& el:*this)
 				{
-					_data[i]=val;
+					el=val;
 				}
 			}
 			stack_array& operator=(stack_array const&)=delete;
