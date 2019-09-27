@@ -26,7 +26,12 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include "exretype.h"
 #include "exiterator.h"
 #include "exfinally.h"
-#define FORCEINLINE __forceinline
+#if defined(_WIN32)
+#define _EXMEM_FORCE_INLINE __forceinline
+#elif defined(__GNUC__)
+#define _EXMEM_FORCE_INLINE __attribute__((always_inline))
+#endif
+
 #if (__cplusplus>=201700l)
 #define IFCONSTEXPR constexpr
 #else
@@ -1176,8 +1181,21 @@ namespace exlib {
 		template<typename T>
 		class stack_array {
 		private:
-			T* _data;
 			std::size_t _size;
+			T* _data;
+			_EXMEM_FORCE_INLINE static T* allocate(std::size_t n) noexcept
+			{
+				auto const to_alloc=n*sizeof(T);
+				auto const ptr=static_cast<T*>(
+#ifdef NDEBUG
+					alloca(to_alloc)
+#else
+					malloc(to_alloc)
+#endif
+					);
+				assert(ptr);
+				return ptr;
+			}
 		public:
 			static void* operator new(std::size_t count)=delete;
 			static void* operator new[](std::size_t count)=delete;
@@ -1197,7 +1215,28 @@ namespace exlib {
 			using reverse_iterator=std::reverse_iterator<iterator>;
 			using const_reverse_iterator=std::reverse_iterator<const_iterator>;
 
-			FORCEINLINE stack_array(std::initializer_list<T> list) noexcept(std::is_nothrow_copy_constructible<T>::value):_data(static_cast<T*>(alloca(list.size()*sizeof(T)))),_size(list.size())
+			stack_array(stack_array const&&)=delete;
+			stack_array(stack_array&&)=delete;
+
+			_EXMEM_FORCE_INLINE stack_array(stack_array const& other):stack_array(other.begin(),other.end())
+			{}
+
+			template<typename Iter>
+			_EXMEM_FORCE_INLINE stack_array(Iter begin,Iter end) 
+				noexcept(noexcept(std::is_nothrow_constructible<T,decltype(*end)>::value)):
+				_size{static_cast<std::size_t>(std::distance(begin,end))},
+				_data{allocate(_size)}
+			{
+				for(auto data=_data;begin!=end;++begin,++data)
+				{
+					new (data) T(*begin);
+				}
+			}
+
+			_EXMEM_FORCE_INLINE stack_array(std::initializer_list<T> list) 
+				noexcept(std::is_nothrow_copy_constructible<T>::value):
+				_size{list.size()},
+				_data{allocate(_size)}
 			{
 				for(std::size_t i=0;i<_size;++i)
 				{
@@ -1205,14 +1244,20 @@ namespace exlib {
 				}
 			}
 
-			FORCEINLINE stack_array(std::size_t s,T const& val=T()) noexcept(std::is_nothrow_copy_constructible<T>::value):_data(static_cast<T*>(alloca(s*sizeof(T)))),_size(s)
+			_EXMEM_FORCE_INLINE stack_array(std::size_t s,T const& val=T()) 
+				noexcept(std::is_nothrow_copy_constructible<T>::value):
+				_size{s},
+				_data{allocate(_size)}
 			{
 				for(std::size_t i=0;i<_size;++i)
 				{
-					new (_data+i) T(args...);
+					new (_data+i) T(val);
 				}
 			}
-			FORCEINLINE stack_array(std::size_t s,default_init_t) noexcept(std::is_nothrow_default_constructible<T>::value):_data(static_cast<T*>(alloca(s*sizeof(T)))),_size(s)
+			_EXMEM_FORCE_INLINE stack_array(std::size_t s,default_init_t) 
+				noexcept(std::is_nothrow_default_constructible<T>::value):
+				_size{s},
+				_data{allocate(_size)}
 			{
 				if(!std::is_trivial<T>::value)
 				{
@@ -1221,11 +1266,11 @@ namespace exlib {
 			}
 			reference operator[](std::size_t s) noexcept
 			{
-				return (reinterpret_cast<T*>(data))[s];
+				return data()[s];
 			}
 			const_reference operator[](std::size_t s) const noexcept
 			{
-				return (reinterpret_cast<T*>(data))[s];
+				return data()[s];
 			}
 			reference at(std::size_t s)
 			{
@@ -1332,6 +1377,7 @@ namespace exlib {
 					_data[i]=val;
 				}
 			}
+			stack_array& operator=(stack_array const&)=delete;
 			~stack_array() noexcept
 			{
 				if(!std::is_trivially_destructible<T>::value)
@@ -1341,6 +1387,9 @@ namespace exlib {
 						val.~T();
 					}
 				}
+#ifndef NDEBUG
+				free(_data);
+#endif
 			}
 		};
 	}
