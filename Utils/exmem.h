@@ -1221,10 +1221,6 @@ namespace exlib {
 		public:
 			static void* operator new(std::size_t count)=delete;
 			static void* operator new[](std::size_t count)=delete;
-#if __cpp_aligned_new
-			static void* operator new(std::size_t count,std::align_val_t)=delete;
-			static void* operator new[](std::size_t count,std::align_val_t)=delete;
-#endif
 			using value_type=T;
 			using size_type=std::size_t;
 			using difference_type=std::ptrdiff_t;
