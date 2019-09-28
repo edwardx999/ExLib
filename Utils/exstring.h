@@ -674,7 +674,6 @@ namespace exlib {
 		string_buffer_detail::size_store<N>,
 		public string_buffer_detail::string_buffer_crtp_base<N,Char,string_buffer<N,Char,store_size>> {
 		using Base=string_buffer_detail::string_buffer_crtp_base<N,Char,string_buffer<N,Char,store_size>>;
-		using StoredSize=typename exlib::smallest_representable_type<std::size_t,N>::type;
 	public:
 		using constant_time_size=std::true_type;
 		using Base::Base;
@@ -688,7 +687,7 @@ namespace exlib {
 		constexpr void resize(typename Base::size_type new_size) noexcept
 		{
 			assert(new_size<N);
-			this->_size=static_cast<StoredSize>(new_size);
+			this->_size=static_cast<decltype(this->_size)>(new_size);
 		}
 		constexpr typename Base::size_type size() const noexcept
 		{
@@ -703,11 +702,13 @@ namespace exlib {
 		constexpr void resize(typename Base::size_type) noexcept
 		{}
 	public:
+		using Base::Base;
+		using Base::operator=;
 		constexpr string_buffer(string_buffer const& other) noexcept:Base(other.begin(),other.end())
 		{}
 		constexpr string_buffer& operator=(string_buffer const& other) noexcept
 		{
-			this->assign(other.begin(),other.end());
+			Base::assign(other.begin(),other.end());
 			return *this;
 		}
 		using constant_time_size=std::false_type;
@@ -727,6 +728,13 @@ namespace exlib {
 	public:
 		using constant_time_size=std::true_type;
 		using Base::Base;
+		using Base::operator=;
+		constexpr string_buffer(string_buffer const& other) noexcept
+		{}
+		constexpr string_buffer& operator=(string_buffer const& other) noexcept
+		{
+			return *this;
+		}
 		constexpr typename Base::value_type size() const noexcept
 		{
 			return 0;
