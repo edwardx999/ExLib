@@ -568,6 +568,11 @@ namespace exlib {
 			using typename Base::reverse_iterator;
 			using typename Base::const_reverse_iterator;
 
+			constexpr string_buffer_crtp_base() noexcept
+			{
+				set_size(0);
+			}
+
 			template<typename Iter,typename=typename std::iterator_traits<Iter>::iterator_category>
 			constexpr string_buffer_crtp_base(Iter begin,Iter end) noexcept
 			{
@@ -712,7 +717,6 @@ namespace exlib {
 			return *this;
 		}
 		using constant_time_size=std::false_type;
-		using Base::Base;
 		constexpr typename Base::size_type size() const noexcept
 		{
 			return exlib::strlen(this->data());
