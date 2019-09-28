@@ -791,6 +791,7 @@ namespace exlib {
 	template<std::size_t N,typename Char,bool store_size,std::size_t M,bool store_size2>\
 	constexpr bool operator op(string_buffer<N,Char,store_size> const& buf,string_buffer<M,Char,store_size2> const& str) noexcept\
 	{\
+		if(N==0&&M==0) return N op M;\
 		return exlib::strcmp(buf.data(),str.data()) op 0;\
 	}
 	exstring_string_buffer_comp(<)
@@ -844,6 +845,10 @@ namespace exlib {
 	template<std::size_t N0,typename Char,bool SS0,std::size_t N1,bool SS1>
 	constexpr bool operator==(string_buffer<N0,Char,SS0> const& buf1,string_buffer<N0,Char,SS1> const& buf2)
 	{
+		if(N0==0&&N1==0)
+		{
+			return true;
+		}
 		constexpr auto constant_time_size=
 			string_buffer<N0,Char,SS0>::constant_time_size::value&&
 			string_buffer<N1,Char,SS1>::constant_time_size::value;
@@ -859,6 +864,10 @@ namespace exlib {
 	template<std::size_t N0,typename Char,bool SS0,std::size_t N1,bool SS1>
 	constexpr bool operator!=(string_buffer<N0,Char,SS0> const& buf1,string_buffer<N0,Char,SS1> const& buf2)
 	{
+		if(N0==0&&N1==0)
+		{
+			return false;
+		}
 		constexpr auto constant_time_size=
 			string_buffer<N0,Char,SS0>::constant_time_size::value&&
 			string_buffer<N1,Char,SS1>::constant_time_size::value;
