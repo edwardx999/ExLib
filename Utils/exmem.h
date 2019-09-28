@@ -29,7 +29,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #if defined(_WIN32)
 #include <malloc.h>
 #define _EXMEM_FORCE_INLINE __forceinline
-#elif defined(__GNUC__)
+#elif defined(__GNUC__)||defined(__clang__)
 #include <alloca.h>
 #define _EXMEM_FORCE_INLINE __attribute__((always_inline))
 #endif
@@ -402,6 +402,15 @@ namespace exlib {
 
 	template<std::size_t ItemSize=1,std::size_t Alignment=alignof(std::max_align_t)>
 	using buffer_allocator=exmem_detail::buffer_allocator<ItemSize,Alignment>;
+
+	_EXMEM_FORCE_INLINE inline void* stack_alloc(std::size_t bytes) noexcept
+	{
+#if defined(_WIN32)
+		return _alloca(bytes);
+#elif defined(__GNUC__)||defined(__clang__)
+		return alloca(bytes);
+#endif
+	}
 
 	/*
 		Add subrange (alias for span) method to iterator each subrange
@@ -1204,7 +1213,7 @@ namespace exlib {
 				auto const to_alloc=(alignof(T)<=malloc_alignment)?raw_amount:aligned_alloc_amount(raw_amount);
 				auto const ptr=static_cast<T*>(
 #ifdef NDEBUG
-					alloca(to_alloc)
+					stack_alloc(to_alloc)
 #else
 					malloc(to_alloc)
 #endif
