@@ -849,6 +849,8 @@ namespace exlib {
 
 	using std::make_index_sequence;
 
+	using std::make_integer_sequence;
+
 #else
 
 	template<typename T,T... Is>

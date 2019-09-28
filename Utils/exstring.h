@@ -20,6 +20,8 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <limits>
 #include <utility>
 #include <iterator>
+#include <array>
+#include "exretype.h"
 //#include "exmeta.h"
 namespace exlib {
 
@@ -72,6 +74,78 @@ namespace exlib {
 		return i;
 	}
 
+	template<typename T>
+	constexpr std::size_t ordinal_lettering_size(T number,std::size_t alphabet_size=26) noexcept
+	{	
+		std::size_t count=1;
+		while(true)
+		{
+			number/=alphabet_size;
+			if(number<=0)
+			{
+				return count;
+				break;
+			}
+			number-=1;
+			++count;
+		}
+	}
+
+	namespace ordinal_lettering_detail {
+		template<typename N,typename Iter,typename Table,typename CheckDummy>
+		constexpr Iter write_ordinal_lettering(N n,Iter end,Table alphabet,std::size_t alphabet_size,CheckDummy checker)
+		{
+			if(checker==end)
+			{
+				return end;
+			}
+			--end;
+			while(true)
+			{
+				*end=alphabet[n%alphabet_size];
+				n/=alphabet_size;
+				if(n<=0||checker==end)
+				{
+					return end;
+				}
+				n-=1;
+				--end;
+			}
+		}
+		struct check_dummy {
+			template<typename T>
+			constexpr bool operator==(T const&) const noexcept
+			{
+				return false;
+			}
+		};
+
+		template<typename V,V start,V... Ns>
+		constexpr std::array<V,sizeof...(Ns)> make_alphabet(exlib::integer_sequence<V,Ns...>) noexcept
+		{
+			return {{start+Ns...}};
+		}
+	}
+
+	// write ordinal lettering (see below) into the buffer that is ended by iter
+	// return the last iter written to (start of word)
+	template<typename N,typename Iter,typename Table=char const*>
+	constexpr Iter write_ordinal_lettering_unchecked(N n,Iter end,Table const& alphabet="abcdefghijklmnopqrstuvwxyz",std::size_t alphabet_size=26)
+	{
+		return ordinal_lettering_detail::write_ordinal_lettering<N,Iter,typename exlib::const_param_type<Table>::type,ordinal_lettering_detail::check_dummy>
+			(std::move(n),end,alphabet,alphabet_size,{});
+	}
+
+	// write ordinal lettering (see below) into the buffer that is ended by iter (from the end)
+	// return the last iter written to (start of word)
+	// if the buffer is too small, begin is returned
+	template<typename N,typename Iter,typename Table=char const*>
+	constexpr Iter write_ordinal_lettering(N n,Iter begin,Iter end,Table const& alphabet="abcdefghijklmnopqrstuvwxyz",std::size_t alphabet_size=26)
+	{
+		return ordinal_lettering_detail::write_ordinal_lettering<N,Iter,typename exlib::const_param_type<Table>::type,Iter>
+			(std::move(n),end,alphabet,alphabet_size,begin);
+	}
+
 	/*
 	Creates ordinal lettering such that:
 	0	-> "a"
@@ -88,7 +162,7 @@ namespace exlib {
 	702	-> "aaa"
 	703	-> "aab"
 	...
-	String must have constructor that takes in (char* string,std::size_t count).
+	String must have constructor that takes in (String::value_type* string,std::size_t count).
 	Default buffer_size used to create the string is 15 (enough to fit 64 bit unsigned), increase if you need more.
 	Giving negative values to this function will result in odd behavior.
 	*/
@@ -102,31 +176,12 @@ namespace exlib {
 		String ordinal_lettering(N n)
 	{
 		static_assert(std::is_integral<N>::value,"Integral type required");
-		char buffer[buffer_size];
-		char* end=buffer+buffer_size;
-		char* pos=end-1;
-		while(true)
-		{
-			*pos=alphabet_start+n%alphabet_size;
-			n/=alphabet_size;
-			if(n<=0)
-			{
-				break;
-			}
-			n-=1;
-			--pos;
-		}
-		return String(pos,end-pos);
-	}
-
-	template<typename String>
-	String front_padded_string(String const& in,std::size_t numpadding,typename String::value_type padding)
-	{
-		if(in.size()>=numpadding) return in;
-		size_t padding_needed=numpadding-in.size();
-		String out(padding_needed,padding);
-		out+=in;
-		return out;
+		using vt=typename String::value_type;
+		vt buffer[buffer_size];
+		auto const end=buffer+buffer_size;
+		static auto const alphabet=ordinal_lettering_detail::make_alphabet<vt,alphabet_start>(exlib::make_integer_sequence<vt,alphabet_size>{});
+		auto const begin=write_ordinal_lettering_unchecked(n,end,alphabet.data(),alphabet_size);
+		return String(begin,end-begin);
 	}
 
 	template<typename String>
@@ -141,13 +196,10 @@ namespace exlib {
 	}
 
 	template<typename String>
-	String back_padded_string(String const& in,std::size_t numpadding,typename String::value_type padding)
+	String front_padded_string(String in,std::size_t numpadding,typename String::value_type padding)
 	{
-		if(in.size()>=numpadding) return in;
-		std::size_t padding_needed=numpadding-in.size();
-		String out(in);
-		out.insert(out.end(),padding_needed,padding);
-		return out;
+		pad_front(in,numpadding,padding);
+		return std::move(in);
 	}
 
 	template<typename String>
@@ -159,6 +211,13 @@ namespace exlib {
 			in.insert(in.end(),padding_needed,padding);
 		}
 		return in;
+	}
+
+	template<typename String>
+	String back_padded_string(String in,std::size_t numpadding,typename String::value_type padding)
+	{
+		pad_back(in);
+		return std::move(in);
 	}
 
 	constexpr inline char lowercase(char a) noexcept
