@@ -570,6 +570,7 @@ namespace exlib {
 
 			constexpr string_buffer_crtp_base() noexcept
 			{
+				(*this)[0]=0;
 				set_size(0);
 			}
 
