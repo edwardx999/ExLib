@@ -34,6 +34,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #include <cstdint>
 #include <cstddef>
 #include <utility>
+#include <limits>
 namespace std {
 	template<typename T,std::size_t N>
 	class array;
@@ -780,6 +781,7 @@ namespace exlib {
 
 #ifdef __cpp_lib_logical_traits
 	using std::conjunction;
+	using std::disjunction;
 #else
 	template<typename... Types>
 	struct conjunction;
@@ -792,6 +794,18 @@ namespace exlib {
 
 	template<typename First,typename... Rest>
 	struct conjunction<First,Rest...>:std::integral_constant<bool,bool(First::value)&&conjunction<Rest...>::value> {};
+
+	template<typename... Types>
+	struct disjunction;
+
+	template<>
+	struct disjunction<>:std::false_type {};
+
+	template<typename Type>
+	struct disjunction<Type>:std::integral_constant<bool,bool(Type::value)> {};
+
+	template<typename First,typename... Rest>
+	struct disjunction<First,Rest...>:std::integral_constant<bool,bool(First::value)||conjunction<Rest...>::value> {};
 #endif
 	
 	template<bool... Values>
@@ -927,5 +941,66 @@ namespace exlib {
 
 	template<typename T>
 	struct noop_destructor_after_move:std::true_type{};
+
+	template<typename U,U val,typename Rep>
+	struct is_representable:
+		std::integral_constant<bool,
+		(std::is_unsigned<U>::value&&std::is_unsigned<Rep>::value)?(val<=std::numeric_limits<Rep>::max()):
+		((std::is_signed<U>::value&&std::is_signed<Rep>::value)?(val<=std::numeric_limits<Rep>::max()&&val>=std::numeric_limits<Rep>::min()):
+		((std::is_signed<U>::value&&std::is_unsigned<Rep>::value)?(val>=0&&val<=std::numeric_limits<Rep>::max()):
+		((std::is_unsigned<U>::value&&std::is_signed<Rep>::value)?(val<=std::numeric_limits<Rep>::max()):false)))>
+	{};
+
+#if __cpp_nontype_template_parameter_auto
+	template<auto val,typename Rep>
+	struct val_is_representable:is_representable<decltype(val),val,Rep>{};
+#endif
+#if __cpp_inline_variables
+	template<typename U,U val,typename Rep>
+	constexpr auto is_representable_v=is_representable<U,val,Rep>::value;
+#ifdef __cpp_nontype_template_parameter_auto
+	template<auto val,typename Rep>
+	constexpr auto val_is_representable_v=val_is_representable<val,Rep>::value;
+#endif
+#endif
+			
+
+	namespace smallest_type_detail {
+		
+		template<typename T,T val,typename I8,typename I16,typename I32,typename I64>
+		struct smallest_representable_type {
+		private:
+			template<typename>
+			static auto try32() -> typename std::conditional<is_representable<T,val,I32>::value,I32,I64>::type;
+
+			template<typename>
+			static auto try16() -> typename std::conditional<is_representable<T,val,I16>::value,I16,decltype(try32<int>())>::type;
+
+			template<typename>
+			static auto try8() -> typename std::conditional<is_representable<T,val,I8>::value,I8,decltype(try16<int>())>::type;
+		public:
+			using type=decltype(try8<int>());
+		};
+	}
+
+	template<typename T,T val>
+	struct smallest_representable_type:
+		std::conditional<
+			std::is_unsigned<T>::value,
+			smallest_type_detail::smallest_representable_type<T,val,std::uint8_t,std::uint16_t,std::uint32_t,std::uint64_t>,
+			smallest_type_detail::smallest_representable_type<T,val,std::int8_t,std::int16_t,std::int32_t,std::int64_t>
+		>::type
+	{};
+
+	template<typename T,T val>
+	using smallest_representable_type_t=typename smallest_representable_type<T,val>::type;
+
+#if __cpp_nontype_template_parameter_auto
+	template<auto val>
+	struct val_smallest_representable_type:smallest_representable_type<decltype(val),val>{};
+
+	template<auto val>
+	using val_smallest_representable_type_t=typename val_smallest_representable_type<val>::type;
+#endif
 }
 #endif

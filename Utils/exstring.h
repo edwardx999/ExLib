@@ -13,20 +13,18 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 */
 #ifndef EXSTRING_H
 #define EXSTRING_H
-#include <iostream>
-#include <stdexcept>
-#include <new>
 #include <assert.h>
+#include <cstddef>
 #include <string>
 #include <algorithm>
 #include <limits>
-#include <typeindex>
 #include <utility>
+#include <iterator>
 //#include "exmeta.h"
 namespace exlib {
 
 	template<typename T,typename U>
-	constexpr int strcmp(T const* a,U const* b)
+	constexpr int strcmp(T const* a,U const* b) noexcept
 	{
 		for(std::size_t i=0;;++i)
 		{
@@ -45,8 +43,25 @@ namespace exlib {
 		}
 	}
 
+	template<typename T,typename U>
+	constexpr bool strequal(T const* a,U const* b) noexcept
+	{
+		for(std::size_t i=0;;++i)
+		{
+			if(a[i]==0)
+			{
+				return b[i]==0;
+			}
+			if(a[i]!=b[i])
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
 	template<typename T>
-	constexpr std::size_t strlen(T const* p)
+	constexpr std::size_t strlen(T const* p) noexcept
 	{
 		assert(p!=nullptr);
 		std::size_t i=0;
@@ -146,7 +161,7 @@ namespace exlib {
 		return in;
 	}
 
-	constexpr inline char lowercase(char a)
+	constexpr inline char lowercase(char a) noexcept
 	{
 		if(a>='A'&&a<='Z')
 		{
@@ -156,7 +171,7 @@ namespace exlib {
 	}
 
 	template<typename T>
-	constexpr int strncmp_nocase(T const* a,T const* b)
+	constexpr int strncmp_nocase(T const* a,T const* b) noexcept
 	{
 		for(;;++a,++b)
 		{
@@ -180,13 +195,13 @@ namespace exlib {
 	}
 
 	template<typename T>
-	constexpr bool is_digit(T ch)
+	constexpr bool is_digit(T ch) noexcept
 	{
 		return ch>='0'&&ch<='9';
 	}
 
 	template<typename T>
-	constexpr int strncmp_num(T const* a_start,T const* a_end,T const* b_start,T const* b_end)
+	constexpr int strncmp_num(T const* a_start,T const* a_end,T const* b_start,T const* b_end) noexcept
 	{
 		assert(a_start<=a_end);
 		assert(b_start<=b_end);
@@ -335,6 +350,512 @@ namespace exlib {
 			}
 			a=a_step.next;
 			b=b_step.next;
+		}
+	}
+
+
+	namespace string_buffer_detail {
+		template<std::size_t N,typename Char>
+		class string_buffer_base {
+		protected:
+			Char _data[N];
+		public:
+			using value_type=Char;
+			using size_type=std::size_t;
+			using difference_type=std::ptrdiff_t;
+			using reference=Char&;
+			using const_reference=Char const&;
+			using pointer=Char*;
+			using const_pointer=Char const*;
+			using iterator=Char*;
+			using const_iterator=Char const*;
+			using reverse_iterator=std::reverse_iterator<Char*>;
+			using const_reverse_iterator=std::reverse_iterator<Char const*>;
+			
+			constexpr pointer data() noexcept
+			{
+				return _data;
+			}
+			constexpr const_pointer data() const noexcept
+			{
+				return _data;
+			}
+
+			constexpr const_pointer c_str() const noexcept
+			{
+				return data();
+			}
+
+			constexpr iterator begin() noexcept
+			{
+				return _data;
+			}
+			constexpr const_iterator begin() const noexcept
+			{
+				return _data;
+			}	
+			constexpr const_iterator cbegin() const noexcept
+			{
+				return _data;
+			}
+			constexpr reverse_iterator rend() noexcept
+			{
+				return {begin()};
+			}
+			constexpr const_reverse_iterator rend() const noexcept
+			{
+				return {begin()};
+			}
+			constexpr const_reverse_iterator crend() const noexcept
+			{
+				return {begin()};
+			}
+
+			constexpr reference operator[](std::size_t s) noexcept
+			{
+				return _data[s];
+			}
+			constexpr value_type operator[](std::size_t s) const noexcept
+			{
+				return _data[s];
+			}
+			constexpr reference front() noexcept
+			{
+				return _data[0];
+			}
+			constexpr value_type front() const noexcept
+			{
+				return _data[0];
+			}
+			constexpr size_type max_size() const noexcept
+			{
+				return N-1;
+			}
+			constexpr size_type capacity() const noexcept
+			{
+				return max_size();
+			}
+			constexpr bool empty() const noexcept
+			{
+				return _data[0]==0;
+			}
+
+			constexpr void fill(Char value) noexcept
+			{
+				for(std::size_t=0;i<N-1;++i)
+				{
+					_data[i]=value;
+				}
+				_data[N-1]=0;
+			}
+
+			//assign value and return size of new string
+			template<typename Iter>
+			constexpr auto overwrite(Iter begin,Iter end) noexcept -> typename
+				std::enable_if<
+					std::is_convertible<
+						typename std::iterator_traits<Iter>::iterator_category*,
+						std::random_access_iterator_tag*
+					>::value,
+					size_type
+				>::type
+			{
+				std::size_t dist=end-begin;
+				if(dist>N-1)
+				{
+					end=begin+N-1;
+					dist=N-1;
+				}
+				for(std::size_t i=0;i<dist;++i)
+				{
+					_data[i]=begin[i];
+				}
+				_data[dist]=0;
+				return dist;
+			}
+
+			//assign value and return size of new string
+			template<typename Iter>
+			constexpr auto overwrite(Iter begin,Iter end) noexcept ->
+				typename std::enable_if<
+					!std::is_convertible<
+						typename std::iterator_traits<Iter>::iterator_category*,
+						std::random_access_iterator_tag*
+					>::value,
+					std::size_t
+				>::type
+			{
+				std::size_t i=0;
+				for(;i<N-1&&begin!=end;++begin,++i)
+				{
+					_data[i]=*begin;
+				}
+				_data[i]=0;
+				return i;
+			}
+
+			//assign value and return size of new string
+			template<typename OChar,std::size_t M>
+			constexpr size_type overwrite(OChar(&buffer)[M]) noexcept
+			{
+				if(M>0)
+				{
+					auto const fixed_m=buffer[M-1]==0?M-1:M;
+					auto const to_copy=fixed_m>N-1?N-1:fixed_m;
+					for(std::size_t i=0;i<to_copy;++i)
+					{
+						_data[i]=buffer[i];
+					}
+					_data[to_copy]=0;
+					return to_copy;
+				}
+				else
+				{
+					_data[0]=0;
+					return 0;
+				}
+			}
+
+			//assign value and return size of new string
+			template<typename CharPointer>
+			constexpr auto overwrite(CharPointer ptr) -> typename std::enable_if<std::is_pointer<CharPointer>::value,size_type>::type
+			{
+				std::size_t i=0;
+				for(;i<N-1;++i)
+				{
+					if(ptr[i]==0)
+					{
+						break;
+					}
+					_data[i]=ptr[i];
+				}
+				_data[i]=0;
+				return i;
+			}
+			
+			constexpr size_type overwrite(std::initializer_list<Char> list) noexcept
+			{
+				auto const to_copy=list.size()<N?list.size():N-1;
+				for(std::size_t i=0;i<to_copy;++i)
+				{
+					_data[i]=list.begin()[i];
+				}
+				return to_copy;
+			}
+		};
+
+		template<std::size_t N,typename Char,typename Derived>
+		class string_buffer_crtp_base:public string_buffer_base<N,Char> {
+			constexpr std::size_t get_size() const noexcept
+			{
+				return static_cast<Derived const&>(*this).size();
+			}
+			constexpr void set_size(std::size_t i) noexcept
+			{
+				static_cast<Derived&>(*this).resize(i);
+			}
+			using Base=string_buffer_base<N,Char>;
+		public:
+			using typename Base::value_type;
+			using typename Base::size_type;
+			using typename Base::difference_type;
+			using typename Base::reference;
+			using typename Base::const_reference;
+			using typename Base::pointer;
+			using typename Base::const_pointer;
+			using typename Base::iterator;
+			using typename Base::const_iterator;
+			using typename Base::reverse_iterator;
+			using typename Base::const_reverse_iterator;
+
+			template<typename Iter,typename=typename std::iterator_traits<Iter>::iterator_category>
+			constexpr string_buffer_crtp_base(Iter begin,Iter end) noexcept
+			{
+				set_size(this->overwrite(begin,end));
+			}
+
+			template<typename CharPointer,typename=decltype(std::declval<Base&>().overwrite(std::declval<CharPointer const&>()))>
+			constexpr string_buffer_crtp_base(CharPointer const& ptr) noexcept
+			{
+				set_size(this->overwrite(ptr));
+			}
+
+			constexpr string_buffer_crtp_base(std::initializer_list<Char> list) noexcept
+			{
+				set_size(this->overwrite(list));
+			}
+
+			constexpr reference at(std::size_t i)
+			{
+				if(i>=get_size()) throw std::out_of_range{};
+				return (*this)[i];
+			}
+			constexpr value_type at(std::size_t i) const
+			{
+				if(i>=get_size()) throw std::out_of_range{};
+				return (*this)[i];
+			}
+
+			constexpr reference back() noexcept
+			{
+				return (*this)[get_size()-1];
+			}
+			constexpr value_type back() const noexcept
+			{
+				return (*this)[get_size()-1];
+			}
+
+			constexpr iterator end() noexcept
+			{
+				return begin()+get_size();
+			}
+			constexpr const_iterator end() const noexcept
+			{
+				return begin()+get_size();
+			}
+			constexpr const_iterator cend() const noexcept
+			{
+				return end();
+			}
+
+			constexpr reverse_iterator rbegin() noexcept
+			{
+				return {end()};
+			}
+			constexpr const_reverse_iterator rbegin() const noexcept
+			{
+				return {end()};
+			}
+			constexpr const_reverse_iterator crbegin() const noexcept
+			{
+				return {end()};
+			}
+
+			template<typename CharPointer>
+			constexpr auto operator=(CharPointer const& ptr) noexcept -> decltype(this->overwrite(ptr),std::declval<Derived&>())
+			{
+				set_size(this->overwrite(ptr));
+				return static_cast<Derived&>(*this);
+			}
+
+			template<typename Iter>
+			constexpr auto assign(Iter begin,Iter end) noexcept -> decltype(this->overwrite(begin,end),std::declval<Derived&>())
+			{
+				set_size(this->overwrite(begin,end));
+				return static_cast<Derived&>(*this);
+			}
+
+			template<typename CharPointer>
+			constexpr auto assign(CharPointer const& ptr) noexcept -> decltype(this->overwrite(ptr),std::declval<Derived&>())
+			{
+				set_size(this->overwrite(ptr));
+				return static_cast<Derived&>(*this);
+			}
+
+			constexpr Derived& assign(std::initializer_list<Char> list) noexcept
+			{
+				set_size(this->overwrite(list));
+				return static_cast<Derived&>(*this);
+			}
+		};
+
+		template<std::size_t N>
+		struct size_store {
+		protected:
+			using stored_size_type=typename exlib::smallest_representable_type<std::size_t,N>::type;
+			stored_size_type _size{};
+		};
+	}
+
+	// A fixed size buffer that can hold a string
+	// An n-sized buffer will hold N-1 chars plus a null terminator
+	template<std::size_t N,typename Char=char,bool store_size=true>
+	class string_buffer:
+		string_buffer_detail::size_store<N>,
+		public string_buffer_detail::string_buffer_crtp_base<N,Char,string_buffer<N,Char,store_size>> {
+		using Base=string_buffer_detail::string_buffer_crtp_base<N,Char,string_buffer<N,Char,store_size>>;
+		using StoredSize=typename exlib::smallest_representable_type<std::size_t,N>::type;
+	public:
+		using constant_time_size=std::true_type;
+		using Base::Base;
+		using Base::operator=;
+		constexpr string_buffer(string_buffer const& other) noexcept:Base(other.begin(),other.end()){}
+		constexpr string_buffer& operator=(string_buffer const& other) noexcept
+		{
+			Base::assign(other.begin(),other.end());
+			return *this;
+		}
+		constexpr void resize(typename Base::size_type new_size) noexcept
+		{
+			assert(new_size<N);
+			this->_size=static_cast<StoredSize>(new_size);
+		}
+		constexpr typename Base::size_type size() const noexcept
+		{
+			return this->_size;
+		}
+	};
+
+	template<std::size_t N,typename Char>
+	class string_buffer<N,Char,false>:public string_buffer_detail::string_buffer_crtp_base<N,Char,string_buffer<N,Char,false>> {
+		using Base=string_buffer_detail::string_buffer_crtp_base<N,Char,string_buffer<N,Char,false>>;
+		friend Base;
+		constexpr void resize(typename Base::size_type) noexcept
+		{}
+	public:
+		constexpr string_buffer(string_buffer const& other) noexcept:Base(other.begin(),other.end())
+		{}
+		constexpr string_buffer& operator=(string_buffer const& other) noexcept
+		{
+			this->assign(other.begin(),other.end());
+			return *this;
+		}
+		using constant_time_size=std::false_type;
+		using Base::Base;
+		constexpr typename Base::size_type size() const noexcept
+		{
+			return exlib::strlen(this->data());
+		}
+	};
+
+	template<typename Char,bool ss>
+	class string_buffer<0,Char,ss>:public string_buffer_detail::string_buffer_crtp_base<1,Char,string_buffer<0,Char,ss>> {
+		using Base=string_buffer_detail::string_buffer_crtp_base<1,Char,string_buffer<0,Char,ss>>;
+		friend Base;
+		constexpr void resize(std::size_t) noexcept
+		{}
+	public:
+		using constant_time_size=std::true_type;
+		using Base::Base;
+		constexpr typename Base::value_type size() const noexcept
+		{
+			return 0;
+		}
+	};
+
+	template<typename OStream,std::size_t N,typename Char,bool store_size>
+	auto operator<<(OStream& os,string_buffer<N,Char,store_size> const& buffer) -> decltype(os.write(buffer.data(),buffer.size()),std::declval<OStream&>())
+	{
+		os.write(buffer.data(),buffer.size());
+		return os;
+	}
+
+	template<typename T>
+	constexpr T* get_cstr(T* ptr) noexcept
+	{
+		return ptr;
+	}
+
+	template<typename CharPointer,typename T>
+	constexpr auto get_cstr(T* ptr) noexcept -> typename std::enable_if<std::is_convertible<T*,CharPointer>::value,CharPointer>::value
+	{
+		return ptr;
+	}
+
+	template<typename T,typename... Extra>
+	constexpr auto get_cstr(T const& container,Extra...) noexcept -> typename std::enable_if<sizeof...(Extra)==0,decltype(container.c_str())>::type
+	{
+		return container.c_str();
+	}
+
+	template<typename CharPointer,typename T,typename... Extra>
+	constexpr auto get_cstr(T const& container,Extra...) noexcept -> typename std::enable_if<std::is_convertible<typename std::enable_if<sizeof...(Extra)==0,decltype(container.c_str())>::type,CharPointer>::value,CharPointer>::type
+	{
+		return container.c_str();
+	}
+	
+#define exstring_string_buffer_comp(op)\
+	template<typename String,std::size_t N,typename Char,bool store_size>\
+	constexpr auto operator op(String const& str,string_buffer<N,Char,store_size> const& buf) noexcept -> decltype(get_cstr<Char const*>(str),true)\
+	{\
+		return exlib::strcmp(get_cstr<Char const*>(str),buf.data()) op 0;\
+	}\
+	template<std::size_t N,typename Char,bool store_size,typename String>\
+	constexpr auto operator op(string_buffer<N,Char,store_size> const& buf,String const& str) noexcept -> decltype(get_cstr<Char const*>(str),true)\
+	{\
+		return exlib::strcmp(buf.data(),get_cstr<Char const*>(str)) op 0;\
+	}\
+	template<std::size_t N,typename Char,bool store_size,std::size_t M,bool store_size2>\
+	constexpr bool operator op(string_buffer<N,Char,store_size> const& buf,string_buffer<M,Char,store_size2> const& str) noexcept\
+	{\
+		return exlib::strcmp(buf.data(),str.data()) op 0;\
+	}
+	exstring_string_buffer_comp(<)
+	exstring_string_buffer_comp(>)
+	exstring_string_buffer_comp(<=)
+	exstring_string_buffer_comp(>=)
+#undef exstring_string_buffer_comp
+	
+	template<std::size_t N,typename Char,bool store_size,typename String>
+	constexpr auto operator==(string_buffer<N,Char,store_size> const& buf,String const& str) noexcept -> decltype(get_cstr<Char const*>(str),true)
+	{
+		constexpr auto constant_time_size=string_buffer<N,Char,store_size>::constant_time_size::value;
+		auto const ptr=get_cstr<Char const*>(str);
+		if(constant_time_size&&!std::is_pointer<String>::value)
+		{
+			return buf.size()==str.size()&&exlib::strequal(buf.c_str(),ptr);
+		}
+		else
+		{
+			return exlib::strequal(buf.c_str(),ptr);
+		}
+	}
+
+	template<std::size_t N,typename Char,bool store_size,typename String>
+	constexpr auto operator!=(string_buffer<N,Char,store_size> const& buf,String const& str) noexcept -> decltype(buf==str)
+	{
+		constexpr auto constant_time_size=string_buffer<N,Char,store_size>::constant_time_size::value;
+		auto const ptr=get_cstr<Char const*>(str);
+		if(constant_time_size&&!std::is_pointer<String>::value)
+		{
+			return buf.size()!=str.size()||!exlib::strequal(buf.c_str(),ptr);
+		}
+		else
+		{
+			return !exlib::strequal(buf.c_str(),ptr);
+		}
+	}
+
+	template<typename String,std::size_t N,typename Char,bool store_size>
+	constexpr auto operator==(String const& str,string_buffer<N,Char,store_size> const& buf) noexcept -> decltype(buf==str)
+	{
+		return buf==str;
+	}
+
+	template<typename String,std::size_t N,typename Char,bool store_size>
+	constexpr auto operator!=(String const& str,string_buffer<N,Char,store_size> const& buf) noexcept -> decltype(buf!=str)
+	{
+		return buf!=str;
+	}
+
+	template<std::size_t N0,typename Char,bool SS0,std::size_t N1,bool SS1>
+	constexpr bool operator==(string_buffer<N0,Char,SS0> const& buf1,string_buffer<N0,Char,SS1> const& buf2)
+	{
+		constexpr auto constant_time_size=
+			string_buffer<N0,Char,SS0>::constant_time_size::value&&
+			string_buffer<N1,Char,SS1>::constant_time_size::value;
+		if(constant_time_size)
+		{
+			return buf1.size()==buf2.size()&&strequal(buf1.data(),buf2.data());
+		}
+		else
+		{
+			return strequal(buf1.data(),buf2.data());
+		}
+	}
+	template<std::size_t N0,typename Char,bool SS0,std::size_t N1,bool SS1>
+	constexpr bool operator!=(string_buffer<N0,Char,SS0> const& buf1,string_buffer<N0,Char,SS1> const& buf2)
+	{
+		constexpr auto constant_time_size=
+			string_buffer<N0,Char,SS0>::constant_time_size::value&&
+			string_buffer<N1,Char,SS1>::constant_time_size::value;
+		if(constant_time_size)
+		{
+			return buf1.size()!=buf2.size()||!strequal(buf1.data(),buf2.data());
+		}
+		else
+		{
+			return !strequal(buf1.data(),buf2.data());
 		}
 	}
 }
