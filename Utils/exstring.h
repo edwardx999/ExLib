@@ -333,7 +333,7 @@ namespace exlib {
 
 	struct unicode_converter {
 		template<typename Iter>
-		auto operator()(Iter a) noexcept -> typename std::enable_if<std::is_same<typename std::decay<decltype(*a)>::type,char>::value,unicode_conversion<Iter>>::type
+		constexpr auto operator()(Iter a) noexcept -> typename std::enable_if<std::is_same<typename std::decay<decltype(*a)>::type,char>::value,unicode_conversion<Iter>>::type
 		{
 			using Ret=unicode_conversion<Iter>;
 			Ret ret;

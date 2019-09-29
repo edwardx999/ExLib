@@ -34,9 +34,9 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 #endif
 namespace exlib {
 	/*
-	A curiously recurring template pattern base for iterators.
-	T is value_type of iterator.
-*/
+		A curiously recurring template pattern base for iterators.
+		T is value_type of iterator.
+	*/
 	template<typename T,typename Derived>
 	struct iterator_base {
 		using value_type=T;
@@ -46,79 +46,79 @@ namespace exlib {
 		using iterator_category=std::random_access_iterator_tag;
 	private:
 		T* _base;
-		constexpr Derived& chain()
+		constexpr Derived& chain() noexcept
 		{
 			return *static_cast<Derived*>(this);
 		}
 	public:
-		constexpr T* base()
+		constexpr T* base() const noexcept
 		{
 			return _base;
 		}
-		constexpr iterator_base()
+		constexpr iterator_base() noexcept
 		{}
-		constexpr iterator_base(T* base):_base(base)
+		constexpr iterator_base(T* base) noexcept:_base(base)
 		{}
-		constexpr iterator_base(Derived const& other):_base(other.base())
+		constexpr iterator_base(Derived const& other) noexcept:_base(other.base())
 		{}
-		constexpr Derived& operator=(Derived const& other)
+		constexpr Derived& operator=(Derived const& other) noexcept
 		{
 			_base=other.base();
 			return chain();
 		}
-		constexpr T& operator*() const
+		constexpr T& operator*() const noexcept
 		{
 			return *_base;
 		}
-		constexpr T* operator->() const
+		constexpr T* operator->() const noexcept
 		{
 			return _base;
 		}
-		constexpr Derived operator++(int)
+		constexpr Derived operator++(int) noexcept
 		{
 			return Derived(_base++);
 		}
-		constexpr Derived& operator++()
+		constexpr Derived& operator++() noexcept
 		{
 			++_base;
 			return chain();
 		}
-		constexpr Derived operator--(int)
+		constexpr Derived operator--(int) noexcept
 		{
 			return Derived(_base--);
 		}
-		constexpr Derived& operator--()
+		constexpr Derived& operator--() noexcept
 		{
 			--_base;
 			return chain();
 		}
-		constexpr std::ptrdiff_t operator-(Derived other) const
+		constexpr std::ptrdiff_t operator-(Derived other) const noexcept
 		{
 			return _base-other.base();
 		}
-		constexpr Derived operator+(std::ptrdiff_t s) const
+		constexpr Derived operator+(std::ptrdiff_t s) const noexcept
 		{
 			return Derived(_base+s);
 		}
-		constexpr Derived operator-(std::ptrdiff_t s) const
+		constexpr Derived operator-(std::ptrdiff_t s) const noexcept
 		{
 			return Derived(_base-s);
 		}
-		constexpr Derived& operator+=(std::ptrdiff_t s)
+		constexpr Derived& operator+=(std::ptrdiff_t s) noexcept
 		{
 			_base+=s;
 			return chain();
 		}
-		constexpr Derived& operator-=(std::ptrdiff_t s)
+		constexpr Derived& operator-=(std::ptrdiff_t s) noexcept
 		{
 			_base-=s;
 			return chain();
 		}
-		constexpr T& operator[](size_t s) const
+		constexpr T& operator[](size_t s) const noexcept
 		{
 			return _base[s];
 		}
-#define iterator_base_comp(op) constexpr bool operator op(Derived other) const { return _base op other.base() ;}
+#define iterator_base_comp(op) constexpr bool operator op(Derived other) const noexcept { return _base op other.base() ;}
 		EXLIB_FOR_ALL_COMP_OPS(iterator_base_comp)
 #undef comp
 	};
@@ -141,70 +141,70 @@ namespace exlib {
 			return *static_cast<Derived*>(this);
 		}
 	public:
-		constexpr T* base()
+		constexpr T* base() const noexcept
 		{
 			return _base;
 		}
-		constexpr riterator_base()
+		constexpr riterator_base() noexcept
 		{}
-		constexpr riterator_base(T* base):_base(base)
+		constexpr riterator_base(T* base) noexcept:_base(base)
 		{}
-		constexpr riterator_base(Derived const& base):_base(other.base())
+		constexpr riterator_base(Derived const& other) noexcept:_base(other.base())
 		{}
-		constexpr Derived& operator=(Derived const&)
+		constexpr Derived& operator=(Derived const& other) noexcept
 		{
 			_base=other.base();
 			return chain();
 		}
-		constexpr T& operator*() const
+		constexpr T& operator*() const noexcept
 		{
 			return *(_base-1);
 		}
-		constexpr T* operator->() const
+		constexpr T* operator->() const noexcept
 		{
 			return _base-1;
 		}
-		constexpr Derived operator--(int)
+		constexpr Derived operator--(int) noexcept
 		{
 			return Derived(_base++);
 		}
-		constexpr Derived& operator--()
+		constexpr Derived& operator--() noexcept
 		{
 			++_base;
 			return chain();
 		}
-		constexpr Derived operator++(int)
+		constexpr Derived operator++(int) noexcept
 		{
 			return Derived(_base--);
 		}
-		constexpr Derived& operator++()
+		constexpr Derived& operator++() noexcept
 		{
 			--_base;
 			return chain();
 		}
-		constexpr std::ptrdiff_t operator-(Derived other) const
+		constexpr std::ptrdiff_t operator-(Derived other) const noexcept
 		{
 			return other.base()-_base;
 		}
-		constexpr Derived operator+(std::ptrdiff_t s) const
+		constexpr Derived operator+(std::ptrdiff_t s) const noexcept
 		{
 			return Derived(_base-s);
 		}
-		constexpr Derived operator-(std::ptrdiff_t s) const
+		constexpr Derived operator-(std::ptrdiff_t s) const noexcept
 		{
 			return Derived(_base+s);
 		}
-		constexpr Derived& operator+=(std::ptrdiff_t s)
+		constexpr Derived& operator+=(std::ptrdiff_t s) noexcept
 		{
 			_base-=s;
 			return chain();
 		}
-		constexpr Derived& operator-=(std::ptrdiff_t s)
+		constexpr Derived& operator-=(std::ptrdiff_t s) noexcept
 		{
 			_base+=s;
 			return chain();
 		}
-		constexpr T& operator[](size_t s) const
+		constexpr T& operator[](size_t s) const noexcept
 		{
 			return *(_base-s-1);
 		}
@@ -215,25 +215,26 @@ namespace exlib {
 
 	template<typename T>
 	struct const_iterator:iterator_base<T const,const_iterator<T>> {
-		using iterator_base::iterator_base;
+		using iterator_base<T const,const_iterator<T>>::iterator_base;
 	};
 	template<typename T>
 	struct iterator:iterator_base<T,iterator<T>> {
-		using iterator_base::iterator_base;
+		using iterator_base<T,iterator<T>>::iterator_base;
 		iterator(const_iterator<T> ci):iterator_base(ci.base())
 		{}
 	};
 
 	template<typename T>
 	struct const_reverse_iterator:iterator_base<T const,const_reverse_iterator<T>> {
-		using riterator_base::riterator_base;
+		using riterator_base<T const,const_reverse_iterator<T>>::riterator_base;
 	};
 	template<typename T>
 	struct reverse_iterator:riterator_base<T,reverse_iterator<T>> {
-		using riterator_base::riterator_base;
+		using riterator_base<T,reverse_iterator<T>>::riterator_base;
 		reverse_iterator(const_reverse_iterator<T> cri):riterator_base(cri.base())
 		{}
 	};
+
 	namespace cstring_iterator_impl {
 
 		/*
@@ -254,15 +255,15 @@ namespace exlib {
 			constexpr cstring_iterator(cstring_iterator<Other,terminator> str):_loc(str.operator->())
 			{}
 
-			_EXITERATOR_NODISCARD constexpr bool operator==(cstring_iterator o) const
+			_EXITERATOR_NODISCARD constexpr bool operator==(cstring_iterator o) const noexcept
 			{
 				return _loc==o._loc;
 			}
-			_EXITERATOR_NODISCARD constexpr bool operator!=(cstring_iterator o) const
+			_EXITERATOR_NODISCARD constexpr bool operator!=(cstring_iterator o) const noexcept
 			{
 				return _loc!=o._loc;
 			}
-			constexpr cstring_iterator& operator++()
+			constexpr cstring_iterator& operator++() noexcept
 			{
 				++_loc;
 				if(*_loc==terminator)
@@ -271,41 +272,41 @@ namespace exlib {
 				}
 				return *this;
 			}
-			constexpr cstring_iterator operator++(int)
+			constexpr cstring_iterator operator++(int) noexcept
 			{
 				auto copy(*this);
 				++(*this);
 				return copy;
 			}
-			_EXITERATOR_NODISCARD constexpr reference operator*() const
+			_EXITERATOR_NODISCARD constexpr reference operator*() const noexcept
 			{
 				return *_loc;
 			}
-			_EXITERATOR_NODISCARD constexpr pointer operator->() const
+			_EXITERATOR_NODISCARD constexpr pointer operator->() const noexcept
 			{
 				return _loc;
 			}
-			_EXITERATOR_NODISCARD explicit constexpr operator CharType* () const
+			_EXITERATOR_NODISCARD explicit constexpr operator CharType* () const noexcept
 			{
 				return _loc;
 			}
-			_EXITERATOR_NODISCARD static constexpr cstring_iterator end()
+			_EXITERATOR_NODISCARD static constexpr cstring_iterator end() noexcept
 			{
 				return {nullptr};
 			}
-			_EXITERATOR_NODISCARD constexpr cstring_iterator begin() const
+			_EXITERATOR_NODISCARD constexpr cstring_iterator begin() const noexcept
 			{
 				return *this;
 			}
 		};
 
 		template<typename Iter>
-		_EXITERATOR_NODISCARD constexpr Iter begin(Iter it)
+		_EXITERATOR_NODISCARD constexpr Iter begin(Iter it) noexcept
 		{
 			return it;
 		}
 		template<typename Iter>
-		_EXITERATOR_NODISCARD constexpr Iter end(Iter)
+		_EXITERATOR_NODISCARD constexpr Iter end(Iter) noexcept
 		{
 			return {nullptr};
 		}
@@ -669,9 +670,9 @@ namespace exlib {
 		Base _base;
 		Base _end;
 		using Traits=std::iterator_traits<Base>;
-		void advance_until_satisfied()
+		constexpr void advance_until_satisfied()
 		{
-			for(; _base!=_end; ++_base)
+			for(;_base!=_end;++_base)
 			{
 				if(empty_store<Functor>::get()(*_base))
 				{
@@ -679,7 +680,6 @@ namespace exlib {
 				}
 			}
 		}
-
 	public:
 		using value_type=typename Traits::value_type;
 		using difference_type=typename Traits::difference_type;
@@ -687,15 +687,22 @@ namespace exlib {
 		using reference=typename Traits::reference;
 		using iterator_category=std::forward_iterator_tag;
 
-		constexpr filter_iterator(Base iter,Base end,Functor f={}) noexcept(std::is_nothrow_move_constructible<Functor>::value):_base(iter),_end(end),empty_store<Functor>(std::move(f))
+		constexpr filter_iterator(Base iter,Base end,Functor f=Functor()) noexcept(std::is_nothrow_move_constructible<Functor>::value):_base(iter),_end(end),empty_store<Functor>(std::move(f))
 		{
 			advance_until_satisfied();
 		}
+
+		constexpr filter_iterator(Base end,Functor f) noexcept(std::is_nothrow_move_constructible<Functor>::value):_base(end),_end(end),empty_store<Functor>(std::move(f))
+		{}
+
+		constexpr filter_iterator(Base end) noexcept(std::is_nothrow_default_constructible<Functor>::value):_base(end),_end(end)
+		{}
 
 		constexpr Functor predicate() const noexcept(std::is_nothrow_copy_constructible<Functor>::value)
 		{
 			return empty_store<Functor>::get();
 		}
+
 		constexpr reference operator*() const noexcept
 		{
 			return *_base;
