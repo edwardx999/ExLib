@@ -277,6 +277,18 @@ namespace exlib {
 			using type=A;
 		};
 
+		//decay to value
+		template<typename A>
+		struct max_cref_impl<A,A const&> {
+			using type=A;
+		};
+
+		//decay to value
+		template<typename A>
+		struct max_cref_impl<A const&,A> {
+			using type=A;
+		};
+
 		//nothing
 		template<typename A,typename B>
 		struct max_cref_impl<A,B> {
