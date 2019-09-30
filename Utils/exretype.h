@@ -283,6 +283,11 @@ namespace exlib {
 			using type=dummy_type;
 		};
 
+		template<typename... Types>
+		struct max_cref_impl<dummy_type,Types...> {
+			using type=dummy_type;
+		};
+
 		//fold across variadic types
 		template<typename A,typename B,typename... Rest>
 		struct max_cref_impl<A,B,Rest...>:max_cref_impl<typename max_cref_impl<A,B>::type,Rest...> {};
