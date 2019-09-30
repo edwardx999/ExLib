@@ -126,13 +126,13 @@ namespace exlib {
 		template<typename Out,typename A,typename B,typename... Rest>
 		_EXALG_NODISCARD constexpr Out multi_min(A&& a,B&& b,Rest&&... r) noexcept(noexcept(a<b))
 		{
-			return exlib::multi_min<Out>(exlib::min(std::forward<A>(a),std::forward<B>(b)),std::forward<Rest>(r)...);
+			return min_detail::multi_min<Out>(exlib::min(std::forward<A>(a),std::forward<B>(b)),std::forward<Rest>(r)...);
 		}
 
 		template<typename Out,typename A,typename B,typename... Rest>
 		_EXALG_NODISCARD constexpr Out multi_max(A&& a,B&& b,Rest&&... r) noexcept(noexcept(a<b))
 		{
-			return exlib::multi_max<Out>(exlib::max(std::forward<A>(a),std::forward<B>(b)),std::forward<Rest>(r)...);
+			return min_detail::multi_max<Out>(exlib::max(std::forward<A>(a),std::forward<B>(b)),std::forward<Rest>(r)...);
 		}
 
 		template<typename Out,typename Compare,typename A,typename B>
@@ -150,13 +150,13 @@ namespace exlib {
 		template<typename Out,typename Compare,typename A,typename B,typename... Rest>
 		_EXALG_NODISCARD constexpr Out cmulti_min(Compare c,A&& a,B&& b,Rest&&... r) noexcept(noexcept(c(a,b)))
 		{
-			return exlib::cmulti_min<Out>(c,exlib::min(std::forward<A>(a),std::forward<B>(b),c),std::forward<Rest>(r)...);
+			return min_detail::cmulti_min<Out>(c,exlib::min(std::forward<A>(a),std::forward<B>(b),c),std::forward<Rest>(r)...);
 		}
 
 		template<typename Out,typename Compare,typename A,typename B,typename... Rest>
 		_EXALG_NODISCARD constexpr Out cmulti_max(Compare c,A&& a,B&& b,Rest&&... r) noexcept(noexcept(c(a,b)))
 		{
-			return exlib::cmulti_max<Out>(c,exlib::max(std::forward<A>(a),std::forward<B>(b),c),std::forward<Rest>(r)...);
+			return min_detail::cmulti_max<Out>(c,exlib::max(std::forward<A>(a),std::forward<B>(b),c),std::forward<Rest>(r)...);
 		}
 	}
 
