@@ -232,6 +232,9 @@ namespace exlib {
 	using rvalue_reference_to_value_t=typename rvalue_reference_to_value<T>::type;
 
 	namespace max_cref_impl {
+
+		struct dummy_type;
+
 		template<typename... Types>
 		struct max_cref_impl;
 
@@ -251,30 +254,15 @@ namespace exlib {
 		template<typename A>
 		struct max_cref_impl<A,A>:max_cref_impl<A> {};
 
-		//utility to swap args to not repeat specializations
-		template<typename A,typename B,bool same=std::is_same<remove_cvref_t<A>,remove_cvref_t<B>>::value>
-		struct max_cref_swap {
-			using type=typename max_cref_impl<B,A>::type;
-		};
-
-		//no type if not same type
-		template<typename A,typename B>
-		struct max_cref_swap<A,B,false> {};
-
-		//utility to swap args to not repeat specializations, forward to special
-		template<typename A,typename B>
-		struct max_cref_impl<A,B>:max_cref_swap<A,B> {};
-
 		//to const ref
 		template<typename A>
 		struct max_cref_impl<A const&,A&> {
 			using type=A const&;
 		};
-
-		//decay to value
+		//to const ref 2
 		template<typename A>
-		struct max_cref_impl<A,A const&> {
-			using type=A;
+		struct max_cref_impl<A&,A const&> {
+			using type=A const&;
 		};
 
 		//decay to value
@@ -283,9 +271,30 @@ namespace exlib {
 			using type=A;
 		};
 
+		//decay to value
+		template<typename A>
+		struct max_cref_impl<A&,A> {
+			using type=A;
+		};
+
+		//nothing
+		template<typename A,typename B>
+		struct max_cref_impl<A,B> {
+			using type=dummy_type;
+		};
+
 		//fold across variadic types
 		template<typename A,typename B,typename... Rest>
 		struct max_cref_impl<A,B,Rest...>:max_cref_impl<typename max_cref_impl<A,B>::type,Rest...> {};
+
+		template<typename T>
+		struct suppress_dummy {
+			using type=T;
+		};
+
+		template<>
+		struct suppress_dummy<dummy_type> {
+		};
 	}
 
 	/*
@@ -296,7 +305,7 @@ namespace exlib {
 		T&&, T& -> T
 	*/
 	template<typename... Types>
-	struct max_cref:max_cref_impl::max_cref_impl<typename rvalue_reference_to_value<Types>::type...> {};
+	struct max_cref:max_cref_impl::suppress_dummy<typename max_cref_impl::max_cref_impl<typename rvalue_reference_to_value<Types>::type...>::type> {};
 
 	template<typename A,typename B>
 	using max_cref_t=typename max_cref<A,B>::type;
@@ -1004,5 +1013,33 @@ namespace exlib {
 	template<auto val>
 	using val_smallest_representable_type_t=typename val_smallest_representable_type<val>::type;
 #endif
+
+	template<typename... T>
+	struct always_true:std::true_type{};
+
+	template<typename...T>
+	struct always_false:std::false_type{};
+
+	namespace pred_detail {
+		template<typename Comp,typename... Types>
+		struct is_predicate {
+		private:
+			template<typename CC,typename... T>
+			constexpr static auto test(int) -> decltype(bool(std::declval<CC const&>()(std::declval<T const>()...)))
+			{
+				return true;
+			}
+			template<typename CC,typename... T>
+			constexpr static bool test(char)
+			{
+				return false;
+			}
+		public:
+			constexpr static bool value=test<Comp,Types...>(0);
+		};
+	}
+
+	template<typename Pred,typename... Types>
+	struct is_predicate:std::integral_constant<bool,pred_detail::is_predicate<Pred,Types...>::value> {};
 }
 #endif

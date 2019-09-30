@@ -78,7 +78,7 @@ namespace exlib {
 	{
 		fill_detail::fill_with_copy(begin,end,val);
 	}
-
+	
 	template<typename A,typename B,typename Compare=std::less<void>>
 	_EXALG_NODISCARD constexpr typename max_cref<A,B>::type min(A&& a,B&& b,Compare c={}) noexcept(noexcept(c(a,b)))
 	{
@@ -107,6 +107,93 @@ namespace exlib {
 			return {std::forward<A>(a),std::forward<B>(b)};
 		}
 		return {std::forward<B>(b),std::forward<A>(a)};
+	}
+
+	namespace min_detail {
+
+		template<typename Out,typename A,typename B>
+		_EXALG_NODISCARD constexpr Out multi_min(A&& a,B&& b) noexcept(noexcept(a<b))
+		{
+			return exlib::min(std::forward<A>(a),std::forward<B>(b));
+		}
+
+		template<typename Out,typename A,typename B>
+		_EXALG_NODISCARD constexpr Out multi_max(A&& a,B&& b) noexcept(noexcept(a<b))
+		{
+			return exlib::max(std::forward<A>(a),std::forward<B>(b));
+		}
+
+		template<typename Out,typename A,typename B,typename... Rest>
+		_EXALG_NODISCARD constexpr Out multi_min(A&& a,B&& b,Rest&&... r) noexcept(noexcept(a<b))
+		{
+			return exlib::multi_min<Out>(exlib::min(std::forward<A>(a),std::forward<B>(b)),std::forward<Rest>(r)...);
+		}
+
+		template<typename Out,typename A,typename B,typename... Rest>
+		_EXALG_NODISCARD constexpr Out multi_max(A&& a,B&& b,Rest&&... r) noexcept(noexcept(a<b))
+		{
+			return exlib::multi_max<Out>(exlib::max(std::forward<A>(a),std::forward<B>(b)),std::forward<Rest>(r)...);
+		}
+
+		template<typename Out,typename Compare,typename A,typename B>
+		_EXALG_NODISCARD constexpr Out cmulti_min(Compare c,A&& a,B&& b) noexcept(noexcept(c(a,b)))
+		{
+			return exlib::min(std::forward<A>(a),std::forward<B>(b),c);
+		}
+
+		template<typename Out,typename Compare,typename A,typename B>
+		_EXALG_NODISCARD constexpr Out cmulti_max(Compare c,A&& a,B&& b) noexcept(noexcept(c(a,b)))
+		{
+			return exlib::max(std::forward<A>(a),std::forward<B>(b),c);
+		}
+
+		template<typename Out,typename Compare,typename A,typename B,typename... Rest>
+		_EXALG_NODISCARD constexpr Out cmulti_min(Compare c,A&& a,B&& b,Rest&&... r) noexcept(noexcept(c(a,b)))
+		{
+			return exlib::cmulti_min<Out>(c,exlib::min(std::forward<A>(a),std::forward<B>(b),c),std::forward<Rest>(r)...);
+		}
+
+		template<typename Out,typename Compare,typename A,typename B,typename... Rest>
+		_EXALG_NODISCARD constexpr Out cmulti_max(Compare c,A&& a,B&& b,Rest&&... r) noexcept(noexcept(c(a,b)))
+		{
+			return exlib::cmulti_max<Out>(c,exlib::max(std::forward<A>(a),std::forward<B>(b),c),std::forward<Rest>(r)...);
+		}
+	}
+
+	template<typename A,typename B>
+	_EXALG_NODISCARD constexpr typename max_cref<A,B>::type multi_min(A&& a,B&& b) noexcept(noexcept(a<b))
+	{
+		return exlib::min(std::forward<A>(a),std::forward<B>(b));
+	}
+
+	template<typename A,typename B>
+	_EXALG_NODISCARD constexpr typename max_cref<A,B>::type multi_max(A&& a,B&& b) noexcept(noexcept(a<b))
+	{
+		return exlib::max(std::forward<A>(a),std::forward<B>(b));
+	}
+
+	template<typename A,typename B,typename C,typename... Rest>
+	_EXALG_NODISCARD constexpr auto multi_min(A&& a,B&& b,C&& c,Rest&&... r) noexcept(noexcept(a<b)) -> typename max_cref<A,B,C,Rest...>::type
+	{
+		return min_detail::multi_min<typename max_cref<A,B,C,Rest...>::type>(std::forward<A>(a),std::forward<B>(b),std::forward<C>(c),std::forward<Rest>(r)...);
+	}
+
+	template<typename A,typename B,typename C,typename... Rest>
+	_EXALG_NODISCARD constexpr auto multi_max(A&& a,B&& b,C&& c,Rest&&... r) noexcept(noexcept(a<b)) -> typename max_cref<A,B,C,Rest...>::type
+	{
+		return min_detail::multi_max<typename max_cref<A,B,C,Rest...>::type>(std::forward<A>(a),std::forward<B>(b),std::forward<C>(c),std::forward<Rest>(r)...);
+	}
+
+	template<typename Compare,typename A,typename B,typename... Rest>
+	_EXALG_NODISCARD constexpr auto multi_min(Compare c,A&& a,B&& b,Rest&&... r) noexcept(noexcept(c(a,b))) -> typename std::enable_if<is_predicate<Compare,A,B>::value,typename max_cref<A,B,Rest...>::type>::type
+	{
+		return min_detail::cmulti_min<typename max_cref<A,B,Rest...>::type>(c,std::forward<A>(a),std::forward<B>(b),std::forward<Rest>(r)...);
+	}
+
+	template<typename Compare,typename A,typename B,typename... Rest>
+	_EXALG_NODISCARD constexpr auto multi_max(Compare c,A&& a,B&& b,Rest&&... r) noexcept(noexcept(c(a,b))) -> typename std::enable_if<is_predicate<Compare,A,B>::value,typename max_cref<A,B,Rest...>::type>::type
+	{
+		return min_detail::cmulti_max<typename max_cref<A,B,Rest...>::type>(c,std::forward<A>(a),std::forward<B>(b),std::forward<Rest>(r)...);
 	}
 
 	template<typename Iter,typename Transform,typename Compare=std::less<void>>
