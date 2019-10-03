@@ -26,7 +26,7 @@ namespace exlib {
 			plus,minus,
 			times,divide,modulo,
 			power,
-			unary_minus,bnot,lnot,
+			unary_minus,unary_plus,bnot,lnot,
 		};
 
 		constexpr int precedence(op o)
@@ -64,6 +64,9 @@ namespace exlib {
 
 		using variable=std::string;
 
+		using floating_point_t=double;
+		using integer_t=long long;
+
 		class number {
 		public:
 			enum {
@@ -73,15 +76,15 @@ namespace exlib {
 		private:
 			int _disc;
 			union {
-				int i;
-				float f;
+				integer_t i;
+				floating_point_t f;
 			}_u;
 		public:
-			number(int n) noexcept:_disc{int_tag}
+			number(integer_t n) noexcept:_disc{int_tag}
 			{
 				_u.i=n;
 			}
-			number(float n) noexcept:_disc{float_tag}
+			number(floating_point_t n) noexcept:_disc{float_tag}
 			{
 				_u.f=n;
 			}
@@ -89,13 +92,17 @@ namespace exlib {
 			number(number const& n) noexcept:_disc{n._disc},_u{n._u}
 			{}
 
-			number& operator=(int n) noexcept
+			number& operator=(integer_t n) noexcept
 			{
 				_disc=int_tag;
 				_u.i=n;
 				return *this;
 			}
-			number& operator=(float n) noexcept
+			number& operator=(bool b) noexcept
+			{
+				return (*this)=integer_t(b);
+			}
+			number& operator=(floating_point_t n) noexcept
 			{
 				_disc=float_tag;
 				_u.f=n;
@@ -137,21 +144,21 @@ namespace exlib {
 				return bool(_u.i);
 			}
 
-			operator int() const noexcept
+			operator integer_t() const noexcept
 			{
 				if(_disc)
 				{
-					return int(_u.f);
+					return integer_t(_u.f);
 				}
 				return _u.i;
 			}
-			operator float() const noexcept
+			operator floating_point_t() const noexcept
 			{
 				if(_disc)
 				{
 					return _u.f;
 				}
-				return float(_u.i);
+				return floating_point_t(_u.i);
 			}
 
 #define COMP_OP(op)\
@@ -177,37 +184,52 @@ namespace exlib {
 			{\
 				if(a._disc||b._disc)\
 				{\
-					return float(a) op float(b);\
+					return floating_point_t(a) op floating_point_t(b);\
 				}\
-				return int(a) op int(b);\
+				return integer_t(a) op integer_t(b);\
 			}
 				ARITH_OP(+)
 				ARITH_OP(-)
-				ARITH_OP(/)
 				ARITH_OP(*)
 #undef ARITH_OP
 
 				friend number operator %(number a,number b) noexcept
 			{
-				if(a._disc||b._disc)
+				if(a.is_float()||b.is_float())
 				{
-					return fmodf(a,b);
+					return fmod(a,b);
 				}
-				return int(a)%int(b);
+				if(integer_t(b)==0)
+				{
+					return std::numeric_limits<float>::quiet_NaN();
+				}
+				return integer_t(a)%integer_t(b);
+			}
+			friend number operator /(number a,number b) noexcept
+			{
+				if(a.is_float()||b.is_float())
+				{
+					return floating_point_t(a)/floating_point_t(b);
+				}
+				if(integer_t(b)==0)
+				{
+					return std::numeric_limits<float>::infinity();
+				}
+				return integer_t(a)/integer_t(b);
 			}
 
 			number operator-() const noexcept
 			{
 				if(is_int())
 				{
-					return -int(*this);
+					return -integer_t(*this);
 				}
-				return -float(*this);
+				return -floating_point_t(*this);
 			}
 		};
 
 		template<typename N>
-		constexpr N ipow(N n,int b)
+		constexpr N ipow(N n,long long b)
 		{
 			if(b==0)
 			{
@@ -240,19 +262,23 @@ namespace exlib {
 			{
 				if(b.is_int())
 				{
-					if(int(b)<0)
+					if(integer_t(b)<0)
 					{
-						return 1.0f/ipow(float(a),b);
+						return 1.0f/ipow(floating_point_t(a),b);
 					}
-					return ipow(float(a),b);
+					return ipow(floating_point_t(a),b);
 				}
-				return fmodf(a,b);
+				return std::pow(floating_point_t(a),floating_point_t(b));
 			}
 			if(b.is_int())
 			{
-				return ipow(int(a),b);
+				if(integer_t(b)<0)
+				{
+					return floating_point_t(1)/ipow(integer_t(a),-integer_t(b));
+				}
+				return ipow(integer_t(a),integer_t(b));
 			}
-			return powf(a,b);
+			return std::pow(integer_t(a),floating_point_t(b));
 		}
 
 		template<typename Visitor>
@@ -283,7 +309,7 @@ namespace exlib {
 		struct _comma {};
 		struct _empty {};
 
-		using reverse_polish_item=std::variant<variable,op,function,int,float,_start_paren,_end_paren,_comma,_empty>;
+		using reverse_polish_item=std::variant<variable,op,function,integer_t,floating_point_t,_start_paren,_end_paren,_comma,_empty>;
 
 		bool is_real_operator(reverse_polish_item const& item)
 		{
@@ -337,7 +363,7 @@ namespace exlib {
 					case '|':
 						return op::bor;
 					case '&':
-						return op::land;
+						return op::band;
 					case '^':
 						return op::xor;
 					case '=':
@@ -388,6 +414,10 @@ namespace exlib {
 						return op::lnot;
 					case '~':
 						return op::bnot;
+					case '-':
+						return op::unary_minus;
+					case '+':
+						return op::unary_plus;
 					}
 					return op::invalid;
 				};
@@ -412,125 +442,115 @@ namespace exlib {
 					}
 					throw std::invalid_argument{"Unknown function"};
 				};
-				bool negative=*begin=='-';
+				if(after_token)
 				{
-					if(after_token)
+					if(*begin==')')
 					{
-						if(*begin==')')
-						{
-							return {++begin,_end_paren{}};
-						}
-						after_token=false;
-						if(*begin==',')
-						{
-							if(comma_ability.back())
-							{
-								return {++begin,_comma{}};
-							}
-							else
-							{
-								throw std::invalid_argument{"Invalid comma"};
-							}
-						}
-						auto const first_token=is_after_token_op(*begin);
-						++begin;
-						if(begin==end)
-						{
-							throw std::invalid_argument{"Trailing op"};
-						}
-						auto const second_token=is_after_token_second_op(first_token,*begin);
-						if(second_token!=first_token)
-						{
-							++begin;
-						}
-						return {begin,second_token};
+						return {++begin,_end_paren{}};
 					}
-					else
+					if(*begin==',')
 					{
-						if(is_digit(*begin))
+						if(comma_ability.back())
 						{
-							after_token=true;
-							int integer=*begin-'0';
-							++begin;
-							while(true)
-							{
-								if(begin==end)
-								{
-									if(negative) integer=-integer;
-									return {begin,integer};
-								}
-								if(is_digit(*begin))
-								{
-									integer*=10;
-									integer+=*begin-'0';
-								}
-								else if(*begin=='.')
-								{
-									break;
-								}
-								else
-								{
-									if(negative) integer=-integer;
-									return {begin,integer};
-								}
-								++begin;
-							}
-							++begin;
-							float integral_part=integer;
-							float decimal_part=0;
-							float places=0;
-							while(true)
-							{
-								if(begin==end||!is_digit(*begin))
-								{
-									auto ret=integral_part+decimal_part/std::pow(10.0f,places);
-									if(negative) ret=-ret;
-									return {begin,ret};
-								}
-								decimal_part*=10;
-								decimal_part+=*begin-'0';
-								places+=1;
-								++begin;
-							}
-						}
-						if(*begin=='(')
-						{
-							return {++begin,_start_paren{}};
-						}
-						if(*begin==')')
-						{
-							return {++begin,_end_paren{}};
-						}
-						auto const uop=is_unary_op(*begin);
-						if(uop!=op::invalid)
-						{
-							return {++begin,uop};
+							return {++begin,_comma{}};
 						}
 						else
 						{
-							std::string token;
-							token.push_back(*begin);
-							++begin;
-							while(true)
+							throw std::invalid_argument{"Invalid comma"};
+						}
+					}
+					auto const first_token=is_after_token_op(*begin);
+					++begin;
+					if(begin==end)
+					{
+						throw std::invalid_argument{"Trailing op"};
+					}
+					auto const second_token=is_after_token_second_op(first_token,*begin);
+					if(second_token!=first_token)
+					{
+						++begin;
+					}
+					return {begin,second_token};
+				}
+				else
+				{
+					if(is_digit(*begin))
+					{
+						integer_t integer=*begin-'0';
+						++begin;
+						while(true)
+						{
+							if(begin==end)
 							{
-								if(begin==end)
-								{
-									after_token=true;
-									return {begin,std::move(token)};
-								}
-								auto const c=*begin;
-								if(c=='(')
-								{
-									return {++begin,function{size_t(-1),is_func(token)}};
-								}
-								if(!is_digit(c)&&!is_letter(c))
-								{
-									after_token=true;
-									return {begin,std::move(token)};
-								}
-								token.push_back(c);
-								++begin;
+								return {begin,integer};
 							}
+							if(is_digit(*begin))
+							{
+								integer*=10;
+								integer+=*begin-'0';
+							}
+							else if(*begin=='.')
+							{
+								break;
+							}
+							else
+							{
+								return {begin,integer};
+							}
+							++begin;
+						}
+						++begin;
+						float integral_part=integer;
+						float decimal_part=0;
+						float places=0;
+						while(true)
+						{
+							if(begin==end||!is_digit(*begin))
+							{
+								auto ret=integral_part+decimal_part/std::pow(10.0f,places);
+								return {begin,ret};
+							}
+							decimal_part*=10;
+							decimal_part+=*begin-'0';
+							places+=1;
+							++begin;
+						}
+					}
+					if(*begin=='(')
+					{
+						return {++begin,_start_paren{}};
+					}
+					if(*begin==')')
+					{
+						return {++begin,_end_paren{}};
+					}
+					auto const uop=is_unary_op(*begin);
+					if(uop!=op::invalid)
+					{
+						return {++begin,uop};
+					}
+					else
+					{
+						std::string token;
+						token.push_back(*begin);
+						++begin;
+						while(true)
+						{
+							if(begin==end)
+							{
+								return {begin,std::move(token)};
+							}
+							auto const c=*begin;
+							if(c=='(')
+							{
+								return {++begin,function{size_t(-1),is_func(token)}};
+							}
+							if(!is_digit(c)&&!is_letter(c))
+							{
+								return {begin,std::move(token)};
+							}
+							token.push_back(c);
+							++begin;
 						}
 					}
 				}
@@ -542,19 +562,22 @@ namespace exlib {
 				std::visit([&](auto const& elem)
 					{
 						using T=std::decay_t<decltype(elem)>;
-						if constexpr(std::is_same_v<T,int>||std::is_same_v<T,float>||std::is_same_v<T,variable>)
+						if constexpr(std::is_same_v<T,integer_t>||std::is_same_v<T,floating_point_t>||std::is_same_v<T,variable>)
 						{
+							after_token=true;
 							if(arg_count.back()<1) arg_count.back()=1;
 							out.push_back(std::move(token));
 						}
 						else if constexpr(std::is_same_v<T,function>)
 						{
+							after_token=false;
 							comma_ability.push_back(true);
 							arg_count.push_back(0);
 							operator_stack.push_back(std::move(token));
 						}
 						else if constexpr(std::is_same_v<T,op>)
 						{
+							after_token=false;
 							if(elem==op::_ternary_colon)
 							{
 								while(!operator_stack.empty())
@@ -576,7 +599,7 @@ namespace exlib {
 									{
 										break;
 									}
-									out.push_back(std::move(oper));
+										out.push_back(std::move(oper));
 								}
 								operator_stack.push_back(op::ternary);
 								return;
@@ -588,7 +611,11 @@ namespace exlib {
 									{
 										if constexpr(std::is_same_v<std::decay_t<decltype(item)>,op>)
 										{
-											if(precedence(item)>=precedence(elem))
+											if(item==op::power&&item==elem)
+											{
+												return true;
+											}
+											else if(precedence(item)>=precedence(elem))
 											{
 												return false;
 											}
@@ -598,13 +625,15 @@ namespace exlib {
 								{
 									break;
 								}
-								out.push_back(std::move(oper));
-								operator_stack.pop_back();
+									out.push_back(std::move(oper));
+									operator_stack.pop_back();
 							}
-							operator_stack.push_back(std::move(token));
+							if(elem!=op::unary_plus)
+								operator_stack.push_back(std::move(token));
 						}
 						else if constexpr(std::is_same_v<T,_start_paren>)
 						{
+							after_token=false;
 							comma_ability.push_back(false);
 							arg_count.push_back(0);
 							operator_stack.push_back(std::move(token));
@@ -653,8 +682,8 @@ namespace exlib {
 									{
 										out.push_back(std::move(oper));
 									}
-									arg_count.pop_back();
-									break;
+										arg_count.pop_back();
+										break;
 								}
 								out.push_back(std::move(oper));
 							}
@@ -756,21 +785,21 @@ namespace exlib {
 							case op::bor:
 							{
 								auto& a=stack[s-2];auto& b=stack[s-1];
-								a=int(a)|int(b);
+								a=integer_t(a)|integer_t(b);
 								stack.pop_back();
 								break;
 							}
 							case op::xor :
 							{
 								auto& a=stack[s-2];auto& b=stack[s-1];
-								a=int(a)^int(b);
+								a=integer_t(a)^integer_t(b);
 								stack.pop_back();
 								break;
 							}
 							case op::band:
 							{
 								auto& a=stack[s-2];auto& b=stack[s-1];
-								a=int(a)&int(b);
+								a=integer_t(a)&integer_t(b);
 								stack.pop_back();
 								break;
 							}
@@ -819,14 +848,14 @@ namespace exlib {
 							case op::bls:
 							{
 								auto& a=stack[s-2];auto& b=stack[s-1];
-								a=(int(a)<<int(b));
+								a=(integer_t(a)<<integer_t(b));
 								stack.pop_back();
 								break;
 							}
 							case op::brs:
 							{
 								auto& a=stack[s-2];auto& b=stack[s-1];
-								a=(int(a)>>int(b));
+								a=(integer_t(a)>>integer_t(b));
 								stack.pop_back();
 								break;
 							}
@@ -879,7 +908,7 @@ namespace exlib {
 							}
 							case op::bnot:
 							{
-								stack.back()=~int(stack.back());
+								stack.back()=~integer_t(stack.back());
 								break;
 							}
 							case op::lnot:
@@ -900,7 +929,7 @@ namespace exlib {
 								auto mx=std::max_element(begin,stack.end());
 								*begin=*mx;
 								stack.erase(begin+1,stack.end());
-									break;
+								break;
 							}
 							case func_code::min:
 							{
@@ -914,11 +943,11 @@ namespace exlib {
 							{
 								if(f.arity==0)
 								{
-									stack.push_back(0.0f);
+									stack.push_back(integer_t(0));
 								}
 								else
 								{
-									stack.back()=float(stack.back());
+									stack.back()=integer_t(stack.back());
 								}
 								break;
 							}
@@ -926,17 +955,17 @@ namespace exlib {
 							{
 								if(f.arity==0)
 								{
-									stack.push_back(0);
+									stack.push_back(floating_point_t(0));
 								}
 								else
 								{
-									stack.back()=int(stack.back());
+									stack.back()=floating_point_t(stack.back());
 								}
 								break;
 							}
 							}
 						}
-						else if constexpr(std::is_same_v<T,int>||std::is_same_v<T,float>)
+						else if constexpr(std::is_same_v<T,integer_t>||std::is_same_v<T,floating_point_t>)
 						{
 							stack.push_back(item);
 						}
