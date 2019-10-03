@@ -33,7 +33,7 @@ namespace exlib {
 		{
 			switch(o)
 			{
-			case op::ternary:
+			case op::ternary:case op::_ternary_q:
 				return 0;
 			case op::lor:
 				return 1;
@@ -559,7 +559,8 @@ namespace exlib {
 							{
 								while(!operator_stack.empty())
 								{
-									auto& oper=operator_stack.back();
+									auto oper=std::move(operator_stack.back());
+									operator_stack.pop_back();
 									if(std::visit([&](auto const& item) -> bool
 										{
 											if constexpr(std::is_same_v<std::decay_t<decltype(item)>,op>)
@@ -573,11 +574,11 @@ namespace exlib {
 											throw std::invalid_argument{"Invalid ternary colon"};
 										},oper))
 									{
-										out.push_back(std::move(oper));
 										break;
 									}
+									out.push_back(std::move(oper));
 								}
-								out.push_back(op::ternary);
+								operator_stack.push_back(op::ternary);
 								return;
 							}
 							while(!operator_stack.empty())
@@ -804,7 +805,7 @@ namespace exlib {
 							case op::gt:
 							{
 								auto& a=stack[s-2];auto& b=stack[s-1];
-								a=(a>=b);
+								a=(a>b);
 								stack.pop_back();
 								break;
 							}
