@@ -67,6 +67,28 @@ namespace exlib {
 		using floating_point_t=double;
 		using integer_t=long long;
 
+		enum class func_code {
+			invalid,
+			max,
+			min,
+			int_cast,
+			float_cast
+		};
+
+		struct function {
+			std::size_t arity;
+			func_code op_code;
+		};
+
+		struct _start_paren {};
+		struct _end_paren {};
+		struct _comma {};
+		struct _empty {};
+
+		class number;
+
+		using reverse_polish_item=std::variant<variable,op,function,integer_t,floating_point_t,_start_paren,_end_paren,_comma,_empty>;
+
 		class number {
 		public:
 			enum {
@@ -226,7 +248,32 @@ namespace exlib {
 				}
 				return -floating_point_t(*this);
 			}
+
+			operator reverse_polish_item() const noexcept
+			{
+				if(is_integer())
+				{
+					return integer_t(*this);
+				}
+				else
+				{
+					return floating_point_t(*this);
+				}
+			}
 		};
+
+		namespace literals {
+
+			number operator""_n(long double d) noexcept
+			{
+				return floating_point_t(d);
+			}
+
+			number operator ""_n(unsigned long long n) noexcept
+			{
+				return integer_t(n);
+			}
+		}
 
 		template<typename OStream>
 		auto operator<<(OStream& os,number n) -> decltype(os<<floating_point_t{},os<<integer_t{},os)
@@ -304,26 +351,6 @@ namespace exlib {
 			}
 			return vis(n.raw_data().f);
 		}
-
-		enum class func_code {
-			invalid,
-			max,
-			min,
-			int_cast,
-			float_cast
-		};
-
-		struct function {
-			std::size_t arity;
-			func_code op_code;
-		};
-
-		struct _start_paren {};
-		struct _end_paren {};
-		struct _comma {};
-		struct _empty {};
-
-		using reverse_polish_item=std::variant<variable,op,function,integer_t,floating_point_t,_start_paren,_end_paren,_comma,_empty>;
 
 		bool is_real_operator(reverse_polish_item const& item)
 		{
@@ -739,6 +766,24 @@ namespace exlib {
 				operator_stack.pop_back();
 			}
 			return out;
+		}
+
+		template<typename Map>
+		void replace_known_variables(std::vector<reverse_polish_item>& rp,Map const& environment)
+		{
+			for(auto& item:rp)
+			{
+				std::visit([&](auto& elem)
+					{
+						if constexpr(std::is_same_v<std::decay_t<decltype(elem)>,variable>)
+						{
+							if(auto it=environment.find(elem);it!=environment.end())
+							{
+								item=it->second;
+							}
+						}
+					},item);
+			}
 		}
 
 		template<typename Map>
