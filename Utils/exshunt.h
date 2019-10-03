@@ -120,12 +120,12 @@ namespace exlib {
 				return _disc;
 			}
 
-			bool is_int() const noexcept
+			bool is_integer() const noexcept
 			{
 				return !_disc;
 			}
 
-			bool is_float() const noexcept
+			bool is_floating_point() const noexcept
 			{
 				return _disc;
 			}
@@ -195,7 +195,7 @@ namespace exlib {
 
 				friend number operator %(number a,number b) noexcept
 			{
-				if(a.is_float()||b.is_float())
+				if(a.is_floating_point()||b.is_floating_point())
 				{
 					return fmod(a,b);
 				}
@@ -207,7 +207,7 @@ namespace exlib {
 			}
 			friend number operator /(number a,number b) noexcept
 			{
-				if(a.is_float()||b.is_float())
+				if(a.is_floating_point()||b.is_floating_point())
 				{
 					return floating_point_t(a)/floating_point_t(b);
 				}
@@ -220,13 +220,27 @@ namespace exlib {
 
 			number operator-() const noexcept
 			{
-				if(is_int())
+				if(is_integer())
 				{
 					return -integer_t(*this);
 				}
 				return -floating_point_t(*this);
 			}
 		};
+
+		template<typename OStream>
+		auto operator<<(OStream& os,number n) -> decltype(os<<floating_point_t{},os<<integer_t{},os)
+		{
+			if(n.is_floating_point())
+			{
+				os<<floating_point_t(n);
+			}
+			else
+			{
+				os<<integer_t(n);
+			}
+			return os;
+		}
 
 		template<typename N>
 		constexpr N ipow(N n,long long b)
@@ -258,9 +272,9 @@ namespace exlib {
 
 		number pow(number a,number b) noexcept
 		{
-			if(a.is_float())
+			if(a.is_floating_point())
 			{
-				if(b.is_int())
+				if(b.is_integer())
 				{
 					if(integer_t(b)<0)
 					{
@@ -270,7 +284,7 @@ namespace exlib {
 				}
 				return std::pow(floating_point_t(a),floating_point_t(b));
 			}
-			if(b.is_int())
+			if(b.is_integer())
 			{
 				if(integer_t(b)<0)
 				{
