@@ -602,6 +602,28 @@ namespace exlib {
 				--end;
 			};
 		}
+		template<typename Iter,typename Num,typename DigitsIter>
+		constexpr Iter fill_num_array_unchecked_negative(Iter end,Num num,int base,DigitsIter digits)
+		{
+			--end;
+			while(true)
+			{
+				if EX_CONSTIF(-1%10==-1)
+				{
+					*end=digits[-(num%base)];
+				}
+				else
+				{
+					*end=digits[base-num%base];
+				}
+				num/=base;
+				if(num==0)
+				{
+					return end;
+				}
+				--end;
+			};
+		}
 	}
 
 	//fills in a range working backwards from end and returns the start iter written to
@@ -615,7 +637,7 @@ namespace exlib {
 		}
 		else
 		{
-			auto it=detail::fill_num_array_unchecked_positive(end,-num,base,digits);
+			auto it=detail::fill_num_array_unchecked_negative(end,num,base,digits);
 			*--it='-';
 			return it;
 		}
