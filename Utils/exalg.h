@@ -566,10 +566,10 @@ namespace exlib {
 			{
 				if(comp(*it,*begin))
 				{
-					exlib::swap(*it,*(++pivot));
+					exlib::adl_swap(*it,*(++pivot));
 				}
 			}
-			exlib::swap(*begin,*pivot);
+			exlib::adl_swap(*begin,*pivot);
 			qsort(begin,pivot,comp);
 			qsort(pivot+1,end,comp);
 		}
@@ -695,7 +695,7 @@ namespace exlib {
 			}
 			else
 			{
-				exlib::swap(*before,*elem);
+				exlib::adl_swap(*before,*elem);
 				elem=before;
 			}
 		}
@@ -1005,7 +1005,7 @@ namespace exlib {
 	{
 		while((begin!=end)&&(begin!=--end))
 		{
-			exlib::swap(*begin,*end);
+			exlib::adl_swap(*begin,*end);
 			++begin;
 		}
 	}
