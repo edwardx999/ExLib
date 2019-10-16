@@ -72,7 +72,7 @@ namespace exlib {
 
 	//A smart ptr that uses the given allocator to allocate and delete
 	//memory is uninitilized, and you are responsible for destroying any constructed objects
-	template<typename T,typename Allocator,typename ExtraInfo=exlib::empty_t>
+	template<typename T,typename Allocator>
 	class allocator_ptr:private empty_store<Allocator> {
 	private:
 		using Base=empty_store<Allocator>;
@@ -88,7 +88,7 @@ namespace exlib {
 		using size_type=typename Traits::size_type;
 	private:
 		pointer _base;
-		compressed_tuple<size_type,ExtraInfo> _capacity;
+		size_type _capacity;
 		Allocator select_on_move(Allocator& a,std::false_type)
 		{
 			return Allocator();
@@ -102,26 +102,14 @@ namespace exlib {
 		{
 			return Base::get();
 		}
-		allocator_type const& get_allocator_ref() const noexcept
-		{
-			return Base::get();
-		}
 		allocator_type get_allocator() const noexcept
 		{
 			return Base::get();
 		}
-		ExtraInfo const& extra_info() const noexcept
-		{
-			return _capacity.rest().first();
-		}
-		ExtraInfo& extra_info() noexcept
-		{
-			return _capacity.rest().first();
-		}
 		void release()
 		{
 			_base=nullptr;
-			_capacity.first()=0;
+			_capacity=0;
 		}
 		void reset() noexcept
 		{
@@ -129,36 +117,25 @@ namespace exlib {
 		}
 		void reset(pointer p,std::size_t capacity,Allocator a=Allocator()) noexcept
 		{
-			Traits::deallocate(this->get_allocator_ref(),_base,_capacity.first());
+			Traits::deallocate(this->get_allocator_ref(),_base,_capacity);
 			_base=p;
-			_capacity.first()=capacity;
+			_capacity=capacity;
 			if(pocma::value)
 			{
 				this->get_allocator_ref()=std::move(a);
 			}
 		}
-		allocator_ptr(std::size_t n,Allocator const& alloc=Allocator()):
-			Base(alloc),_base(Traits::allocate(this->get_allocator_ref(),n)),_capacity(n)
+		allocator_ptr(std::size_t n,Allocator const& alloc=Allocator()):Base(alloc),_base(Traits::allocate(this->get_allocator_ref(),n)),_capacity(n)
 		{}
-		template<typename... OptionalExtraArg>
-		allocator_ptr(std::size_t n,Allocator const& alloc,OptionalExtraArg&&... arg):
-			Base(alloc),_base(Traits::allocate(this->get_allocator_ref(),n)),_capacity(n,std::forward<OptionalExtraArg>(arg)...)
+		allocator_ptr(Allocator const& alloc=Allocator()) noexcept:Base(Traits::select_on_container_copy_construction(alloc)),_base(nullptr),_capacity(0)
 		{}
-		allocator_ptr(Allocator const& alloc=Allocator()) noexcept:
-			Base(Traits::select_on_container_copy_construction(alloc)),_base(nullptr),_capacity(0)
-		{}
-		allocator_ptr(allocator_ptr&& o) noexcept:Base(select_on_move(o.get_allocator_ref(),pocma{})),_base(o._base),_capacity(std::move(o._capacity))
+		allocator_ptr(allocator_ptr&& o) noexcept:Base(select_on_move(o.get_allocator_ref(),pocma{})),_base(o._base),_capacity(o._capacity)
 		{
 			o.release();
 		}
-		allocator_ptr(allocator_ptr const& o):
-			Base(Traits::select_on_container_copy_construction(o.get_allocator_ref())),
-			_base(Traits::allocate(this->get_allocator_ref(),o.capacity())),
-			_capacity(o.capacity(),o.extra_info())
-		{}
 		size_type capacity() const noexcept
 		{
-			return _capacity.first();
+			return _capacity;
 		}
 		pointer get() const noexcept
 		{
@@ -180,24 +157,23 @@ namespace exlib {
 		}
 		allocator_ptr& operator=(allocator_ptr&& o) noexcept
 		{
-			reset(o._base,o._capacity.first(),o.get_allocator_ref());
-			extra_info()=std::move(o.extra_info());
+			reset(o._base,o._capacity,o.get_allocator_ref());
 			o.release();
 			return *this;
 		}
 		reference operator[](size_type s) const noexcept
 		{
-			return get()[s];
+			return _base[s];
 		}
 		reference operator*() const noexcept
 		{
-			return *get();
+			return *_base;
 		}
 		~allocator_ptr() noexcept
 		{
 			if(this->get())
 			{
-				Traits::deallocate(this->get_allocator_ref(),get(),capacity());
+				Traits::deallocate(this->get_allocator_ref(),_base,_capacity);
 			}
 		}
 	};
@@ -436,6 +412,10 @@ namespace exlib {
 #endif
 	}
 
+	/*
+		Add subrange (alias for span) method to iterator each subrange
+		Fix constructors to use constructors
+	*/
 	namespace detail {
 		template<typename Types,typename Allocator>
 		class mvector;
@@ -467,8 +447,9 @@ namespace exlib {
 			using pointer=pointerlike_wrapper<reference>;
 			using const_pointer=pointerlike_wrapper<const_reference>;
 		private:
-			using _DataM=allocator_ptr<void,Allocator,size_type>;
+			using _DataM=allocator_ptr<void,Allocator>;
 			_DataM _data;
+			size_type _size;
 
 			constexpr static auto total_size=exlib::detail::tuple_size_sum<TypeTuple>::value;
 
@@ -694,7 +675,7 @@ namespace exlib {
 			}
 			size_type size() const noexcept
 			{
-				return _data.extra_info();
+				return _size;
 			}
 			bool empty() const noexcept
 			{
@@ -894,7 +875,7 @@ namespace exlib {
 				constexpr size_t offset=size_up_to<I>::value;
 				type* odst=data<I>();
 				type const* osrc=reinterpret_cast<type const*>(reinterpret_cast<char const*>(src)+offset*src_offset);
-				for(size_t i=0;i<size();++i)
+				for(size_t i=0;i<_size;++i)
 				{
 					try
 					{
@@ -927,7 +908,7 @@ namespace exlib {
 			void realloc(size_type new_cap)
 			{
 				assert(new_cap%alignment==0);
-				_DataM temp(new_cap,_data.get_allocator_ref());
+				_DataM temp(new_cap);
 				if(noexcept_movable)
 				{
 					move_ranges(temp.get(),new_cap,idx_seq{});
@@ -936,20 +917,19 @@ namespace exlib {
 				{
 					copy_ranges(temp.get(),new_cap,idx_seq{});
 				}
-				temp.extra_info()=size();
 				temp.swap(_data);
 			}
 
 		public:
-			mvector(mvector const& other):_data(other._data)
+			mvector(mvector const& other):_data(other.capacity()),_size(other._size)
 			{
 				copy_ranges(other.data(),other.capacity(),idx_seq{});
 			}
-			mvector(mvector&& other) noexcept:_data(std::move(other._data))
+			mvector(mvector&& other) noexcept:_data(std::move(other._data)),_size(other._size)
 			{
-				other._data.extra_info()=0;
+				other._size=0;
 			}
-			mvector() noexcept:_data(0,Allocator(),0)
+			mvector() noexcept:_data(),_size(0)
 			{}
 		private:
 			static size_t fix_alignment(size_t count)
@@ -1017,7 +997,7 @@ namespace exlib {
 
 		public:
 			template<typename... Args>
-			mvector(size_type s,Args const&... args):_data(fix_alignment(s),Allocator(),s)
+			mvector(size_type s,Args const&... args):_data(fix_alignment(s)),_size(s)
 			{
 				static_assert(sizeof...(Args)<=type_count,"Too many arguments");
 				construct_ranges(0,size(),idx_seq{},args...);
@@ -1032,11 +1012,11 @@ namespace exlib {
 			// directly change size count, no adjustments made
 			void force_set_size(size_type s) noexcept
 			{
-				_data.extra_info()=s;
+				_size=s;
 			}
 			void shrink_to_fit()
 			{
-				auto const new_cap=fix_alignment(size());
+				auto const new_cap=fix_alignment(_size);
 				if(new_cap<capacity())
 				{
 					realloc(new_cap);
@@ -1047,7 +1027,7 @@ namespace exlib {
 			void push_back(Args&&... args)
 			{
 				static_assert(sizeof...(args)<=type_count,"Too many arguments");
-				auto const new_size=size()+1;
+				auto const new_size=_size+1;
 				if(new_size>capacity())
 				{
 					realloc(2*capacity()+alignment);
@@ -1059,9 +1039,9 @@ namespace exlib {
 			void push_back_unchecked(Args&&... args)
 			{
 				static_assert(sizeof...(args)<=type_count,"Too many arguments");
-				auto const new_size=size()+1;
-				construct_ranges(size(),new_size,idx_seq{},std::forward<Args>(args)...);
-				force_set_size(new_size);
+				auto const new_size=_size+1;
+				construct_ranges(_size,new_size,idx_seq{},std::forward<Args>(args)...);
+				_size=new_size;
 			}
 
 		private:
@@ -1102,7 +1082,7 @@ namespace exlib {
 			size_type erase(size_type first,size_t last) noexcept
 			{
 				erase_impl(first,last,idx_seq{});
-				force_set_size(size()-(last-first));
+				_size-=(last-first);
 				return first;
 			}
 
@@ -1167,7 +1147,7 @@ namespace exlib {
 						realloc(fix_aligment(2*capacity()+1));
 					}
 					construct_ranges(size(),s,idx_seq{},args...);
-					force_set_size(s);
+					_size=s;
 				}
 			}
 
@@ -1175,13 +1155,9 @@ namespace exlib {
 			{
 				if(&other==this) return*this;
 				destroy_ranges(0,size(),idx_seq{});
-				if(AllocTraits::propagate_on_container_copy_assignment::value)
-				{
-					this->_data=decltype(_data)(other._data.get_allocator_ref());
-				}
 				reserve(other.size());
 				copy_ranges(other.data(),other.capacity(),idx_seq{});
-				force_set_size(other.size());
+				_size=other._size;
 				return *this;
 			}
 
@@ -1195,7 +1171,8 @@ namespace exlib {
 				if(&other==this) return*this;
 				destroy_ranges(0,size(),idx_seq{});
 				_data=std::move(other._data);
-				other.force_set_size(0);
+				_size=other._size;
+				other._size=0;
 				return *this;
 			}
 		};

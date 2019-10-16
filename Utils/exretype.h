@@ -55,7 +55,7 @@ namespace exlib {
 #ifdef __cpp_lib_is_final
 			!std::is_final<Type>::value
 #else
-			true
+			false
 #endif
 		>
 		class empty_store_base {
@@ -70,7 +70,7 @@ namespace exlib {
 				return _value;
 			}
 			template<typename... Args>
-			constexpr empty_store_base(Args&&... args):_value(std::forward<Args>(args)...)
+			constexpr empty_store_base(Args&& ... args):_value(std::forward<Args>(args)...)
 			{}
 			constexpr empty_store_base()
 			{}
@@ -102,125 +102,7 @@ namespace exlib {
 		{}
 		constexpr empty_store() noexcept(std::is_nothrow_default_constructible<Type>::value)
 		{}
-		constexpr empty_store(empty_store&& other) noexcept(std::is_nothrow_move_constructible<Type>::value):Base(std::move(other.get()))
-		{}
-		constexpr empty_store(empty_store const& other) noexcept(std::is_nothrow_copy_constructible<Type>::value):Base(other.get())
-		{}
-		constexpr empty_store& operator=(empty_store const& other) noexcept(std::is_nothrow_copy_assignable<Type>::value)
-		{
-			this->get()=other.get();
-			return *this;
-		}
-		constexpr empty_store& operator=(empty_store&& other) noexcept(std::is_nothrow_move_assignable<Type>::value)
-		{
-			this->get()=std::move(other.get());
-			return *this;
-		}
 	};
-
-	template<typename... T>
-	class compressed_tuple {
-	public:
-		constexpr compressed_tuple() noexcept
-		{}
-		constexpr compressed_tuple(compressed_tuple const&) noexcept=default;
-		constexpr compressed_tuple& operator=(compressed_tuple const&) noexcept=default;
-	};
-
-	template<typename First,typename... Rest>
-	class compressed_tuple<First,Rest...>:empty_store<First>,empty_store<compressed_tuple<Rest...>> {
-		using FirstStore=empty_store<First>;
-		using RestType=compressed_tuple<Rest...>;
-		using RestStore=empty_store<RestType>;
-	public:
-		constexpr compressed_tuple() noexcept(std::is_nothrow_default_constructible<First>::value&&std::is_nothrow_default_constructible<RestType>::value)
-		{}
-		template<typename ArgF,typename... Args>
-		constexpr compressed_tuple(ArgF&& argf,Args&&... args)
-			noexcept(std::is_nothrow_constructible<First,ArgF&>::value&&std::is_nothrow_constructible<RestType,Args&&...>::value):
-			FirstStore(std::forward<ArgF>(argf)),RestStore(std::forward<Args>(args)...){}
-		constexpr compressed_tuple(compressed_tuple&&)=default;
-		constexpr compressed_tuple(compressed_tuple const&)=default;
-		constexpr compressed_tuple& operator=(compressed_tuple const&)=default;
-		constexpr compressed_tuple& operator=(compressed_tuple&&)=default;
-		constexpr First& first() noexcept
-		{
-			return FirstStore::get();
-		}
-		constexpr First const& first() const noexcept
-		{
-			return FirstStore::get();
-		}
-		constexpr RestType& rest() noexcept
-		{
-			return RestStore::get();
-		}
-		constexpr RestType const& rest() const noexcept
-		{
-			return RestStore::get();
-		}
-	};
-
-	template<typename Tuple>
-	struct tuple_size;
-
-	template<typename... Types>
-	struct tuple_size<compressed_tuple<Types...>>:std::integral_constant<std::size_t,sizeof...(Types)>{};
-
-	template<std::size_t I,typename Tuple>
-	struct tuple_element;
-	
-	template<std::size_t I,typename First,typename... Rest>
-	struct tuple_element<I,compressed_tuple<First,Rest...>>:tuple_element<I-1,compressed_tuple<Rest...>> {};
-
-	template<typename First,typename... Rest>
-	struct tuple_element<0,compressed_tuple<First,Rest...>> {
-		using type=First;
-	};
-
-	template<std::size_t I>
-	struct tuple_element<I,compressed_tuple<>> {};
-
-	namespace compressed_tuple_detail {
-		template<typename Ret,std::size_t I,typename Tuple>
-		constexpr Ret get(std::integral_constant<std::size_t,I>,Tuple& tpl) noexcept
-		{
-			return get<Ret>(std::integral_constant<std::size_t,I-1>{},tpl.rest());
-		}
-		template<typename Ret,typename Tuple>
-		constexpr Ret get(std::integral_constant<std::size_t,0>,Tuple& tpl) noexcept
-		{
-			return static_cast<Ret>(tpl.first());
-		}
-	}
-
-	template<std::size_t I,typename... Types>
-	constexpr typename tuple_element<I,compressed_tuple<Types...>>::type const& get(compressed_tuple<Types...> const& tpl) noexcept
-	{
-		using Ret=decltype(get<I>(tpl));
-		return compressed_tuple_detail::get<Ret>(std::integral_constant<std::size_t,I>{},tpl);
-	}
-
-	template<std::size_t I,typename... Types>
-	constexpr typename tuple_element<I,compressed_tuple<Types...>>::type& get(compressed_tuple<Types...>& tpl) noexcept
-	{
-		using Ret=decltype(get<I>(tpl));
-		return compressed_tuple_detail::get<Ret>(std::integral_constant<std::size_t,I>{},tpl);
-	}
-
-	template<std::size_t I,typename... Types>
-	constexpr typename tuple_element<I,compressed_tuple<Types...>>::type&& get(compressed_tuple<Types...>&& tpl) noexcept
-	{
-		using Ret=decltype(get<I>(std::move(tpl)));
-		return compressed_tuple_detail::get<Ret>(std::integral_constant<std::size_t,I>{},tpl);
-	}
-
-	template<std::size_t I,typename... Types>
-	constexpr typename tuple_element<I,compressed_tuple<Types...>>::type const&& get(compressed_tuple<Types...> const&& tpl) noexcept
-	{
-		using Ret=decltype(get<I>(std::declval<decltype(tpl)>()));
-		return compressed_tuple_detail::get<Ret>(std::integral_constant<std::size_t,I>{},tpl);
-	}
 
 #if _EXRETYPE_HAS_CPP_20
 	using std::remove_cvref;
