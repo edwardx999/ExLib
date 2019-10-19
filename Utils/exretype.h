@@ -51,7 +51,7 @@ namespace exlib {
 	};
 
 	namespace empty_store_impl {
-		template<typename Type,bool ShouldInherit=std::is_empty<Type>::value&& 
+		template<typename Type,bool ShouldInherit=std::is_empty<Type>::value&&
 #ifdef __cpp_lib_is_final
 			!std::is_final<Type>::value
 #else
@@ -75,6 +75,7 @@ namespace exlib {
 			constexpr empty_store_base()
 			{}
 		};
+
 		template<typename Type>
 		class empty_store_base<Type,true>:Type {
 		public:
@@ -89,7 +90,8 @@ namespace exlib {
 			template<typename... Args>
 			constexpr empty_store_base(Args&&... args):Type(std::forward<Args>(args)...)
 			{}
-			constexpr empty_store_base(){}
+			constexpr empty_store_base()
+			{}
 		};
 	}
 
@@ -133,12 +135,13 @@ namespace exlib {
 		using RestType=compressed_tuple<Rest...>;
 		using RestStore=empty_store<RestType>;
 	public:
-		constexpr compressed_tuple() noexcept(std::is_nothrow_default_constructible<First>::value&&std::is_nothrow_default_constructible<RestType>::value)
+		constexpr compressed_tuple() noexcept(std::is_nothrow_default_constructible<First>::value&& std::is_nothrow_default_constructible<RestType>::value)
 		{}
 		template<typename ArgF,typename... Args>
 		constexpr compressed_tuple(ArgF&& argf,Args&&... args)
-			noexcept(std::is_nothrow_constructible<First,ArgF&>::value&&std::is_nothrow_constructible<RestType,Args&&...>::value):
-			FirstStore(std::forward<ArgF>(argf)),RestStore(std::forward<Args>(args)...){}
+			noexcept(std::is_nothrow_constructible<First,ArgF&>::value&& std::is_nothrow_constructible<RestType,Args&&...>::value):
+			FirstStore(std::forward<ArgF>(argf)),RestStore(std::forward<Args>(args)...)
+		{}
 		constexpr compressed_tuple(compressed_tuple&&)=default;
 		constexpr compressed_tuple(compressed_tuple const&)=default;
 		constexpr compressed_tuple& operator=(compressed_tuple const&)=default;
@@ -165,11 +168,11 @@ namespace exlib {
 	struct tuple_size;
 
 	template<typename... Types>
-	struct tuple_size<compressed_tuple<Types...>>:std::integral_constant<std::size_t,sizeof...(Types)>{};
+	struct tuple_size<compressed_tuple<Types...>>:std::integral_constant<std::size_t,sizeof...(Types)> {};
 
 	template<std::size_t I,typename Tuple>
 	struct tuple_element;
-	
+
 	template<std::size_t I,typename First,typename... Rest>
 	struct tuple_element<I,compressed_tuple<First,Rest...>>:tuple_element<I-1,compressed_tuple<Rest...>> {};
 
@@ -222,6 +225,76 @@ namespace exlib {
 		return compressed_tuple_detail::get<Ret>(std::integral_constant<std::size_t,I>{},tpl);
 	}
 
+	constexpr bool operator<(compressed_tuple<> const& a,compressed_tuple<> const& b) noexcept
+	{
+		return false;
+	}
+
+	template<typename... TypesA,typename... TypesB>
+	constexpr bool operator<(compressed_tuple<TypesA...> const& a,compressed_tuple<TypesB...> const& b) noexcept
+	{
+		if(a.first()<b.first()) return true;
+		if(b.first()<a.first()) return false;
+		return a.rest()<b.rest();
+	}
+
+	constexpr bool operator>(compressed_tuple<> const& a,compressed_tuple<> const& b) noexcept
+	{
+		return false;
+	}
+
+	template<typename... TypesA,typename... TypesB>
+	constexpr bool operator>(compressed_tuple<TypesA...> const& a,compressed_tuple<TypesB...> const& b) noexcept
+	{
+		if(b.first()<a.first()) return true;
+		if(a.first()<b.first()) return false;
+		return a.rest()>b.rest();
+	}
+
+	constexpr bool operator==(compressed_tuple<> const& a,compressed_tuple<> const& b) noexcept
+	{
+		return true;
+	}
+
+	template<typename... TypesA,typename... TypesB>
+	constexpr bool operator==(compressed_tuple<TypesA...> const& a,compressed_tuple<TypesB...> const& b) noexcept
+	{
+		return a.first()==b.first()&&a.rest()==b.rest();
+	}
+
+	constexpr bool operator!=(compressed_tuple<> const& a,compressed_tuple<> const& b) noexcept
+	{
+		return false;
+	}
+
+	template<typename... TypesA,typename... TypesB>
+	constexpr bool operator!=(compressed_tuple<TypesA...> const& a,compressed_tuple<TypesB...> const& b) noexcept
+	{
+		return a.first()!=b.first()||a.rest()!=b.rest();
+	}
+
+	template<typename... TypesA,typename... TypesB>
+	constexpr bool operator<=(compressed_tuple<TypesA...> const& a,compressed_tuple<TypesB...> const& b) noexcept
+	{
+		return !(b<a);
+	}
+
+	template<typename... TypesA,typename... TypesB>
+	constexpr bool operator>=(compressed_tuple<TypesA...> const& a,compressed_tuple<TypesB...> const& b) noexcept
+	{
+		return !(a<b);
+	}
+}
+
+namespace std {
+	template<typename... Types>
+	struct tuple_size<exlib::compressed_tuple<Types...>>:exlib::tuple_size<exlib::compressed_tuple<Types>...>{};
+
+	template<std::size_t I,typename... Types>
+	struct tuple_element<I,exlib::compressed_tuple<Types...>>:exlib::tuple_element<I,exlib::compressed_tuple<Types>...> {};
+}
+
+namespace exlib {
 #if _EXRETYPE_HAS_CPP_20
 	using std::remove_cvref;
 	using std::remove_cvref_t;
@@ -428,8 +501,7 @@ namespace exlib {
 		};
 
 		template<>
-		struct suppress_dummy<dummy_type> {
-		};
+		struct suppress_dummy<dummy_type> {};
 	}
 
 	/*
@@ -809,10 +881,11 @@ namespace exlib {
 	struct overloaded<> {};
 
 	template<typename First>
-	struct overloaded<First>:private First{
+	struct overloaded<First>:private First {
 		using First::operator();
 		template<typename F>
-		overloaded(F&& f):First{wrap(std::forward<F>(f))}{}
+		overloaded(F&& f):First{wrap(std::forward<F>(f))}
+		{}
 	};
 
 	template<typename First,typename... Rest>
@@ -838,20 +911,20 @@ namespace exlib {
 	overloaded(Funcs&& ... f)->overloaded<remove_cvref_t<decltype(wrap(f))>...>;
 #endif
 
-	struct empty_t{};
+	struct empty_t {};
 
 	template<typename T>
 	struct is_sized_array:
 		std::conditional<
-			std::is_same<T,remove_cvref_t<T>>::value,
-			std::false_type,
-			is_sized_array<remove_cvref_t<T>>
+		std::is_same<T,remove_cvref_t<T>>::value,
+		std::false_type,
+		is_sized_array<remove_cvref_t<T>>
 		>::type {};
 
 	template<typename T,std::size_t N>
 	struct is_sized_array<std::array<T,N>>:std::true_type {};
 
-	template<typename T, std::size_t N>
+	template<typename T,std::size_t N>
 	struct is_sized_array<T[N]>:std::true_type {};
 
 #if _EXRETYPE_HAS_CPP_20
@@ -913,15 +986,13 @@ namespace exlib {
 	using array_type_t=typename array_type<Arr>::type;
 
 	template<typename SumType,typename... Constants>
-	struct sum_type_value:std::integral_constant<SumType,0>{};
+	struct sum_type_value:std::integral_constant<SumType,0> {};
 
 	template<typename SumType,typename Type>
-	struct sum_type_value<SumType,Type>:std::integral_constant<SumType,Type::value> {
-	};
+	struct sum_type_value<SumType,Type>:std::integral_constant<SumType,Type::value> {};
 
 	template<typename SumType,typename Type,typename... Rest>
-	struct sum_type_value<SumType,Type,Rest...>:std::integral_constant<SumType,Type::value+sum_type_value<SumType,Rest...>::value> {
-	};
+	struct sum_type_value<SumType,Type,Rest...>:std::integral_constant<SumType,Type::value+sum_type_value<SumType,Rest...>::value> {};
 
 #ifdef __cpp_lib_logical_traits
 	using std::conjunction;
@@ -931,10 +1002,10 @@ namespace exlib {
 	struct conjunction;
 
 	template<>
-	struct conjunction<>:std::true_type{};
+	struct conjunction<>:std::true_type {};
 
 	template<typename Type>
-	struct conjunction<Type>:std::integral_constant<bool,bool(Type::value)>{};
+	struct conjunction<Type>:std::integral_constant<bool,bool(Type::value)> {};
 
 	template<typename First,typename... Rest>
 	struct conjunction<First,Rest...>:std::integral_constant<bool,bool(First::value)&&conjunction<Rest...>::value> {};
@@ -951,12 +1022,12 @@ namespace exlib {
 	template<typename First,typename... Rest>
 	struct disjunction<First,Rest...>:std::integral_constant<bool,bool(First::value)||conjunction<Rest...>::value> {};
 #endif
-	
+
 	template<bool... Values>
 	struct value_conjunction;
 #ifdef __cpp_fold_expressions
 	template<bool... Values>
-	struct value_conjunction:std::integral_constant<bool,(Values&&...)>{};
+	struct value_conjunction:std::integral_constant<bool,(Values&&...)> {};
 #else
 	template<>
 	struct value_conjunction<>:std::true_type {};
@@ -972,7 +1043,7 @@ namespace exlib {
 	struct value_disjunction;
 #ifdef __cpp_fold_expressions
 	template<bool... Values>
-	struct value_disjunction:std::integral_constant<bool,(Values||...)>{};
+	struct value_disjunction:std::integral_constant<bool,(Values||...)> {};
 #else
 	template<>
 	struct value_disjunction<>:std::false_type {};
@@ -1003,7 +1074,7 @@ namespace exlib {
 	template<size_t... Is>
 	using index_sequence=integer_sequence<std::size_t,Is...>;
 
-	namespace detail{
+	namespace detail {
 		template<typename T,typename U>
 		struct concat_integer_sequence;
 
@@ -1086,7 +1157,7 @@ namespace exlib {
 	using function_return_type_t=typename function_return_type<T>::type;
 
 	template<typename T>
-	struct noop_destructor_after_move:std::true_type{};
+	struct noop_destructor_after_move:std::true_type {};
 
 	template<typename U,U val,typename Rep>
 	struct is_representable:
@@ -1094,12 +1165,11 @@ namespace exlib {
 		(std::is_unsigned<U>::value&&std::is_unsigned<Rep>::value)?(val<=std::numeric_limits<Rep>::max()):
 		((std::is_signed<U>::value&&std::is_signed<Rep>::value)?(val<=std::numeric_limits<Rep>::max()&&val>=std::numeric_limits<Rep>::min()):
 		((std::is_signed<U>::value&&std::is_unsigned<Rep>::value)?(val>=0&&val<=std::numeric_limits<Rep>::max()):
-		((std::is_unsigned<U>::value&&std::is_signed<Rep>::value)?(val<=std::numeric_limits<Rep>::max()):false)))>
-	{};
+			((std::is_unsigned<U>::value&&std::is_signed<Rep>::value)?(val<=std::numeric_limits<Rep>::max()):false)))> {};
 
 #if __cpp_nontype_template_parameter_auto
 	template<auto val,typename Rep>
-	struct val_is_representable:is_representable<decltype(val),val,Rep>{};
+	struct val_is_representable:is_representable<decltype(val),val,Rep> {};
 #endif
 #if __cpp_inline_variables
 	template<typename U,U val,typename Rep>
@@ -1109,10 +1179,10 @@ namespace exlib {
 	constexpr auto val_is_representable_v=val_is_representable<val,Rep>::value;
 #endif
 #endif
-			
+
 
 	namespace smallest_type_detail {
-		
+
 		template<typename T,T val,typename I8,typename I16,typename I32,typename I64>
 		struct smallest_representable_type {
 		private:
@@ -1132,28 +1202,27 @@ namespace exlib {
 	template<typename T,T val>
 	struct smallest_representable_type:
 		std::conditional<
-			std::is_unsigned<T>::value,
-			smallest_type_detail::smallest_representable_type<T,val,std::uint8_t,std::uint16_t,std::uint32_t,std::uint64_t>,
-			smallest_type_detail::smallest_representable_type<T,val,std::int8_t,std::int16_t,std::int32_t,std::int64_t>
-		>::type
-	{};
+		std::is_unsigned<T>::value,
+		smallest_type_detail::smallest_representable_type<T,val,std::uint8_t,std::uint16_t,std::uint32_t,std::uint64_t>,
+		smallest_type_detail::smallest_representable_type<T,val,std::int8_t,std::int16_t,std::int32_t,std::int64_t>
+		>::type {};
 
 	template<typename T,T val>
 	using smallest_representable_type_t=typename smallest_representable_type<T,val>::type;
 
 #if __cpp_nontype_template_parameter_auto
 	template<auto val>
-	struct val_smallest_representable_type:smallest_representable_type<decltype(val),val>{};
+	struct val_smallest_representable_type:smallest_representable_type<decltype(val),val> {};
 
 	template<auto val>
 	using val_smallest_representable_type_t=typename val_smallest_representable_type<val>::type;
 #endif
 
 	template<typename... T>
-	struct always_true:std::true_type{};
+	struct always_true:std::true_type {};
 
 	template<typename...T>
-	struct always_false:std::false_type{};
+	struct always_false:std::false_type {};
 
 	namespace pred_detail {
 		template<typename Comp,typename... Types>
