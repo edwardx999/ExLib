@@ -134,6 +134,9 @@ namespace exlib {
 		using FirstStore=empty_store<First>;
 		using RestType=compressed_tuple<Rest...>;
 		using RestStore=empty_store<RestType>;
+
+		using FirstStore::get;
+		using RestStore::get;
 	public:
 		constexpr compressed_tuple() noexcept(std::is_nothrow_default_constructible<First>::value&& std::is_nothrow_default_constructible<RestType>::value)
 		{}
@@ -163,6 +166,30 @@ namespace exlib {
 			return RestStore::get();
 		}
 	};
+
+	template<typename T>
+	struct unwrap_reference_wrapper {
+		using type=T;
+	};
+
+	template<typename T>
+	struct unwrap_reference_wrapper<std::reference_wrapper<T>> {
+		using type=T&;
+	};
+
+	template<typename T>
+	using unwrap_reference_wrapper_t=typename unwrap_reference_wrapper<T>::type;
+
+	template<typename... Types>
+	constexpr exlib::compressed_tuple<unwrap_reference_wrapper_t<typename std::decay<Types>::type>...> make_compressed_tuple(Types&&... types)
+	{
+		return {std::forward<Types>(types)...};
+	}
+
+#ifdef __cpp_deduction_guides
+	template<typename... Types>
+	compressed_tuple(Types&&...)->compressed_tuple<unwrap_reference_wrapper_t<typename std::decay<Types>::type>...>;
+#endif
 
 	template<typename Tuple>
 	struct tuple_size;
@@ -288,10 +315,10 @@ namespace exlib {
 
 namespace std {
 	template<typename... Types>
-	struct tuple_size<exlib::compressed_tuple<Types...>>:exlib::tuple_size<exlib::compressed_tuple<Types>...>{};
+	struct tuple_size<exlib::compressed_tuple<Types...>>:exlib::tuple_size<exlib::compressed_tuple<Types...>>{};
 
 	template<std::size_t I,typename... Types>
-	struct tuple_element<I,exlib::compressed_tuple<Types...>>:exlib::tuple_element<I,exlib::compressed_tuple<Types>...> {};
+	struct tuple_element<I,exlib::compressed_tuple<Types...>>:exlib::tuple_element<I,exlib::compressed_tuple<Types...>> {};
 }
 
 namespace exlib {
@@ -574,19 +601,6 @@ namespace exlib {
 
 	template<typename T>
 	using wrap_reference_t=typename wrap_reference<T>::type;
-
-	template<typename T>
-	struct unwrap_reference_wrapper {
-		using type=T;
-	};
-
-	template<typename T>
-	struct unwrap_reference_wrapper<std::reference_wrapper<T>> {
-		using type=T;
-	};
-
-	template<typename T>
-	using unwrap_reference_wrapper_t=typename unwrap_reference_wrapper<T>::type;
 
 	/*
 		Allows both a pointer and reference to be passed, which will both decay to pointer semantics.
