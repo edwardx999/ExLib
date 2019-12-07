@@ -34,11 +34,16 @@ namespace exlib {
 			{
 				return static_cast<Derived const&>(*this);
 			}
-			public:
-				constexpr auto size() const noexcept -> decltype(chain().end() - chain().begin())
-				{
-					return chain.end() - chain.begin();
-				}
+		public:
+			constexpr auto size() const noexcept -> decltype(chain().end() - chain().begin())
+			{
+				return chain.end() - chain.begin();
+			}
+			template<typename IndexType>
+			constexpr auto operator[](IndexType n) const noexcept -> decltype(chain().begin()[n])
+			{
+				return chain.begin()[n];
+			}
 		};
 
 		template<typename Derived, typename Iterator, typename Sentinal>

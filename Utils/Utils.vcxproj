@@ -150,6 +150,7 @@
     <ClInclude Include="exmath.h" />
     <ClInclude Include="exmem.h" />
     <ClInclude Include="expropernoexcept.h" />
+    <ClInclude Include="exrange.h" />
     <ClInclude Include="exretype.h" />
     <ClInclude Include="exsexp.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>

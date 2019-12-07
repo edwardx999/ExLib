@@ -81,5 +81,8 @@
     <ClInclude Include="exshunt.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="exrange.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
