@@ -29,16 +29,21 @@ namespace exlib {
 		template<typename Derived, typename Iterator, typename Sentinal,
 			bool random_access =
 			std::is_same<int, decltype(has_random_access(std::declval<Iterator>(), std::declval<Sentinal>()))>::value>
-			class inherit_size {
+		class inherit_size {
+				constexpr Derived const& self() const noexcept
+				{
+					return static_cast<Derived const&>(*this);
+				}
 			public:
 				constexpr typename std::make_unsigned<typename std::iterator_traits<Iterator>::difference_type>::type size() const noexcept
 				{
-					return Derived::end() - Derived::begin();
+					return self().end() - self().begin();
 				}
 				template<typename IndexType>
 				constexpr typename std::iterator_traits<Iterator>::reference operator[](IndexType n) const noexcept
 				{
-					return Derived::begin()[n];
+					auto const bbegin = self().begin();
+					return bbegin[n];
 				}
 		};
 
