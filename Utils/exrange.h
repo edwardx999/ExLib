@@ -30,19 +30,15 @@ namespace exlib {
 			bool random_access =
 			std::is_same<int, decltype(has_random_access(std::declval<Iterator>(), std::declval<Sentinal>()))>::value>
 			class inherit_size {
-			constexpr Derived const& chain() const noexcept
-			{
-				return static_cast<Derived const&>(*this);
-			}
 			public:
-				constexpr auto size() const noexcept -> decltype(chain().end() - chain().begin())
+				constexpr typename std::make_unsigned<typename std::iterator_traits<Iterator>::difference_type>::type size() const noexcept
 				{
-					return chain().end() - chain().begin();
+					return Derived::end() - Derived::begin();
 				}
 				template<typename IndexType>
-				constexpr auto operator[](IndexType n) const noexcept -> decltype(chain().begin()[n])
+				constexpr typename std::iterator_traits<Iterator>::reference operator[](IndexType n) const noexcept
 				{
-					return chain().begin()[n];
+					return Derived::begin()[n];
 				}
 		};
 
@@ -54,7 +50,7 @@ namespace exlib {
 		public:
 			constexpr Iterator data() const noexcept
 			{
-				return static_cast<Derived const&>(*this).begin();
+				return Derived::begin();
 			}
 		};
 
@@ -72,18 +68,14 @@ namespace exlib {
 			std::is_same<int, decltype(decrementable(std::declval<Iterator>(), std::declval<Sentinal>()))>::value&&
 			std::is_same<Iterator, Sentinal>::value>
 			class inherit_rbegin {
-			constexpr Derived const& chain() const noexcept
-			{
-				return static_cast<Derived const&>(*this);
-			}
 			public:
 				constexpr std::reverse_iterator<Iterator> rbegin() const noexcept
 				{
-					return std::reverse_iterator<Iterator>(chain().end());
+					return std::reverse_iterator<Iterator>(Derived::end());
 				}
 				constexpr std::reverse_iterator<Iterator> rend() const noexcept
 				{
-					return std::reverse_iterator<Iterator>(chain().begin());
+					return std::reverse_iterator<Iterator>(Derived::begin());
 				}
 		};
 
