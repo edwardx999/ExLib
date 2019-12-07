@@ -28,22 +28,22 @@ namespace exlib {
 
 		template<typename Derived, typename Iterator, typename Sentinal,
 			bool random_access =
-				std::is_same<int, decltype(has_random_access(std::declval<Iterator>(), std::declval<Sentinal>()))>::value>
-		class inherit_size {
+			std::is_same<int, decltype(has_random_access(std::declval<Iterator>(), std::declval<Sentinal>()))>::value>
+			class inherit_size {
 			constexpr Derived const& chain() const noexcept
 			{
 				return static_cast<Derived const&>(*this);
 			}
-		public:
-			constexpr auto size() const noexcept -> decltype(chain().end() - chain().begin())
-			{
-				return chain.end() - chain.begin();
-			}
-			template<typename IndexType>
-			constexpr auto operator[](IndexType n) const noexcept -> decltype(chain().begin()[n])
-			{
-				return chain.begin()[n];
-			}
+			public:
+				constexpr auto size() const noexcept -> decltype(chain().end() - chain().begin())
+				{
+					return chain().end() - chain().begin();
+				}
+				template<typename IndexType>
+				constexpr auto operator[](IndexType n) const noexcept -> decltype(chain().begin()[n])
+				{
+					return chain().begin()[n];
+				}
 		};
 
 		template<typename Derived, typename Iterator, typename Sentinal>
@@ -69,9 +69,9 @@ namespace exlib {
 
 		template<typename Derived, typename Iterator, typename Sentinal,
 			bool is_decrementable =
-				std::is_same<int, decltype(decrementable(std::declval<Iterator>(), std::declval<Sentinal>()))>::value&&
-				std::is_same<Iterator, Sentinal>::value>
-		class inherit_rbegin {
+			std::is_same<int, decltype(decrementable(std::declval<Iterator>(), std::declval<Sentinal>()))>::value&&
+			std::is_same<Iterator, Sentinal>::value>
+			class inherit_rbegin {
 			constexpr Derived const& chain() const noexcept
 			{
 				return static_cast<Derived const&>(*this);
@@ -99,7 +99,7 @@ namespace exlib {
 		Iterator _begin;
 		Sentinal _end;
 	public:
-		constexpr pair_range(Iterator begin, Sentinal end) noexcept:_begin(begin), end(end)
+		constexpr pair_range(Iterator begin, Sentinal end) noexcept:_begin(begin), _end(end)
 		{}
 
 		constexpr Iterator begin() const noexcept
