@@ -711,6 +711,19 @@ namespace exlib {
 					});
 			}
 
+			/*
+				Waits for all threads to become inactive.
+				Threads keep running (if they already were), but tasks can be added without synchronization.
+			*/
+			void wait_inactive()
+			{
+				std::unique_lock<std::mutex> lock(this->_mtx);
+				this->_jobs_done.wait(lock,[this]
+					{
+						return this->inactive();
+					});
+			}
+
 			enum wait_state:bool {
 				wait_no_timeout=true,wait_timeout=false
 			};
@@ -737,6 +750,31 @@ namespace exlib {
 				return this->_jobs_done.wait_until(lock,rel_time,[this]
 					{
 						return this->idle();
+					});
+			}
+
+			/*
+				Waits for all threads to become inactive or to be stop()ed.
+				Returns false if timeout expired, otherwise true.
+			*/
+			template<typename Rep,typename Period>
+			wait_state wait_inactive_for(std::chrono::duration<Rep,Period> const& rel_time)
+			{
+				auto absolute_time=std::chrono::steady_clock::now()+rel_time;
+				return wait_inactive_until(absolute_time);
+			}
+
+			/*
+				Waits for all jobs to be finished or to be stop()ed.
+				Returns false if timeout expired, otherwise true.
+			*/
+			template<typename Clock,typename Duration>
+			wait_state wait_inactive_until(std::chrono::time_point<Clock,Duration> const& rel_time)
+			{
+				std::unique_lock<std::mutex> lock(this->_mtx);
+				return this->_jobs_done.wait_until(lock,rel_time,[this]
+					{
+						return this->inactive();
 					});
 			}
 
@@ -1124,6 +1162,10 @@ namespace exlib {
 			{
 				return !this->_active||(this->_jobs.empty()&&this->_active_thread_count==0);
 			}
+			bool inactive() const noexcept
+			{
+				return (this->_active_thread_count==0)&&(!this->_active||this->_jobs.empty());
+			}
 			void create_threads()
 			{
 				assert(num_threads()!=0);
@@ -1227,6 +1269,7 @@ namespace exlib {
 						}
 					}
 					(*task)(parent_ref{*this},this->_input);
+					task.reset();
 					auto const active=--this->_active_thread_count;
 					if(active==0)
 					{
