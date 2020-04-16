@@ -501,7 +501,7 @@ namespace exlib {
 
 			constexpr void fill(Char value) noexcept
 			{
-				for(std::size_t=0;i<N-1;++i)
+				for(std::size_t i=0;i<N-1;++i)
 				{
 					_data[i]=value;
 				}
@@ -669,14 +669,13 @@ namespace exlib {
 			{
 				return (*this)[get_size()-1];
 			}
-
 			constexpr iterator end() noexcept
 			{
-				return begin()+get_size();
+				return static_cast<Derived&>(*this).begin()+get_size();
 			}
 			constexpr const_iterator end() const noexcept
 			{
-				return begin()+get_size();
+				return static_cast<Derived const&>(*this).begin()+get_size();
 			}
 			constexpr const_iterator cend() const noexcept
 			{
