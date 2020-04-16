@@ -611,7 +611,7 @@ namespace exlib {
 			}
 			constexpr void set_size(std::size_t i) noexcept
 			{
-				static_cast<Derived&>(*this).resize(i);
+				static_cast<Derived&>(*this).set_size_impl(i);
 			}
 			using Base=string_buffer_base<N,Char>;
 		public:
@@ -738,6 +738,11 @@ namespace exlib {
 		string_buffer_detail::size_store<N>,
 		public string_buffer_detail::string_buffer_crtp_base<N,Char,string_buffer<N,Char,store_size>> {
 		using Base=string_buffer_detail::string_buffer_crtp_base<N,Char,string_buffer<N,Char,store_size>>;
+		friend Base;
+		constexpr void set_size_impl(typename Base::size_type new_size)
+		{
+			this->_size = static_cast<decltype(this->_size)>(new_size);
+		}
 	public:
 		using constant_time_size=std::true_type;
 		using Base::Base;
@@ -751,7 +756,8 @@ namespace exlib {
 		constexpr void resize(typename Base::size_type new_size) noexcept
 		{
 			assert(new_size<N);
-			this->_size=static_cast<decltype(this->_size)>(new_size);
+			set_size_impl(new_size);
+			(*this)[this->_size] = 0;
 		}
 		constexpr typename Base::size_type size() const noexcept
 		{
@@ -763,7 +769,7 @@ namespace exlib {
 	class string_buffer<N,Char,false>:public string_buffer_detail::string_buffer_crtp_base<N,Char,string_buffer<N,Char,false>> {
 		using Base=string_buffer_detail::string_buffer_crtp_base<N,Char,string_buffer<N,Char,false>>;
 		friend Base;
-		constexpr void resize(typename Base::size_type) noexcept
+		constexpr void set_size_impl(std::size_t)
 		{}
 	public:
 		using Base::Base;
